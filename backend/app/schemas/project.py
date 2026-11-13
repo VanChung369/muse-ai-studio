@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 ProjectStatus = Literal["draft", "planning", "ready", "rendering", "cancelling", "cancelled", "failed", "completed"]
@@ -22,9 +22,34 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectScene(BaseModel):
-    number: int
-    title: str
-    prompt: str
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True,
+        from_attributes=True, extra="forbid", str_strip_whitespace=True,
+    )
+
+    number: int = Field(strict=True, ge=1, le=30)
+    title: str = Field(min_length=1, max_length=300)
+    prompt: str = Field(min_length=1, max_length=6000)
+    duration_seconds: int = Field(strict=True, ge=5, le=10, multiple_of=5)
+    narration: str = Field(default="", max_length=600)
+
+
+class ProjectScriptUpdate(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True,
+        extra="forbid", str_strip_whitespace=True,
+    )
+
+    expected_revision: int = Field(strict=True, ge=0)
+    character_bible: str = Field(default="", max_length=10000)
+    visual_style: str = Field(default="", max_length=3000)
+    scenes: list[ProjectScene] = Field(min_length=1, max_length=30)
+
+    @model_validator(mode="after")
+    def validate_scene_order(self):
+        if [scene.number for scene in self.scenes] != list(range(1, len(self.scenes) + 1)):
+            raise ValueError("Scenes must be numbered consecutively from 1.")
+        return self
 
 
 ProjectFilter = Literal["all", "inProgress", "completed", "cancelled"]
@@ -59,6 +84,9 @@ class ProjectSummary(CamelModel):
 
 class ProjectResponse(ProjectSummary):
     idea: str
+    character_bible: str
+    visual_style: str
+    script_revision: int
     scenes: list[ProjectScene] = Field(default_factory=list)
 
 
@@ -67,9 +95,21 @@ class ProjectSceneTitle(CamelModel):
     title: str
 
 
+PREVIEW_SCENE_LIMIT = 6
+
+
 class FeaturedProject(ProjectSummary):
-    # Up to six scene titles for the "Continue working" preview.
-    preview_scenes: list[ProjectSceneTitle] = Field(default_factory=list)
+    # Up to six scene titles for the "Continue working" preview. Read from the
+    # ORM `Project.scenes` relationship (ordered by number) when validating.
+    preview_scenes: list[ProjectSceneTitle] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("scenes", "previewScenes", "preview_scenes"),
+    )
+
+    @field_validator("preview_scenes", mode="before")
+    @classmethod
+    def limit_preview(cls, value):
+        return list(value)[:PREVIEW_SCENE_LIMIT]
 
 
 class ProjectCounts(CamelModel):

@@ -7,7 +7,9 @@
   "paths": {
     "/api/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Health",
         "operationId": "health_api_health_get",
         "responses": {
@@ -29,7 +31,9 @@
     },
     "/api/projects": {
       "get": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "List Projects",
         "operationId": "list_projects_api_projects_get",
         "parameters": [
@@ -51,7 +55,12 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["all", "inProgress", "completed", "cancelled"],
+              "enum": [
+                "all",
+                "inProgress",
+                "completed",
+                "cancelled"
+              ],
               "type": "string",
               "default": "all",
               "title": "Status"
@@ -62,7 +71,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["updated", "name", "duration"],
+              "enum": [
+                "updated",
+                "name",
+                "duration"
+              ],
               "type": "string",
               "default": "updated",
               "title": "Sort"
@@ -127,7 +140,9 @@
         }
       },
       "post": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Create Project",
         "operationId": "create_project_api_projects_post",
         "requestBody": {
@@ -166,7 +181,9 @@
     },
     "/api/projects/{project_id}": {
       "get": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Get Project",
         "operationId": "get_project_api_projects__project_id__get",
         "parameters": [
@@ -193,6 +210,103 @@
           },
           "404": {
             "description": "Project not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete Project",
+        "operationId": "delete_project_api_projects__project_id__delete",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Project has a running operation"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/script": {
+      "put": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Save Project Script",
+        "operationId": "save_project_script_api_projects__project_id__script_put",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectScriptUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Script revision conflict or project locked"
           },
           "422": {
             "description": "Validation Error",
@@ -236,7 +350,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -340,7 +458,12 @@
           }
         },
         "type": "object",
-        "required": ["all", "inProgress", "completed", "cancelled"],
+        "required": [
+          "all",
+          "inProgress",
+          "completed",
+          "cancelled"
+        ],
         "title": "ProjectCounts"
       },
       "ProjectCreate": {
@@ -359,7 +482,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio",
             "default": "16:9"
           },
@@ -374,7 +501,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "ProjectCreate"
       },
       "ProjectListResponse": {
@@ -416,7 +545,13 @@
           }
         },
         "type": "object",
-        "required": ["items", "total", "nextCursor", "counts", "featured"],
+        "required": [
+          "items",
+          "total",
+          "nextCursor",
+          "counts",
+          "featured"
+        ],
         "title": "ProjectListResponse"
       },
       "ProjectResponse": {
@@ -445,7 +580,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -482,6 +621,18 @@
             "type": "string",
             "title": "Idea"
           },
+          "characterBible": {
+            "type": "string",
+            "title": "Characterbible"
+          },
+          "visualStyle": {
+            "type": "string",
+            "title": "Visualstyle"
+          },
+          "scriptRevision": {
+            "type": "integer",
+            "title": "Scriptrevision"
+          },
           "scenes": {
             "items": {
               "$ref": "#/components/schemas/ProjectScene"
@@ -499,7 +650,10 @@
           "durationSeconds",
           "createdAt",
           "updatedAt",
-          "idea"
+          "idea",
+          "characterBible",
+          "visualStyle",
+          "scriptRevision"
         ],
         "title": "ProjectResponse"
       },
@@ -507,19 +661,44 @@
         "properties": {
           "number": {
             "type": "integer",
+            "maximum": 30.0,
+            "minimum": 1.0,
             "title": "Number"
           },
           "title": {
             "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
             "title": "Title"
           },
           "prompt": {
             "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
             "title": "Prompt"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "multipleOf": 5.0,
+            "maximum": 10.0,
+            "minimum": 5.0,
+            "title": "Durationseconds"
+          },
+          "narration": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Narration",
+            "default": ""
           }
         },
+        "additionalProperties": false,
         "type": "object",
-        "required": ["number", "title", "prompt"],
+        "required": [
+          "number",
+          "title",
+          "prompt",
+          "durationSeconds"
+        ],
         "title": "ProjectScene"
       },
       "ProjectSceneTitle": {
@@ -534,8 +713,48 @@
           }
         },
         "type": "object",
-        "required": ["number", "title"],
+        "required": [
+          "number",
+          "title"
+        ],
         "title": "ProjectSceneTitle"
+      },
+      "ProjectScriptUpdate": {
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedrevision"
+          },
+          "characterBible": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Characterbible",
+            "default": ""
+          },
+          "visualStyle": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Visualstyle",
+            "default": ""
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectScene"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Scenes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expectedRevision",
+          "scenes"
+        ],
+        "title": "ProjectScriptUpdate"
       },
       "ProjectSummary": {
         "properties": {
@@ -563,7 +782,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -643,7 +866,11 @@
           }
         },
         "type": "object",
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError"
       }
     }

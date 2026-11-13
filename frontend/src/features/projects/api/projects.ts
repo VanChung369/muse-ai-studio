@@ -1,15 +1,20 @@
 import { z } from "zod";
 
 import { API_ENDPOINTS } from "@/constants/api";
-import { requestJson } from "@/lib/http";
+import { ApiError, requestJson } from "@/lib/http";
 import { PROJECT_PAGE_SIZE } from "../constants";
 import {
   featuredProjectSchema,
   projectDraftSchema,
   projectSchema,
   projectSummarySchema,
+  projectScriptDraftSchema,
 } from "../schemas";
-import type { ProjectDraft, ProjectListParams } from "../types";
+import type {
+  ProjectDraft,
+  ProjectListParams,
+  ProjectScriptDraft,
+} from "../types";
 
 const count = z.number().int().nonnegative();
 
@@ -60,4 +65,43 @@ export async function createProject(values: ProjectDraft) {
       body: JSON.stringify(body),
     }),
   );
+}
+
+export async function saveProjectScript({
+  id,
+  values,
+}: {
+  id: string;
+  values: ProjectScriptDraft;
+}) {
+  const draft = projectScriptDraftSchema.parse(values);
+  return projectSchema.parse(
+    await requestJson(
+      `${API_ENDPOINTS.PROJECTS}/${encodeURIComponent(id)}/script`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          ...draft,
+          scenes: draft.scenes.map((scene, index) => ({
+            ...scene,
+            number: index + 1,
+          })),
+        }),
+      },
+    ),
+  );
+}
+
+
+export async function deleteProject(id: string): Promise<void> {
+  try {
+    await requestJson(`${API_ENDPOINTS.PROJECTS}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    // Another tab may already have removed the project, or the first
+    // successful response may have been lost before a manual retry.
+    if (error instanceof ApiError && error.status === 404) return;
+    throw error;
+  }
 }

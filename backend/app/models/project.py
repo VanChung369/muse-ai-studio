@@ -2,10 +2,11 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, Index, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.text import normalize_search_text
 from app.db.base import Base
+from app.models.scene import Scene
 
 
 class Project(Base):
@@ -16,6 +17,10 @@ class Project(Base):
         CheckConstraint("duration_seconds BETWEEN 10 AND 300 AND duration_seconds % 5 = 0", name="ck_projects_duration"),
         CheckConstraint("aspect_ratio IN ('16:9', '9:16', '1:1')", name="ck_projects_ratio"),
         CheckConstraint("status IN ('draft', 'planning', 'ready', 'rendering', 'cancelling', 'cancelled', 'failed', 'completed')", name="ck_projects_status"),
+        CheckConstraint("length(character_bible) <= 10000", name="ck_projects_character_bible"),
+        CheckConstraint("length(visual_style) <= 3000", name="ck_projects_visual_style"),
+        CheckConstraint("script_revision >= 0", name="ck_projects_script_revision"),
+        CheckConstraint("scene_count BETWEEN 0 AND 30", name="ck_projects_scene_count"),
         # Keyset pagination orders (see app/repositories/projects.py).
         Index("ix_projects_updated", "updated_at", "id"),
         Index("ix_projects_name_key", "name_key", "id"),
@@ -31,6 +36,15 @@ class Project(Base):
     status: Mapped[str] = mapped_column(String(16), default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    character_bible: Mapped[str] = mapped_column(Text, default="")
+    visual_style: Mapped[str] = mapped_column(Text, default="")
+    script_revision: Mapped[int] = mapped_column(default=0)
+    scenes: Mapped[list[Scene]] = relationship(
+        order_by=Scene.number, cascade="all, delete-orphan", passive_deletes=True,
+    )
+    # Stored rather than counted per query; save_script keeps it in sync.
+    scene_count: Mapped[int] = mapped_column(default=0)
 
     @validates("name")
     def _sync_name_key(self, _key: str, value: str) -> str:

@@ -37,6 +37,7 @@ export function useProjectList() {
   // step back instead of leaving a duplicate /projects entry behind.
   const sheetPushedHistory = useRef(false);
   const [lastCreated, setLastCreated] = useState<Project | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<string | null>(null);
   const query = searchParams.get(PROJECT_QUERY_KEYS.SEARCH) ?? "";
   const filter = resolveProjectFilter(
     searchParams.get(PROJECT_QUERY_KEYS.FILTER),
@@ -72,6 +73,7 @@ export function useProjectList() {
 
   function updateParameter(key: string, value: string, defaultValue = "") {
     setLastCreated(null);
+    setLastDeleted(null);
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -85,6 +87,7 @@ export function useProjectList() {
 
   function clearFilters() {
     setLastCreated(null);
+    setLastDeleted(null);
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -102,6 +105,7 @@ export function useProjectList() {
         ? document.activeElement
         : null;
     setLastCreated(null);
+    setLastDeleted(null);
     sheetPushedHistory.current = true;
     setSearchParams((previous) => {
       const next = new URLSearchParams(previous);
@@ -136,6 +140,7 @@ export function useProjectList() {
 
   async function createDraft(values: ProjectDraft) {
     setLastCreated(null);
+    setLastDeleted(null);
     const project = await createMutation.mutateAsync(values);
     setCreateOpenState(false);
     setLastCreated(project);
@@ -152,6 +157,19 @@ export function useProjectList() {
     );
   }
 
+  function projectDeleted(id: string, name: string) {
+    setLastCreated(null);
+    setLastDeleted(name);
+    if (selectedId !== id) return;
+    sheetPushedHistory.current = false;
+    projectTriggerRef.current = null;
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.delete(PROJECT_QUERY_KEYS.SELECTED);
+      return next;
+    }, { replace: true });
+  }
+
   return {
     projects,
     query,
@@ -161,7 +179,14 @@ export function useProjectList() {
     setCreateOpen,
     selectedId,
     lastCreated,
-    selectedProject: projectQuery.isError ? undefined : projectQuery.data,
+    lastDeleted,
+    projectDeleted,
+    // Keep cached details mounted during a background connection failure so
+    // an open editor does not lose its unsaved form.
+    selectedProject:
+      projectQuery.error instanceof ApiError && projectQuery.error.status === 404
+        ? undefined
+        : projectQuery.data,
     isLoading: projectsQuery.isPending,
     // Failures of "Load more" are reported separately (loadMoreError) so the
     // pages already loaded stay usable.

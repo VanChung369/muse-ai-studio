@@ -2,14 +2,14 @@ import base64
 import binascii
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import ColumnElement, and_, case, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import ColumnElement, and_, case, func, or_, select, delete, update
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.text import normalize_search_text
-from app.models import Project
-from app.schemas.project import ProjectCreate, ProjectFilter, ProjectSort
+from app.models import Project, Scene
+from app.schemas.project import ProjectCreate, ProjectFilter, ProjectSort, ProjectScriptUpdate
 
 FINISHED_STATUSES = ("completed", "cancelled")
 
@@ -127,10 +127,13 @@ def count_projects_by_filter(session: Session) -> dict[str, int]:
 
 def get_featured_project(session: Session) -> Project | None:
     recent = (Project.updated_at.desc(), Project.id.asc())
-    ready = session.scalars(select(Project).where(Project.status == "ready").order_by(*recent).limit(1)).first()
+    # Scene titles feed FeaturedProject.preview_scenes; skip the large prompts.
+    with_titles = selectinload(Project.scenes).load_only(Scene.number, Scene.title)
+    query = select(Project).options(with_titles).order_by(*recent).limit(1)
+    ready = session.scalars(query.where(Project.status == "ready")).first()
     if ready is not None:
         return ready
-    return session.scalars(select(Project).where(Project.status.not_in(FINISHED_STATUSES)).order_by(*recent).limit(1)).first()
+    return session.scalars(query.where(Project.status.not_in(FINISHED_STATUSES))).first()
 
 
 def get_project(session: Session, project_id: str) -> Project | None:
@@ -147,3 +150,87 @@ def create_project(session: Session, values: ProjectCreate) -> Project:
         session.rollback()
         raise
     return project
+
+
+class ScriptUpdateError(ValueError):
+    def __init__(self, code: str, status_code: int, message: str):
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
+
+def save_script(session: Session, project_id: str, values: ProjectScriptUpdate) -> Project:
+    duration = sum(scene.duration_seconds for scene in values.scenes)
+    try:
+        # Write before reading: SQLite WAL cannot promote an old read snapshot
+        # after another writer commits. The conditional update waits for an
+        # active writer, then claims this revision or reports a conflict.
+        result = session.execute(
+            update(Project)
+            .where(
+                Project.id == project_id,
+                Project.script_revision == values.expected_revision,
+                Project.status.in_(("draft", "ready")),
+                Project.duration_seconds == duration,
+            )
+            .values(
+                character_bible=values.character_bible,
+                visual_style=values.visual_style,
+                script_revision=Project.script_revision + 1,
+                scene_count=len(values.scenes),
+                status="ready",
+                updated_at=datetime.now(UTC),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            project = get_project(session, project_id)
+            if project is None:
+                raise ScriptUpdateError("project_not_found", 404, "Project not found.")
+            if project.status not in ("draft", "ready"):
+                raise ScriptUpdateError("script_locked", 409, "This project's script cannot be edited in its current status.")
+            # Report a stale revision before input problems: the client's
+            # copy (including the target duration) may itself be outdated,
+            # and only a conflict tells it to reload.
+            if project.script_revision != values.expected_revision:
+                raise ScriptUpdateError("script_conflict", 409, "The script has changed. Reload the project before saving again.")
+            raise ScriptUpdateError("script_duration_mismatch", 422, "Scene durations must add up to the project's target duration.")
+        session.execute(delete(Scene).where(Scene.project_id == project_id))
+        session.add_all(Scene(project_id=project_id, **scene.model_dump()) for scene in values.scenes)
+        session.commit()
+        session.expire_all()
+        return get_project(session, project_id)
+    except Exception:
+        session.rollback()
+        raise
+
+
+class ProjectDeleteError(ValueError):
+    def __init__(self, code: str, status_code: int, message: str):
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
+
+def delete_project(session: Session, project_id: str) -> None:
+    try:
+        # Write first to avoid upgrading an old SQLite read snapshot. The
+        # database cascades scene deletion within this same transaction.
+        result = session.execute(
+            delete(Project)
+            .where(
+                Project.id == project_id,
+                Project.status.not_in(("planning", "rendering", "cancelling")),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            if get_project(session, project_id) is None:
+                raise ProjectDeleteError("project_not_found", 404, "Project not found.")
+            raise ProjectDeleteError("project_busy", 409, "Stop the running operation before deleting this project.")
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise

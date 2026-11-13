@@ -61,6 +61,15 @@ export function ProjectsPage() {
           {t("projects.form.saved", { name: list.lastCreated.name })}
         </p>
       )}
+      {list.lastDeleted && (
+        <p
+          role="status"
+          className="mb-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success-soft px-4 py-3 text-sm text-success"
+        >
+          <Check className="size-4 shrink-0" aria-hidden="true" />
+          {t("projects.delete.deleted", { name: list.lastDeleted })}
+        </p>
+      )}
       {list.isLoading && <PageLoading />}
       {list.isError && (
         <div
@@ -112,6 +121,7 @@ export function ProjectsPage() {
                     key={project.id}
                     project={project}
                     onOpen={list.selectProject}
+                    onDeleted={list.projectDeleted}
                   />
                 ))}
               </div>
@@ -171,6 +181,7 @@ export function ProjectsPage() {
         isFetching={list.detailFetching}
         onRetry={list.retryProject}
         onClose={list.closeProject}
+        onDeleted={list.projectDeleted}
         onCloseAutoFocus={list.restoreProjectFocus}
       />
     </div>

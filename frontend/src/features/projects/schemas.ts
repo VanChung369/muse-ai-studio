@@ -42,15 +42,30 @@ export const featuredProjectSchema = projectSummaryShape
   })
   .refine(sceneProgressIsValid);
 
+export const projectScriptSceneSchema = z.object({
+  title: z.string().trim().min(1).max(300),
+  prompt: z.string().trim().min(1).max(6000),
+  durationSeconds: z.number().int().min(5).max(10).multipleOf(5),
+  narration: z.string().trim().max(600),
+});
+
+export const projectScriptDraftSchema = z.object({
+  expectedRevision: z.number().int().nonnegative(),
+  characterBible: z.string().trim().max(10000),
+  visualStyle: z.string().trim().max(3000),
+  scenes: projectScriptSceneSchema.array().min(1).max(30),
+});
+
 // Full project from GET /api/projects/{id}.
 export const projectSchema = projectSummaryShape
   .extend({
     idea: projectDraftSchema.shape.idea,
+    characterBible: z.string().max(10000),
+    visualStyle: z.string().max(3000),
+    scriptRevision: z.number().int().nonnegative(),
     scenes: z.array(
-      z.object({
-        number: z.number().int().min(1),
-        title: z.string(),
-        prompt: z.string(),
+      projectScriptSceneSchema.extend({
+        number: z.number().int().min(1).max(30),
       }),
     ),
   })

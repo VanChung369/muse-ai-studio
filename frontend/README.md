@@ -62,7 +62,8 @@ The project list uses the real local API. The global shell does not report simul
 - Search, status, sorting, and the selected project use the `q`, `status`, `sort`, and `project` query parameters, so the view can be refreshed or shared.
 - Project cards and the featured project open a detail sheet with metadata, the story idea, and available scene prompts via `GET /api/projects/{id}`. Loading, connection failures, and missing projects have separate states with retry controls.
 - **New project** uses React Hook Form and Zod, then saves with `POST /api/projects`. SQLite persists drafts across page reloads and backend restarts. A failed save preserves the form input. Submitting disables dismissal and duplicate submits; writes are never retried automatically.
-- Script generation, video rendering, Muse connectivity, and video playback are not implemented yet.
+- The script editor supports manual scene planning. Automatic script generation, video rendering, Muse connectivity, and video playback are not implemented yet.
+- The trash button on each card, or **Delete project** in the detail sheet, opens a confirmation naming the project. Confirming deletes its saved script and scenes. Running projects must be stopped first. Failed requests keep the dialog open for retry; successful deletion clears the selection and refreshes counts and pagination from the first page.
 - Project names, ideas, and scene prompts are user content; switching interface language does not translate that content.
 
 Feature structure:
@@ -71,7 +72,6 @@ Feature structure:
 src/features/projects/
   components/            Cards, filters, featured project, draft dialog, detail sheet
   api/                  Typed API parsing and query keys
-  data/demo-projects.ts  Inactive reference fixtures
   hooks/                Server queries/mutation and view state
   lib/project-list.ts    Query-parameter parsing for filter and sort
   constants.ts          Statuses, filter/sort options, query keys, and cover styles
@@ -80,7 +80,21 @@ src/features/projects/
 src/pages/projects-page.tsx
 ```
 
-TanStack Query manages server data and cache updates; the project list uses `useInfiniteQuery` with the API's `nextCursor`. List items are summaries without `idea` and `scenes`; the detail sheet fetches the full project. Existing browser demo data is left untouched and is not automatically imported into SQLite. Only UI preferences continue to use local storage. API paths live in `src/constants/api.ts`, separately from frontend routes.
+TanStack Query manages server data and cache updates; the project list uses `useInfiniteQuery` with the API's `nextCursor`. List items are summaries without `idea` and `scenes`; the detail sheet fetches the full project. Demo projects from earlier builds that remain in browser storage are neither read, imported into SQLite, nor deleted. Only UI preferences continue to use local storage. API paths live in `src/constants/api.ts`, separately from frontend routes.
+
+## Script Editor
+
+Open a project, then select **Write script** (or **Edit script** for a saved script).
+
+- An empty outline divides the target duration into 10-second scenes and a final 5-second scene when needed. This creates fields to fill in; it does not generate AI content.
+- Add, remove, and reorder up to 30 scenes. Each scene has a title, visual prompt, duration (5 or 10 seconds), and optional narration. Shared character and visual style descriptions are optional.
+- Every scene needs a title and visual prompt. The total duration must match the project's target before saving.
+- **Save script** persists the entire script through `PUT /api/projects/{id}/script`. The project becomes ready for review; rendering does not start.
+- Only drafts and projects awaiting review can be edited. Concurrent saves use `scriptRevision` to prevent overwrites. A conflict refreshes the project data and keeps the current form; close and reopen the editor to load the latest saved version.
+- Failed saves preserve form input. Closing a changed editor asks whether to discard the changes; submitting blocks dismissal and duplicate submits. Unsaved input is not persisted across a page reload.
+- Successful saves refresh list summaries, scene counts, and featured scene titles while preserving the existing server pagination and filters.
+
+`use-script-editor.ts` owns form and mutation behavior. `lib/project-script.ts` builds outlines and form values; UI text stays in the English and Vietnamese locale files.
 
 ## Code Conventions
 

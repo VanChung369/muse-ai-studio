@@ -1,4 +1,3 @@
-import { Clapperboard } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PageLoading } from "@/components/shared/page-loading";
@@ -14,7 +13,9 @@ import {
 } from "@/components/ui/sheet";
 import { useLanguage } from "@/hooks/use-language";
 import { formatDuration } from "@/lib/format";
+import { DeleteProjectDialog } from "./delete-project-dialog";
 import { ProjectCover } from "./project-cover";
+import { ProjectScriptSection } from "./project-script-section";
 import { ProjectStatusBadge } from "./project-status-badge";
 import type { Project } from "../types";
 
@@ -27,6 +28,7 @@ type Props = {
   isFetching: boolean;
   onRetry: () => void;
   onClose: () => void;
+  onDeleted: (id: string, name: string) => void;
   onCloseAutoFocus: (event: Event) => void;
 };
 
@@ -39,6 +41,7 @@ export function ProjectDetailsSheet({
   isFetching,
   onRetry,
   onClose,
+  onDeleted,
   onCloseAutoFocus,
 }: Props) {
   const { t } = useTranslation();
@@ -74,7 +77,9 @@ export function ProjectDetailsSheet({
         {isLoading && <PageLoading />}
         {isError && (
           <div role="alert" className="space-y-3 p-6">
-            <p className="text-sm text-muted-foreground">{t("projects.details.loadError")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("projects.details.loadError")}
+            </p>
             <Button variant="outline" disabled={isFetching} onClick={onRetry}>
               {t("common.retry")}
             </Button>
@@ -135,42 +140,13 @@ export function ProjectDetailsSheet({
                 {project.idea || t("projects.details.noIdea")}
               </p>
             </section>
-            <section>
-              <h3 className="mb-3 text-sm font-semibold">
-                {t("projects.details.script")}
-              </h3>
-              {project.scenes.length > 0 ? (
-                <ol className="space-y-3">
-                  {project.scenes.map((scene) => (
-                    <li
-                      key={scene.number}
-                      className="rounded-lg border bg-card p-4"
-                    >
-                      <span className="font-mono text-[10px] text-primary">
-                        {t("projects.details.scene", { number: scene.number })}
-                      </span>
-                      <h4 className="mt-1 text-sm font-medium">
-                        {scene.title}
-                      </h4>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                        {scene.prompt}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <div className="flex items-center gap-3 rounded-lg border border-dashed p-5 text-sm text-faint">
-                  <Clapperboard
-                    className="size-5 shrink-0"
-                    aria-hidden="true"
-                  />
-                  {t("projects.details.noScript")}
-                </div>
-              )}
-            </section>
+            <ProjectScriptSection key={project.id} project={project} />
           </div>
         )}
         <SheetFooter className="border-t px-6 py-4">
+          {project && (
+            <DeleteProjectDialog project={project} onDeleted={onDeleted} />
+          )}
           <SheetClose asChild>
             <Button variant="outline">{t("common.close")}</Button>
           </SheetClose>

@@ -30,7 +30,8 @@ def run_migrations_online() -> None:
     database = Database(Settings())
     try:
         database.prepare()
-        with database.engine.begin() as connection:
+        # Foreign keys off during migration; see Database.migration_connection.
+        with database.migration_connection() as connection:
             run_with_connection(connection)
     finally:
         database.close()

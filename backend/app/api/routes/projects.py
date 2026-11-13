@@ -14,6 +14,7 @@ from app.schemas.project import (
     ProjectResponse,
     ProjectSort,
     ProjectSummary,
+    ProjectScriptUpdate,
 )
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -59,3 +60,36 @@ def get_project(project_id: str, session: DatabaseSession) -> ProjectResponse:
     if project is None:
         raise HTTPException(status_code=404, detail={"code": "project_not_found", "message": "Project not found."})
     return ProjectResponse.model_validate(project)
+
+
+@router.put(
+    "/{project_id}/script",
+    response_model=ProjectResponse,
+    responses={404: {"description": "Project not found"}, 409: {"description": "Script revision conflict or project locked"}},
+)
+def save_project_script(project_id: str, values: ProjectScriptUpdate, session: DatabaseSession) -> ProjectResponse:
+    try:
+        project = projects.save_script(session, project_id, values)
+    except projects.ScriptUpdateError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={"code": error.code, "message": str(error)},
+        ) from None
+    return ProjectResponse.model_validate(project)
+
+
+@router.delete(
+    "/{project_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={404: {"description": "Project not found"}, 409: {"description": "Project has a running operation"}},
+)
+def delete_project(project_id: str, session: DatabaseSession) -> Response:
+    try:
+        projects.delete_project(session, project_id)
+    except projects.ProjectDeleteError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={"code": error.code, "message": str(error)},
+        ) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
