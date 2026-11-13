@@ -8,6 +8,7 @@ import {
   settingsNavigation,
   type NavigationItem,
 } from "@/app/navigation";
+import { useTaskSummary } from "@/features/tasks/hooks/use-task-queries";
 import { cn } from "@/lib/utils";
 
 type NavigationProps = {
@@ -18,7 +19,8 @@ type NavigationProps = {
 function NavigationLink({
   item,
   compact = false,
-}: NavigationProps & { item: NavigationItem }) {
+  badge = 0,
+}: NavigationProps & { item: NavigationItem; badge?: number }) {
   const { t } = useTranslation();
   const Icon = item.icon;
   const label = t(`pages.${item.id}.title`);
@@ -32,7 +34,7 @@ function NavigationLink({
       aria-label={compact ? label : undefined}
       className={cn(
         "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none",
-        compact && "h-10 w-11 justify-center px-0",
+        compact && "relative h-10 w-11 justify-center px-0",
         isActive
           ? "bg-accent text-foreground"
           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -43,6 +45,24 @@ function NavigationLink({
         aria-hidden="true"
       />
       {!compact && <span>{label}</span>}
+      {badge > 0 &&
+        (compact ? (
+          // Rail: a dot; the tooltip and screen-reader text carry the count.
+          <span
+            className="absolute top-2 right-2.5 size-1.5 rounded-full bg-destructive"
+            aria-hidden="true"
+          />
+        ) : (
+          <span
+            className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-destructive-soft px-1.5 text-[11px] font-semibold text-destructive"
+            aria-hidden="true"
+          >
+            {badge}
+          </span>
+        ))}
+      {badge > 0 && (
+        <span className="sr-only">{t("tasks.badge", { count: badge })}</span>
+      )}
     </NavLink>
   );
 
@@ -66,6 +86,9 @@ function NavigationLink({
 
 export function AppNavigation({ compact = false }: NavigationProps) {
   const { t } = useTranslation();
+  // Design board 42: the Tasks item shows how many tasks need a decision.
+  const summary = useTaskSummary();
+  const attention = summary.data?.attention ?? 0;
 
   return (
     <nav
@@ -93,7 +116,12 @@ export function AppNavigation({ compact = false }: NavigationProps) {
             </p>
             <div className={cn("flex flex-col gap-0.5", compact && "items-center")}>
               {group.items.map((item) => (
-                <NavigationLink key={item.path} item={item} compact={compact} />
+                <NavigationLink
+                  key={item.path}
+                  item={item}
+                  compact={compact}
+                  badge={item.id === "tasks" ? attention : 0}
+                />
               ))}
             </div>
           </Fragment>
