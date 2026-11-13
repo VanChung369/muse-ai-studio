@@ -327,18 +327,23 @@
       "id": "ID tài khoản",
       "status": "Trạng thái",
       "expires": "Hết hạn",
-      "quota": "Quota",
+      "quota": "Quota còn lại",
       "enabled": "Bật",
       "lastUsed": "Dùng lần cuối",
       "notes": "Ghi chú",
-      "proxy": "Proxy",
-      "connection": "Kết nối & sử dụng"
+      "proxy": "Proxy"
     },
     "status": {
-      "enabled": "Đã bật",
-      "disabled": "Đã tắt",
-      "unverified": "Chưa kiểm tra",
-      "valid": "Hợp lệ",
+      "ready": "Sẵn sàng",
+      "lowQuota": "Sắp hết quota",
+      "expired": "Phiên hết hạn",
+      "proxyError": "Lỗi proxy",
+      "paused": "Tạm tắt",
+      "unverified": "Chưa kiểm tra"
+    },
+    "session": {
+      "left": "Còn {{value}}",
+      "expired": "Hết hạn {{value}}",
       "invalid": "Không hợp lệ"
     },
     "empty": {
@@ -408,7 +413,8 @@
     "noNotes": "Chưa có ghi chú",
     "lastOperationFailed": "Thao tác gần nhất thất bại",
     "quota": {
-      "used": "Đã dùng {{percent}}% quota tuần",
+      "weekly": "Tuần",
+      "extra": "Bổ sung",
       "reset": "Đặt lại: {{value}}"
     },
     "proxy": {
@@ -418,7 +424,8 @@
       "username": "Tên đăng nhập",
       "password": "Mật khẩu",
       "passwordHint": "Để trống để giữ mật khẩu đã lưu nếu máy chủ và tên đăng nhập không đổi.",
-      "direct": "Trực tiếp",
+      "direct": "Không dùng",
+      "failed": "{{server}} · lỗi kết nối",
       "error": "Không lưu được proxy này. Kiểm tra URL, dùng ký tự Latin cho tên đăng nhập và mật khẩu, và nhập mật khẩu khi đổi máy chủ hoặc tên đăng nhập.",
       "clearPassword": "Xoá mật khẩu đã lưu"
     },
@@ -444,9 +451,7 @@
       "wake_failed": "Phiên vẫn hợp lệ nhưng Muse từ chối yêu cầu đánh thức workspace. Việc tạo nội dung vẫn có thể tự kết nối workspace; hãy thử Duy trì phiên lại sau."
     },
     "cells": {
-      "id": "ID {{value}}",
       "checked": "Kiểm tra {{value}}",
-      "expires": "Hết hạn: {{value}}",
       "lastUsed": "Dùng lần cuối: {{value}}"
     }
   },

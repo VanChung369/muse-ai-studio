@@ -1,13 +1,26 @@
 export const ACCOUNT_FILTERS = ["all", "enabled", "disabled"] as const;
 export const ACCOUNT_QUERY_KEYS = { SEARCH: "q", FILTER: "status" } as const;
-// Table columns; related fields are grouped so the table never scrolls sideways.
+// Table columns (design/source/src/Accounts.dc.html).
 export const ACCOUNT_COLUMNS = [
   "account",
-  "session",
+  "status",
   "quota",
-  "connection",
+  "session",
+  "proxy",
   "actions",
 ] as const;
+
+export const ACCOUNT_STATUSES = [
+  "ready",
+  "lowQuota",
+  "expired",
+  "proxyError",
+  "paused",
+  "unverified",
+] as const;
+
+// Below this share of weekly quota left, the account is flagged as running low.
+export const LOW_QUOTA_PCT = 10;
 
 export const ACCOUNT_OPERATION_CODES = [
   "session_valid",

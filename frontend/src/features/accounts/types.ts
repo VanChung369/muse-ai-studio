@@ -4,12 +4,13 @@ import type {
   accountListSchema,
   accountSchema,
 } from "./schemas";
-import type { ACCOUNT_FILTERS } from "./constants";
+import type { ACCOUNT_FILTERS, ACCOUNT_STATUSES } from "./constants";
 
 export type Account = z.infer<typeof accountSchema>;
 export type AccountImport = z.infer<typeof accountImportSchema>;
 export type AccountList = z.infer<typeof accountListSchema>;
 export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 export type AccountPatch = {
   label?: string;
   enabled?: boolean;

@@ -327,18 +327,23 @@
       "id": "Account ID",
       "status": "Status",
       "expires": "Expires",
-      "quota": "Quota",
+      "quota": "Quota remaining",
       "enabled": "Enabled",
       "lastUsed": "Last used",
       "notes": "Notes",
-      "proxy": "Proxy",
-      "connection": "Connection & usage"
+      "proxy": "Proxy"
     },
     "status": {
-      "enabled": "Enabled",
-      "disabled": "Disabled",
-      "unverified": "Not verified",
-      "valid": "Valid",
+      "ready": "Ready",
+      "lowQuota": "Low quota",
+      "expired": "Session expired",
+      "proxyError": "Proxy error",
+      "paused": "Paused",
+      "unverified": "Not verified"
+    },
+    "session": {
+      "left": "{{value}} left",
+      "expired": "Expired {{value}}",
       "invalid": "Invalid"
     },
     "empty": {
@@ -408,7 +413,8 @@
     "noNotes": "No notes",
     "lastOperationFailed": "Last operation failed",
     "quota": {
-      "used": "{{percent}}% weekly quota used",
+      "weekly": "Weekly",
+      "extra": "Extra",
       "reset": "Resets: {{value}}"
     },
     "proxy": {
@@ -418,7 +424,8 @@
       "username": "Username",
       "password": "Password",
       "passwordHint": "Leave blank to keep the saved password for the same server and username.",
-      "direct": "Direct",
+      "direct": "Not used",
+      "failed": "{{server}} · connection error",
       "error": "Could not save this proxy. Check the URL, use Latin characters in the username and password, and enter the password when changing the server or username.",
       "clearPassword": "Remove the saved password"
     },
@@ -444,9 +451,7 @@
       "wake_failed": "The session is valid, but Muse refused the workspace wake request. Generation can still connect the workspace; try Keep alive again later."
     },
     "cells": {
-      "id": "ID {{value}}",
       "checked": "Checked {{value}}",
-      "expires": "Expires: {{value}}",
       "lastUsed": "Last used: {{value}}"
     }
   },

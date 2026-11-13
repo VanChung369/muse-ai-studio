@@ -135,21 +135,33 @@ export function AccountsPage() {
           {list.visibleAccounts.length ? (
             <section
               aria-label={t("accounts.listLabel")}
-              className="rounded-xl border bg-card"
+              className="rounded-xl border bg-card tablet:overflow-x-auto"
             >
-              <table className="w-full table-fixed border-collapse text-left text-[13px] max-tablet:block">
+              {/* Fixed columns; narrow tablets scroll sideways like the design. */}
+              <table className="w-full table-fixed border-collapse text-left text-sm max-tablet:block tablet:min-w-220">
                 <colgroup className="max-tablet:hidden">
-                  <col className="w-[26%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[19%]" />
-                  <col className="w-[19%]" />
+                  <col className="w-[21%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[21%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
                   <col className="w-[16%]" />
                 </colgroup>
-                <thead className="border-b bg-secondary text-[11px] font-medium text-faint max-tablet:hidden">
+                <thead className="border-b text-xs text-faint max-tablet:hidden">
                   <tr>
                     {ACCOUNT_COLUMNS.map((field) => (
-                      <th key={field} scope="col" className="px-4 py-3">
-                        {t(`accounts.fields.${field}`)}
+                      <th
+                        key={field}
+                        scope="col"
+                        className="px-3 py-2.5 font-medium whitespace-nowrap"
+                      >
+                        {field === "actions" ? (
+                          <span className="sr-only">
+                            {t("accounts.fields.actions")}
+                          </span>
+                        ) : (
+                          t(`accounts.fields.${field}`)
+                        )}
                       </th>
                     ))}
                   </tr>
