@@ -1,7 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
-import { useId } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { ChevronDown, Plus, X } from "lucide-react";
+import { useId, useState } from "react";
+import {
+  Controller,
+  type FieldErrors,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -26,52 +31,99 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PROJECT_ASPECT_RATIOS } from "../constants";
-import { projectDraftSchema } from "../schemas";
-import type { ProjectDraft } from "../types";
+import { cn } from "@/lib/utils";
+import {
+  PROJECT_ASPECT_RATIOS,
+  PROJECT_LANGUAGES,
+  PROJECT_LOOKS,
+  REFERENCE_MAX_FILES,
+} from "../constants";
+import { projectCreateSchema } from "../schemas";
+import type { ProjectCreateDraft } from "../types";
+import {
+  type ReferenceErrorCode,
+  ReferenceFilePicker,
+} from "./reference-manager";
 
-const defaultValues: ProjectDraft = {
+const SELECT_TRIGGER =
+  "w-full data-[size=default]:h-9 data-[size=default]:max-tablet:h-11";
+
+const defaultValues: ProjectCreateDraft = {
   name: "",
   idea: "",
   durationSeconds: 60,
   aspectRatio: "16:9",
+  characterBible: "",
+  visualStyle: "",
+  music: "",
+  look: "auto",
+  language: "auto",
 };
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (values: ProjectDraft) => Promise<void>;
+  onCreate: (values: ProjectCreateDraft, files: File[]) => Promise<void>;
   hasError: boolean;
 };
 
 export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Props) {
   const { t } = useTranslation();
   const id = useId();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<ReferenceErrorCode | null>(null);
   const {
     register,
     control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<ProjectDraft>({
-    resolver: zodResolver(projectDraftSchema),
+  } = useForm<ProjectCreateDraft>({
+    resolver: zodResolver(projectCreateSchema),
     defaultValues,
   });
+  const look = useWatch({ control, name: "look" });
+
+  function resetAll() {
+    reset(defaultValues);
+    setFiles([]);
+    setFileError(null);
+    setMoreOpen(false);
+  }
 
   // Reset on every close (submit, Cancel, Esc, overlay) so the next open
   // starts clean instead of showing stale values and errors.
   function handleOpenChange(next: boolean) {
     if (isSubmitting) return;
-    if (!next) reset(defaultValues);
+    if (!next) resetAll();
     onOpenChange(next);
   }
 
-  async function submit(values: ProjectDraft) {
+  async function submit(values: ProjectCreateDraft) {
     try {
-      await onCreate(values);
-      reset(defaultValues);
+      await onCreate(values, files);
+      resetAll();
     } catch {
       // The mutation exposes the error; keep the form values for a retry.
+    }
+  }
+
+  function handleInvalid(fieldErrors: FieldErrors<ProjectCreateDraft>) {
+    if (
+      fieldErrors.language ||
+      fieldErrors.look ||
+      fieldErrors.characterBible ||
+      fieldErrors.visualStyle ||
+      fieldErrors.music
+    ) {
+      setMoreOpen(true);
     }
   }
 
@@ -94,7 +146,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
         </DialogHeader>
         <form
           noValidate
-          onSubmit={handleSubmit(submit)}
+          onSubmit={handleSubmit(submit, handleInvalid)}
           className="mt-2 space-y-5"
         >
           {hasError && (
@@ -196,7 +248,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
                         ref={field.ref}
                         onBlur={field.onBlur}
                         aria-invalid={Boolean(errors.aspectRatio)}
-                        className="w-full data-[size=default]:h-9 data-[size=default]:max-tablet:h-11"
+                        className={SELECT_TRIGGER}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -217,6 +269,237 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
                     {t("projects.form.errors.aspectRatio")}
                   </p>
                 )}
+              </div>
+            </div>
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                aria-expanded={moreOpen}
+                aria-controls={`${id}-more`}
+                onClick={() => setMoreOpen((previous) => !previous)}
+                className="flex w-full items-center justify-between gap-2 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span>{t("projects.form.more")}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "size-4 shrink-0 transition-transform motion-reduce:transition-none",
+                    moreOpen && "rotate-180",
+                  )}
+                />
+              </button>
+              <div
+                id={`${id}-more`}
+                className={moreOpen ? "mt-4 space-y-5" : "hidden"}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-language`}>
+                    {t("projects.settings.language")}
+                  </Label>
+                  <Controller
+                    name="language"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        disabled={isSubmitting}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id={`${id}-language`}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          aria-describedby={`${id}-language-hint`}
+                          className={SELECT_TRIGGER}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                          <SelectGroup>
+                            {PROJECT_LANGUAGES.map((value) => (
+                              <SelectItem key={value} value={value}>
+                                {t(`projects.settings.languages.${value}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <p
+                    id={`${id}-language-hint`}
+                    className="text-xs leading-5 text-faint"
+                  >
+                    {t("projects.settings.languageHint")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-look`}>
+                    {t("projects.settings.look")}
+                  </Label>
+                  <Controller
+                    name="look"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        disabled={isSubmitting}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger
+                          id={`${id}-look`}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          aria-describedby={`${id}-look-hint`}
+                          className={SELECT_TRIGGER}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper">
+                          <SelectGroup>
+                            {PROJECT_LOOKS.map((value) => (
+                              <SelectItem key={value} value={value}>
+                                {t(`projects.settings.looks.${value}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <p
+                    id={`${id}-look-hint`}
+                    className="text-xs leading-5 text-faint"
+                  >
+                    {t(`projects.settings.lookHints.${look}`)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-characters`}>
+                    {t("projects.form.characters")}
+                  </Label>
+                  <Textarea
+                    {...register("characterBible")}
+                    id={`${id}-characters`}
+                    rows={3}
+                    maxLength={10000}
+                    placeholder={t("projects.form.charactersPlaceholder")}
+                    aria-invalid={Boolean(errors.characterBible)}
+                    aria-describedby={`${id}-characters-hint`}
+                    className="resize-y"
+                  />
+                  {errors.characterBible && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {t("projects.script.errors.characters")}
+                    </p>
+                  )}
+                  <p
+                    id={`${id}-characters-hint`}
+                    className="text-xs leading-5 text-faint"
+                  >
+                    {t("projects.form.charactersHint")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-visual-style`}>
+                    {t("projects.form.visualStyle")}
+                  </Label>
+                  <Textarea
+                    {...register("visualStyle")}
+                    id={`${id}-visual-style`}
+                    rows={2}
+                    maxLength={3000}
+                    placeholder={t("projects.form.visualStylePlaceholder")}
+                    aria-invalid={Boolean(errors.visualStyle)}
+                    className="resize-y"
+                  />
+                  {errors.visualStyle && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {t("projects.script.errors.style")}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-music`}>
+                    {t("projects.form.music")}
+                  </Label>
+                  <Input
+                    {...register("music")}
+                    id={`${id}-music`}
+                    maxLength={500}
+                    placeholder={t("projects.form.musicPlaceholder")}
+                    aria-invalid={Boolean(errors.music)}
+                    aria-describedby={`${id}-music-hint`}
+                    className="h-9 max-tablet:h-11"
+                  />
+                  <p
+                    id={`${id}-music-hint`}
+                    className="text-xs leading-5 text-faint"
+                  >
+                    {t("projects.form.musicHint")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-references`}>
+                    {t("projects.form.references")}
+                  </Label>
+                  <p className="text-xs leading-5 text-faint">
+                    {t("projects.form.referencesHint", {
+                      count: REFERENCE_MAX_FILES,
+                    })}
+                  </p>
+                  {files.length > 0 && (
+                    <ul className="divide-y rounded-lg border bg-card">
+                      {files.map((file, index) => (
+                        <li
+                          key={`${file.name}-${file.size}-${index}`}
+                          className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
+                        >
+                          <span className="min-w-0 truncate" title={file.name}>
+                            {file.name}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2 text-faint">
+                            <span className="font-mono">
+                              {formatFileSize(file.size)}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              disabled={isSubmitting}
+                              onClick={() => {
+                                setFileError(null);
+                                setFiles((previous) =>
+                                  previous.filter((_, i) => i !== index),
+                                );
+                              }}
+                              aria-label={t("projects.form.removeReference", {
+                                name: file.name,
+                              })}
+                            >
+                              <X aria-hidden="true" />
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {fileError && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {t(`projects.form.referenceErrors.${fileError}`)}
+                    </p>
+                  )}
+                  <ReferenceFilePicker
+                    id={`${id}-references`}
+                    existingCount={files.length}
+                    disabled={isSubmitting}
+                    onSelect={(accepted, errorCode) => {
+                      setFileError(errorCode);
+                      if (accepted.length > 0)
+                        setFiles((previous) => [...previous, ...accepted]);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </fieldset>

@@ -23,9 +23,29 @@ export function projectDetailsHref(id: string) {
   return `${ROUTES.PROJECTS}?${new URLSearchParams({ [PROJECT_QUERY_KEYS.SELECTED]: id })}`;
 }
 
-/** The full-page workspace for one project. */
-export function projectStudioHref(id: string) {
-  return `${ROUTES.PROJECTS}/${encodeURIComponent(id)}/studio`;
+// A project's workspace steps, in order (design boards 11–14).
+export const PROJECT_STEPS = ["idea", "script", "render", "output"] as const;
+export type ProjectStep = (typeof PROJECT_STEPS)[number];
+
+/** A project opened as a workspace; lands on the step where work continues. */
+export function projectWorkspaceHref(id: string) {
+  return `${ROUTES.PROJECTS}/${encodeURIComponent(id)}`;
+}
+
+export function projectStepHref(id: string, step: ProjectStep) {
+  return `${projectWorkspaceHref(id)}/${step}`;
+}
+
+/** The step a project's work continues at. */
+export function resumeStep(project: {
+  status: ProjectStatus;
+  sceneCount: number;
+}): ProjectStep {
+  if (project.status === "completed") return "output";
+  if (project.sceneCount === 0) return "idea";
+  return project.status === "ready" || project.status === "draft"
+    ? "script"
+    : "render";
 }
 
 export function isProjectDeletable(status: ProjectStatus): boolean {

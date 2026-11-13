@@ -120,8 +120,13 @@ def merge(
     output: Path,
     check_cancelled: Callable[[], None],
     mute: bool = False,
+    cuts: list[tuple[float, float | None]] | None = None,
 ) -> None:
     """Join the clips in order into `output`. With `mute`, without any sound.
+
+    `cuts` keeps only part of each clip: (start, end) in seconds, one
+    per path, end None meaning the clip's end. Trimming needs frame
+    accuracy, so a film with any trimmed clip is always re-encoded.
 
     Clips that share container, frame size and audio layout are joined
     without re-encoding. Otherwise, or when that result is not as long as
@@ -129,7 +134,15 @@ def merge(
     first clip's frame size.
     """
     clips = [probe(ffmpeg, path) for path in paths]
-    expected = sum(clip.seconds for clip in clips)
+    spans = [
+        _span(clip, *cut)
+        for clip, cut in zip(clips, cuts or [(0.0, None)] * len(clips), strict=True)
+    ]
+    trimmed = any(
+        start > 0.01 or end < clip.seconds - 0.01
+        for clip, (start, end) in zip(clips, spans, strict=True)
+    )
+    expected = sum(end - start for start, end in spans)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(output.stem + ".part.mp4")
     first = clips[0]
@@ -142,8 +155,8 @@ def merge(
     )
     try:
         with tempfile.TemporaryDirectory() as folder:
-            attempts = [_reencode_arguments(clips, mute)]
-            if uniform:
+            attempts = [_reencode_arguments(clips, mute, spans if trimmed else None)]
+            if uniform and not trimmed:
                 attempts.insert(
                     0, _copy_arguments(clips, Path(folder) / "clips.txt", mute)
                 )
@@ -164,6 +177,13 @@ def merge(
         temporary.unlink(missing_ok=True)
 
 
+def _span(clip: Clip, start: float, end: float | None) -> tuple[float, float]:
+    """The part of a clip to keep, fitted inside the clip."""
+    end = min(end if end is not None else clip.seconds, clip.seconds)
+    start = max(0.0, min(start, end))
+    return start, end
+
+
 def _copy_arguments(clips: list[Clip], listing: Path, mute: bool) -> list[str]:
     listing.write_text(
         "".join(
@@ -176,13 +196,21 @@ def _copy_arguments(clips: list[Clip], listing: Path, mute: bool) -> list[str]:
     return [*arguments, "-an"] if mute else arguments
 
 
-def _reencode_arguments(clips: list[Clip], mute: bool) -> list[str]:
+def _reencode_arguments(
+    clips: list[Clip], mute: bool, spans: list[tuple[float, float]] | None = None
+) -> list[str]:
     width, height = clips[0].width, clips[0].height
     # H.264 with yuv420p needs even dimensions.
     width, height = width - width % 2, height - height % 2
     with_audio = not mute and any(clip.has_audio for clip in clips)
     inputs, filters, pads = [], [], []
-    for clip in clips:
+    lengths = [clip.seconds for clip in clips]
+    for index, clip in enumerate(clips):
+        if spans:
+            # Seeking on the input while decoding is frame accurate.
+            start, end = spans[index]
+            lengths[index] = end - start
+            inputs += ["-ss", f"{start:.3f}", "-t", f"{end - start:.3f}"]
         inputs += ["-i", str(clip.path)]
     silent = len(clips)  # Index of the next generated silent track.
     for index, clip in enumerate(clips):
@@ -198,7 +226,7 @@ def _reencode_arguments(clips: list[Clip], mute: bool) -> list[str]:
         if not clip.has_audio:
             # A silent clip between ones with sound still needs an audio track.
             inputs += [
-                "-f", "lavfi", "-t", f"{clip.seconds:.3f}",
+                "-f", "lavfi", "-t", f"{lengths[index]:.3f}",
                 "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             ]  # fmt: skip
             source, silent = f"{silent}:a", silent + 1

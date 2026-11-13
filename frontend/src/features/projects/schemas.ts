@@ -17,8 +17,33 @@ export const projectDraftSchema = z.object({
   durationSeconds: z.number().int().min(10).max(300).multipleOf(5),
 });
 
+// Optional starting points a script can build on.
+const briefExtras = {
+  characterBible: z.string().trim().max(10000),
+  visualStyle: z.string().trim().max(3000),
+  // The music the film should have; empty = none asked for.
+  music: z.string().trim().max(500),
+};
+
+// What the "New project" form holds.
+export const projectCreateSchema = projectDraftSchema.extend({
+  ...briefExtras,
+  look: z.enum(PROJECT_LOOKS),
+  language: z.enum(PROJECT_LANGUAGES),
+});
+
+// A picture or video given as reference material for the film.
+export const projectReferenceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  mime: z.string(),
+  size: z.number().int().nonnegative(),
+  url: z.string(),
+});
+
 // What the "Edit project" form holds: the brief plus the render options.
 export const projectSettingsSchema = projectDraftSchema.extend({
+  ...briefExtras,
   look: z.enum(PROJECT_LOOKS),
   continuity: z.enum(PROJECT_CONTINUITIES),
   language: z.enum(PROJECT_LANGUAGES),
@@ -78,6 +103,8 @@ export const projectSchema = projectSummaryShape
     continuity: z.enum(PROJECT_CONTINUITIES),
     language: z.enum(PROJECT_LANGUAGES),
     mute: z.boolean(),
+    music: z.string().max(500),
+    references: projectReferenceSchema.array(),
     characterBible: z.string().max(10000),
     visualStyle: z.string().max(3000),
     scriptRevision: z.number().int().nonnegative(),

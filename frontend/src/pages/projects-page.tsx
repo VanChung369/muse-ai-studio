@@ -1,4 +1,4 @@
-import { Check, Clapperboard, Plus, Search } from "lucide-react";
+import { AlertTriangle, Check, Clapperboard, Plus, Search } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -59,6 +59,17 @@ export function ProjectsPage() {
         >
           <Check className="size-4 shrink-0" aria-hidden="true" />
           {t("projects.form.saved", { name: list.lastCreated.name })}
+        </p>
+      )}
+      {list.lastCreatedUploadFailures > 0 && (
+        <p
+          role="status"
+          className="mb-4 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning"
+        >
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+          {t("projects.form.referencesFailed", {
+            count: list.lastCreatedUploadFailures,
+          })}
         </p>
       )}
       {list.lastDeleted && (

@@ -27,9 +27,35 @@ const featurePages: Partial<Record<NavigationItem["id"], ComponentType>> = {
   ),
 };
 
-const StudioPage = lazy(() =>
-  import("@/pages/studio-page").then((module) => ({
-    default: module.StudioPage,
+// A project opened as a workspace: one layout, one page per step.
+const ProjectWorkspaceLayout = lazy(() =>
+  import("@/pages/project-workspace-layout").then((module) => ({
+    default: module.ProjectWorkspaceLayout,
+  })),
+);
+const ProjectWorkspaceIndex = lazy(() =>
+  import("@/pages/project-workspace-layout").then((module) => ({
+    default: module.ProjectWorkspaceIndex,
+  })),
+);
+const ProjectIdeaPage = lazy(() =>
+  import("@/pages/project-idea-page").then((module) => ({
+    default: module.ProjectIdeaPage,
+  })),
+);
+const ProjectScriptPage = lazy(() =>
+  import("@/pages/project-script-page").then((module) => ({
+    default: module.ProjectScriptPage,
+  })),
+);
+const ProjectRenderPage = lazy(() =>
+  import("@/pages/project-render-page").then((module) => ({
+    default: module.ProjectRenderPage,
+  })),
+);
+const OutputPage = lazy(() =>
+  import("@/pages/output-page").then((module) => ({
+    default: module.OutputPage,
   })),
 );
 
@@ -51,9 +77,15 @@ function App() {
           );
         })}
         <Route
-          path={`${ROUTES.PROJECTS}/:projectId/studio`}
-          element={<StudioPage />}
-        />
+          path={`${ROUTES.PROJECTS}/:projectId`}
+          element={<ProjectWorkspaceLayout />}
+        >
+          <Route index element={<ProjectWorkspaceIndex />} />
+          <Route path="idea" element={<ProjectIdeaPage />} />
+          <Route path="script" element={<ProjectScriptPage />} />
+          <Route path="render" element={<ProjectRenderPage />} />
+          <Route path="output" element={<OutputPage />} />
+        </Route>
         <Route path={NOT_FOUND_ROUTE} element={<NotFoundPage />} />
       </Route>
     </Routes>

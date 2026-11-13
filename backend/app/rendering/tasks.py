@@ -14,7 +14,7 @@ from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import generate_video
 from app.models import Account, Project, Scene, Task
-from app.rendering import storage
+from app.rendering import storage, timeline
 from app.rendering.ffmpeg import (
     MergeError,
     find_ffmpeg,
@@ -309,15 +309,17 @@ def restart_render(session, project_id: str, from_scene: int) -> list[str]:
         raise
 
 
-def remerge(session, project_id: str) -> bool:
+def remerge(session, project_id: str, **changes) -> bool:
     """Merge a finished film again from the clips it already has (for a
     change that only affects the merge, such as muting). No scene is
-    rendered again. False when the project is not a finished film."""
+    rendered again. `changes` are project columns saved in the same
+    transaction, so they are stored only if the merge is queued. False
+    (and nothing saved) when the project is not a finished film."""
     try:
         claimed = session.execute(
             update(Project)
             .where(Project.id == project_id, Project.status == "completed")
-            .values(status="rendering", updated_at=datetime.now(UTC))
+            .values(status="rendering", updated_at=datetime.now(UTC), **changes)
             .execution_options(synchronize_session=False)
         ).rowcount
         if not claimed:
@@ -447,12 +449,19 @@ def make_scene_handler(app):
                 and project.muse_thread_scenes < settings.thread_scene_limit
                 else None
             )
+            materials = storage.reference_files(
+                settings,
+                context.project_id,
+                [reference.file for reference in project.references],
+            )
             prompt = build_scene_prompt(
                 project,
                 scene,
                 previous,
                 has_reference=bool(previous_clip),
                 in_thread=bool(thread),
+                # Reference files open a conversation; they are not sent again in it.
+                materials=bool(materials) and thread is None,
             )
         folder = storage.project_dir(settings, context.project_id)
         reference = None
@@ -487,6 +496,7 @@ def make_scene_handler(app):
                 timeout=settings.render_timeout,
                 reference=reference,
                 thread_path=thread,
+                attachments=materials,
             )
         except MuseError as error:
             raise account.failure(error) from None
@@ -579,10 +589,16 @@ def make_merge_handler(app):
                 raise TaskFailure("project_not_found")
             files = [scene.video_file for scene in project.scenes]
             mute = project.mute
+            by_scene = {scene.number: scene.video_file for scene in project.scenes}
+            # The film's edit: order, trims, and scenes left out.
+            kept = [cut for cut in timeline.load(project) if cut.enabled]
         folder = storage.project_dir(settings, context.project_id)
         clips = [folder / name for name in files if name]
         if len(clips) != len(files) or not all(clip.is_file() for clip in clips):
             raise TaskFailure("scene_missing", suggested_action="retry")
+        if not kept:
+            raise TaskFailure("timeline_empty", suggested_action="retry")
+        clips = [folder / by_scene[cut.scene] for cut in kept]
         ffmpeg = find_ffmpeg(settings)
         if ffmpeg is None:
             raise TaskFailure("ffmpeg_unavailable", suggested_action="retry")
@@ -593,6 +609,7 @@ def make_merge_handler(app):
                 folder / storage.FINAL_FILE,
                 context.raise_if_cancelled,
                 mute=mute,
+                cuts=[(cut.start, cut.end) for cut in kept],
             )
         except MergeError:
             raise TaskFailure("merge_failed", suggested_action="retry") from None

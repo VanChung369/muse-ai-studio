@@ -17,7 +17,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { formatDuration } from "@/lib/format";
 import { projectTasksHref } from "@/features/tasks/lib/task-format";
-import { projectStudioHref } from "../lib/project-list";
+import { projectWorkspaceHref } from "../lib/project-list";
 import { isRenderActive } from "../lib/project-render";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { EditProjectDialog } from "./edit-project-dialog";
@@ -191,11 +191,11 @@ export function ProjectDetailsSheet({
           <SheetClose asChild>
             <Button variant="outline">{t("common.close")}</Button>
           </SheetClose>
-          {project && project.sceneCount > 0 && (
+          {project && (
             <Button variant="outline" asChild>
-              <Link to={projectStudioHref(project.id)}>
+              <Link to={projectWorkspaceHref(project.id)}>
                 <Clapperboard aria-hidden="true" />
-                {t("projects.studio.open")}
+                {t("projects.workspace.open")}
               </Link>
             </Button>
           )}

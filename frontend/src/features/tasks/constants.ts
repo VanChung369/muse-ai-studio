@@ -64,6 +64,7 @@ export const TASK_ERROR_CODES = [
   "merge_failed",
   "reference_upload_failed",
   "reference_frame_failed",
+  "timeline_empty",
 ] as const;
 
 export const TASK_KINDS = [

@@ -1,8 +1,12 @@
+import os
+import tempfile
+import zipfile
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select
@@ -332,6 +336,42 @@ def get_scene_thumbnail(
     name = scene.video_file
     session.rollback()
     return _thumbnail(request, project_id, name)
+
+
+@router.get(
+    "/{project_id}/scenes.zip",
+    response_class=FileResponse,
+    responses={404: {"description": "Project not found, or nothing rendered yet"}},
+)
+def download_scenes(project_id: str, request: Request, session: DatabaseSession):
+    """Every rendered scene clip in one archive (`scene-01.mp4`, ...)."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise not_found()
+    files = [(scene.number, scene.video_file) for scene in project.scenes]
+    session.rollback()
+    folder = storage.project_dir(request.app.state.settings, project_id)
+    clips = [
+        (number, folder / Path(name).name)
+        for number, name in files
+        if name and (folder / Path(name).name).is_file()
+    ]
+    if not clips:
+        raise HTTPException(
+            404, detail={"code": "media_not_found", "message": "No video yet."}
+        )
+    handle = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    handle.close()
+    # Clips are already compressed: store them as they are.
+    with zipfile.ZipFile(handle.name, "w", zipfile.ZIP_STORED) as archive:
+        for number, clip in clips:
+            archive.write(clip, f"scene-{number:02d}{clip.suffix}")
+    return FileResponse(
+        handle.name,
+        media_type="application/zip",
+        filename="scenes.zip",
+        background=BackgroundTask(os.unlink, handle.name),
+    )
 
 
 @router.get(

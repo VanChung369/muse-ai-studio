@@ -222,7 +222,15 @@ class ProjectUpdateError(ValueError):
 
 
 # Fixed once a render starts: clips already exist in that shape.
-BRIEF_FIELDS = ("name", "idea", "aspect_ratio", "duration_seconds")
+BRIEF_FIELDS = (
+    "name",
+    "idea",
+    "aspect_ratio",
+    "duration_seconds",
+    # Part of the script: fixed with it once a render has started.
+    "character_bible",
+    "visual_style",
+)
 
 
 def update_project(session: Session, project_id: str, values: ProjectUpdate) -> Project:
@@ -305,6 +313,15 @@ def update_project(session: Session, project_id: str, values: ProjectUpdate) -> 
                     .scalar_subquery()
                     == 0,
                 )
+            )
+        if "character_bible" in changes or "visual_style" in changes:
+            # These belong to the script: an editor or a proposal based on
+            # the old text must notice that it changed.
+            session.execute(
+                update(Project)
+                .where(Project.id == project_id)
+                .values(script_revision=Project.script_revision + 1)
+                .execution_options(synchronize_session=False)
             )
         if "name" in changes:
             # A bulk UPDATE bypasses the ORM validator that maintains name_key.

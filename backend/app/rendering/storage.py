@@ -42,5 +42,19 @@ def write(path: Path, data: bytes) -> None:
     os.replace(temporary, path)
 
 
+def references_dir(settings: Settings, project_id: str) -> Path:
+    """Pictures and videos the user gave as reference material."""
+    return settings.data_dir / "projects" / project_id / "references"
+
+
+def reference_files(settings: Settings, project_id: str, names) -> list[Path]:
+    """The reference files that are really on disk, in the given order."""
+    folder = references_dir(settings, project_id)
+    return [folder / name for name in names if (folder / name).is_file()]
+
+
 def remove_project(settings: Settings, project_id: str) -> None:
     shutil.rmtree(project_dir(settings, project_id), ignore_errors=True)
+    shutil.rmtree(
+        settings.data_dir / "projects" / project_id, ignore_errors=True
+    )

@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { taskKeys } from "@/features/tasks/api/query-keys";
 import { ApiError } from "@/lib/http";
 
 import {
@@ -17,6 +18,8 @@ import {
   updateProject,
 } from "../api/projects";
 import { projectKeys } from "../api/query-keys";
+import { renderKey } from "../api/render";
+import { timelineKey } from "../api/timeline";
 import type { ProjectListParams } from "../types";
 
 export function useProjectsQuery(params: ProjectListParams) {
@@ -65,6 +68,11 @@ export function useUpdateProject() {
     onSuccess: (project) => {
       client.setQueryData(projectKeys.detail(project.id), project);
       void client.invalidateQueries({ queryKey: projectKeys.lists });
+      // Muting a finished film merges it again: the render, its timeline and
+      // the task list all have something new to show.
+      void client.invalidateQueries({ queryKey: renderKey(project.id) });
+      void client.invalidateQueries({ queryKey: timelineKey(project.id) });
+      void client.invalidateQueries({ queryKey: taskKeys.all });
     },
     onError: (error, { id }) => {
       // A refusal means the project moved on (a render started, a script was

@@ -49,6 +49,10 @@ class ProjectCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     idea: str = Field(default="", max_length=12000)
+    # Optional starting points; a script written later can refine them.
+    character_bible: str = Field(default="", max_length=10000)
+    visual_style: str = Field(default="", max_length=3000)
+    music: str = Field(default="", max_length=500)
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
     duration_seconds: int = Field(default=60, strict=True, ge=10, le=300, multiple_of=5)
     look: ProjectLook = "auto"
@@ -56,7 +60,9 @@ class ProjectCreate(BaseModel):
     language: ProjectLanguage = "auto"
     mute: bool = Field(default=False, strict=True)
 
-    @field_validator("name", "idea", mode="before")
+    @field_validator(
+        "name", "idea", "character_bible", "visual_style", "music", mode="before"
+    )
     @classmethod
     def trim_text(cls, value):
         return value.strip() if isinstance(value, str) else value
@@ -72,6 +78,9 @@ class ProjectUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     idea: str | None = Field(default=None, max_length=12000)
+    character_bible: str | None = Field(default=None, max_length=10000)
+    visual_style: str | None = Field(default=None, max_length=3000)
+    music: str | None = Field(default=None, max_length=500)
     aspect_ratio: AspectRatio | None = None
     duration_seconds: int | None = Field(
         default=None, strict=True, ge=10, le=300, multiple_of=5
@@ -84,7 +93,9 @@ class ProjectUpdate(BaseModel):
     # duration is refused unless the caller agrees to drop that script.
     discard_script: bool = Field(default=False, strict=True)
 
-    @field_validator("name", "idea", mode="before")
+    @field_validator(
+        "name", "idea", "character_bible", "visual_style", "music", mode="before"
+    )
     @classmethod
     def trim_text(cls, value):
         return value.strip() if isinstance(value, str) else value
@@ -178,6 +189,21 @@ class ProjectSummary(CamelModel):
         )
 
 
+class ProjectReference(CamelModel):
+    """A picture or video given as reference material for the film."""
+
+    id: str
+    project_id: str
+    name: str
+    mime: str
+    size: int
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        return f"/api/projects/{self.project_id}/references/{self.id}"
+
+
 class ProjectResponse(ProjectSummary):
     idea: str
     look: ProjectLook
@@ -185,6 +211,8 @@ class ProjectResponse(ProjectSummary):
     language: ProjectLanguage
     # The film has no sound.
     mute: bool
+    music: str
+    references: list[ProjectReference] = Field(default_factory=list)
     character_bible: str
     visual_style: str
     script_revision: int

@@ -7,6 +7,7 @@ from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseError
 from app.models import Account, Project, Task
 from app.planning.script import build_script_prompt, parse_script_reply
+from app.rendering import storage
 from app.repositories import tasks
 from app.tasks.coordinator import TaskFailure
 from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
@@ -80,6 +81,11 @@ def enqueue_script(session, project_id, values):
                     "language": project.language,
                     "look": project.look,
                     "mute": project.mute,
+                    # What the user already decided about the film.
+                    "characters": project.character_bible,
+                    "visualStyle": project.visual_style,
+                    "music": project.music,
+                    "references": len(project.references),
                     "narration": bool(getattr(values, "narration", False)),
                     "direction": getattr(values, "direction", ""),
                 },
@@ -146,6 +152,11 @@ def make_script_handler(app):
                 and project.muse_thread_scenes < settings.thread_scene_limit
                 else None
             )
+            materials = storage.reference_files(
+                settings,
+                context.project_id,
+                [reference.file for reference in project.references],
+            )
         account = TaskAccountSession(app, context.account_id)
 
         def remember_thread(path):
@@ -181,6 +192,7 @@ def make_script_handler(app):
                 timeout=settings.planning_timeout,
                 thread_path=thread,
                 on_thread=remember_thread,
+                attachments=materials,
             )
         except MuseError as error:
             raise account.failure(error) from None

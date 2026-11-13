@@ -293,7 +293,7 @@ def test_reference_frame_is_attached_to_the_message(muse):
 @needs_browser
 def test_missing_upload_control_stops_before_sending(muse, monkeypatch):
     monkeypatch.setattr(
-        "app.integrations.muse.media.FILE_INPUT", "input.no-such-control"
+        "app.integrations.muse.chat.FILE_INPUT", "input.no-such-control"
     )
     with pytest.raises(MuseError) as failed:
         generate(muse, reference=b"frame")

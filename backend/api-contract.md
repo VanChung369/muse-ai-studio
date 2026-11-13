@@ -76,6 +76,20 @@ Projects also carry `language` (`auto`, `vi`, `en`, `zh`, `ja`, `ko`, `es`, `fr`
 
 `POST /api/projects/{project_id}/script-generation` additionally accepts `language` and `look` (saved on the project), `narration` (write a voice-over line for every scene) and `direction` (up to 2,000 characters of free-form direction for the writer).
 
+## Project brief and reference material
+
+`POST /api/projects` and `PATCH /api/projects/{project_id}` also accept `characterBible` (up to 10,000 characters), `visualStyle` (3,000) and `music` (500): optional starting points that reach the script writer and every scene prompt. `characterBible` and `visualStyle` belong to the script, so they are fixed once a render has started and changing them bumps `scriptRevision`; `music` is a render option.
+
+`GET /api/projects/{project_id}/references` lists a project's reference files (also returned as `references` on the project): pictures (PNG, JPEG, WebP, GIF) and videos (MP4, WebM, MOV) showing the characters, products, places or look to keep. `POST /api/projects/{project_id}/references?name=<file name>` uploads one file as the raw request body with its type in `Content-Type` (201; 415 `unsupported_file`, 413 `file_too_large` above 50 MB, 409 `too_many_files` above 6, 409 `project_busy` while rendering). `GET .../references/{reference_id}` serves it and `DELETE` removes it. Reference files are attached to the first message of the project's Muse conversation (the script request or scene 1) and again whenever a new conversation is started. Adding or removing a file makes the project's next message start a new conversation, so Muse sees the current set of files. The file is served with the uploaded type and `X-Content-Type-Options: nosniff`.
+
+`GET /api/projects/{project_id}/scenes.zip` downloads every rendered scene clip in one archive.
+
+## Timeline
+
+`GET /api/projects/{project_id}/timeline` returns `{projectId, status, editable, items, totalSeconds}`: the film's scenes in play order, each with `scene`, `title`, `clipSeconds` (the rendered clip's real length), `start` and `end` (the part that is kept, in seconds into the clip), `enabled`, `videoUrl` and `thumbnailUrl`. Only scenes that have a clip are listed. `editable` is true while the project is `completed`.
+
+`PUT /api/projects/{project_id}/timeline` with `{items: [{scene, start, end, enabled}]}` changes the order, the trims and which scenes are kept, then merges the film again from its existing clips; no scene is rendered again. Every rendered scene must be listed exactly once, each must keep at least 0.5 seconds inside its clip, and at least one must stay enabled (422 `invalid_timeline`). It returns 409 `timeline_locked` unless the project is `completed`, and 409 `ffmpeg_unavailable` without FFmpeg. A timeline with any trimmed clip is re-encoded when merged; reordering or leaving scenes out alone is not. A cut made on a clip that is later rendered again and comes out shorter is fitted to the new clip.
+
 ## Rendering
 
 `POST /api/projects/{project_id}/render` (HTTP 202) queues one `render_scene` task per scene, chained in order, and a final `merge_video` task. The project must be `ready` with at least one scene, and at least one enabled account must have a verified session (accounts are picked automatically, least recently used first). Otherwise it returns 409 `render_not_ready` or `account_unavailable`; nothing is queued. Starting a render sets the project to `rendering`, which locks its script.

@@ -197,6 +197,26 @@ def open_composer(client, result, proxy, thread_path=None):
         client.browser_lock.release()
 
 
+# The composer's upload control (reference: files are attached like a chat upload).
+FILE_INPUT = 'input[type="file"]'
+
+
+def attach_files(page, files, result) -> None:
+    """Attach files to the message being written, one at a time (the
+    control takes a single file per change, as the reference client does).
+    `files` are paths or Playwright file payloads. If one cannot be
+    attached nothing is sent, so no generation is spent without it."""
+    control = page.locator(FILE_INPUT).first
+    try:
+        control.wait_for(state="attached", timeout=10000)
+        for file in files:
+            control.set_input_files(file)
+            # Let the composer register the file before the next one.
+            page.wait_for_timeout(1000)
+    except BrowserError:
+        raise MuseError("reference_upload_failed", partial=result) from None
+
+
 def fill_composer(page, prompt, check_cancelled, result, wait=15):
     """Type `prompt` and return the send button's click point (not clicked yet).
 
@@ -239,6 +259,7 @@ def generate_script_text(
     timeout=300,
     thread_path=None,
     on_thread=None,
+    attachments=(),
 ):
     """Send once and return the agent's reply. Never resend on timeout.
 
@@ -255,7 +276,17 @@ def generate_script_text(
         continued = thread_path_of(page.url) is not None
         if continued:
             settle_conversation(page)
-        point = fill_composer(page, f"[{marker}] {prompt}", check_cancelled, result)
+        elif attachments:
+            # Reference material opens the conversation; later messages
+            # in it rely on the agent having seen it.
+            attach_files(page, [str(path) for path in attachments], result)
+        point = fill_composer(
+            page,
+            f"[{marker}] {prompt}",
+            check_cancelled,
+            result,
+            wait=120 if attachments and not continued else 15,
+        )
         baseline = page.evaluate(REPLY_STATE_JS, [None, True])
         check_cancelled()
         # Record submission BEFORE the click; refreshed cookies are already saved.

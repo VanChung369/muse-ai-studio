@@ -118,7 +118,9 @@ export function AppLayout() {
             ref={mainRef}
             id="main-content"
             tabIndex={-1}
-            className="min-h-0 flex-1 overflow-y-auto outline-none"
+            // Positioned, so visually hidden (absolute) content inside a page
+            // scrolls with it instead of stretching the document.
+            className="relative min-h-0 flex-1 overflow-y-auto outline-none"
           >
             <Suspense fallback={<PageLoading />}>
               <Outlet />

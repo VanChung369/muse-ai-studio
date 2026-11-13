@@ -1,9 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError } from "@/lib/http";
 
+import { projectKeys } from "../api/query-keys";
+import { uploadReference } from "../api/references";
 import { PROJECT_QUERY_KEYS } from "../constants";
 import {
   useCreateProject,
@@ -13,7 +16,7 @@ import {
 import { resolveProjectFilter, resolveProjectSort } from "../lib/project-list";
 import type {
   Project,
-  ProjectDraft,
+  ProjectCreateDraft,
   ProjectFilter,
   ProjectSort,
   ProjectSummary,
@@ -29,6 +32,7 @@ const NO_COUNTS: Record<ProjectFilter, number> = {
 
 export function useProjectList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const createMutation = useCreateProject();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpenState] = useState(false);
@@ -37,6 +41,7 @@ export function useProjectList() {
   // step back instead of leaving a duplicate /projects entry behind.
   const sheetPushedHistory = useRef(false);
   const [lastCreated, setLastCreated] = useState<Project | null>(null);
+  const [lastCreatedUploadFailures, setLastCreatedUploadFailures] = useState(0);
   const [lastDeleted, setLastDeleted] = useState<string | null>(null);
   const query = searchParams.get(PROJECT_QUERY_KEYS.SEARCH) ?? "";
   const filter = resolveProjectFilter(
@@ -73,6 +78,7 @@ export function useProjectList() {
 
   function updateParameter(key: string, value: string, defaultValue = "") {
     setLastCreated(null);
+    setLastCreatedUploadFailures(0);
     setLastDeleted(null);
     setSearchParams(
       (previous) => {
@@ -87,6 +93,7 @@ export function useProjectList() {
 
   function clearFilters() {
     setLastCreated(null);
+    setLastCreatedUploadFailures(0);
     setLastDeleted(null);
     setSearchParams(
       (previous) => {
@@ -105,6 +112,7 @@ export function useProjectList() {
         ? document.activeElement
         : null;
     setLastCreated(null);
+    setLastCreatedUploadFailures(0);
     setLastDeleted(null);
     sheetPushedHistory.current = true;
     setSearchParams((previous) => {
@@ -138,12 +146,26 @@ export function useProjectList() {
     else document.getElementById("main-content")?.focus();
   }
 
-  async function createDraft(values: ProjectDraft) {
+  async function createDraft(values: ProjectCreateDraft, files: File[] = []) {
     setLastCreated(null);
+    setLastCreatedUploadFailures(0);
     setLastDeleted(null);
     const project = await createMutation.mutateAsync(values);
+    let uploadFailures = 0;
+    for (const file of files) {
+      try {
+        await uploadReference({ projectId: project.id, file });
+      } catch {
+        uploadFailures += 1;
+      }
+    }
+    if (files.length > 0)
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(project.id),
+      });
     setCreateOpenState(false);
     setLastCreated(project);
+    setLastCreatedUploadFailures(uploadFailures);
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -159,6 +181,7 @@ export function useProjectList() {
 
   function projectDeleted(id: string, name: string) {
     setLastCreated(null);
+    setLastCreatedUploadFailures(0);
     setLastDeleted(name);
     if (selectedId !== id) return;
     sheetPushedHistory.current = false;
@@ -179,6 +202,7 @@ export function useProjectList() {
     setCreateOpen,
     selectedId,
     lastCreated,
+    lastCreatedUploadFailures,
     lastDeleted,
     projectDeleted,
     // Keep cached details mounted during a background connection failure so

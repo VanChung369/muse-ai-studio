@@ -5,13 +5,13 @@ import { ApiError, requestJson } from "@/lib/http";
 import { PROJECT_PAGE_SIZE } from "../constants";
 import {
   featuredProjectSchema,
-  projectDraftSchema,
+  projectCreateSchema,
   projectSchema,
   projectSummarySchema,
   projectScriptDraftSchema,
 } from "../schemas";
 import type {
-  ProjectDraft,
+  ProjectCreateDraft,
   ProjectListParams,
   ProjectScriptDraft,
   ProjectSettings,
@@ -58,8 +58,8 @@ export async function fetchProject(id: string, signal?: AbortSignal) {
   );
 }
 
-export async function createProject(values: ProjectDraft) {
-  const body = projectDraftSchema.parse(values);
+export async function createProject(values: ProjectCreateDraft) {
+  const body = projectCreateSchema.parse(values);
   return projectSchema.parse(
     await requestJson(API_ENDPOINTS.PROJECTS, {
       method: "POST",

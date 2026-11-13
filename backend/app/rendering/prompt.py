@@ -87,6 +87,7 @@ def build_scene_prompt(
     previous: Scene | None = None,
     has_reference: bool = False,
     in_thread: bool = False,
+    materials: bool = False,
 ) -> str:
     """`previous` and `has_reference` are set when a frame of the previous
     scene is attached to the message (continuity is on and this is not the
@@ -98,6 +99,12 @@ def build_scene_prompt(
             f"This is shot {scene.number} of the same film as the earlier shots in "
             "this conversation. Keep the characters, wardrobe, locations and style "
             "consistent with them."
+        )
+    if materials:
+        # The user's reference files are attached to this message.
+        parts.append(
+            "Reference material: the attached files show this film's characters, "
+            "products, locations or look. Match them in every shot."
         )
     if project.visual_style.strip():
         parts.append("Visual style: " + project.visual_style.strip())
@@ -123,6 +130,8 @@ def build_scene_prompt(
         parts.append(
             f'Voice-over, spoken by a narrator{spoken}: "{scene.narration.strip()}"'
         )
+    if project.music.strip() and not project.mute:
+        parts.append("Music: " + project.music.strip())
     if language and not project.mute:
         parts.append(
             f"Language: any speech, voice-over or singing is in {language} only."

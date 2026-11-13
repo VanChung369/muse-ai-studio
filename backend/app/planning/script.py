@@ -29,6 +29,24 @@ def _brief_directions(brief: dict) -> str:
         lines.append(
             "The film's look, to reflect in visualStyle and every prompt: " + look
         )
+    characters = (brief.get("characters") or "").strip()
+    if characters:
+        lines.append(
+            "The user defined these characters; keep them and write them into "
+            "characterBible: " + characters
+        )
+    style = (brief.get("visualStyle") or "").strip()
+    if style:
+        lines.append("The user asked for this visual style; build visualStyle on it: " + style)
+    music = (brief.get("music") or "").strip()
+    if music and not brief.get("mute"):
+        lines.append("The film's music, to match in mood and pacing: " + music)
+    if brief.get("references"):
+        lines.append(
+            "Reference files for this film are attached to this conversation "
+            "(characters, products, locations or look): describe what they show "
+            "faithfully in characterBible, visualStyle and the prompts."
+        )
     direction = (brief.get("direction") or "").strip()
     if direction:
         lines.append("Additional direction from the user: " + direction)

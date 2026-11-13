@@ -48,6 +48,21 @@ def test_clips_are_joined_in_order(tmp_path):
 
 
 @needs_ffmpeg
+def test_cuts_keep_only_part_of_each_clip(tmp_path):
+    clips = [
+        clip(tmp_path / "scene-01.mp4", 3, "red"),
+        clip(tmp_path / "scene-02.mp4", 2, "blue"),
+    ]
+    output = tmp_path / "final.mp4"
+    # One second from the middle of the first clip, then all of the second.
+    merge(FFMPEG, clips, output, lambda: None, cuts=[(1.0, 2.0), (0.0, None)])
+    assert 2.7 < probe(FFMPEG, output).seconds < 3.4
+    # A cut longer than its clip is fitted to it.
+    merge(FFMPEG, clips, output, lambda: None, cuts=[(2.5, 9.0), (0.0, 1.0)])
+    assert 1.2 < probe(FFMPEG, output).seconds < 1.9
+
+
+@needs_ffmpeg
 def test_muted_merge_has_no_audio_track(tmp_path):
     clips = [
         clip(tmp_path / "scene-01.mp4", 1, "red"),

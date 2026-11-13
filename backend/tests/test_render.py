@@ -36,10 +36,12 @@ class Muse:
         self.references = []  # The frame attached to each call, or None.
         self.threads = []  # The conversation each call was asked to continue.
         self.accounts = []  # hatch_sess of the account each call ran on.
+        self.attachments = []  # Reference files offered with each call.
         self.new_threads = 0
         self.failures = {}  # call number (from 1) -> MuseError
         self.gate = None  # Blocks a call until set, to observe "running".
         self.entered = threading.Event()
+        self.hold = None  # Call numbers the gate applies to; None = all.
         self.killed = threading.Event()  # Simulates the process dying mid-call.
 
     def __call__(self, client, cookies, expiries, proxy, prompt, **hooks):
@@ -47,10 +49,11 @@ class Muse:
         self.references.append(hooks.get("reference"))
         self.threads.append(hooks.get("thread_path"))
         self.accounts.append(cookies["hatch_sess"])
+        self.attachments.append([path.name for path in hooks.get("attachments", ())])
         call = len(self.prompts)
         hooks["before_send"](None)
         self.entered.set()
-        if self.gate is not None:
+        if self.gate is not None and (self.hold is None or call in self.hold):
             deadline = time.monotonic() + 10
             while not self.gate.is_set() and time.monotonic() < deadline:
                 if self.killed.is_set():
@@ -80,9 +83,14 @@ def muse(monkeypatch):
 def ffmpeg(monkeypatch):
     """A merge that joins the clips' bytes, so no FFmpeg binary is needed."""
 
-    def merge(binary, clips, output, check_cancelled, mute=False):
-        joined = b"|".join(clip.read_bytes() for clip in clips)
-        output.write_bytes(joined + (b" (muted)" if mute else b""))
+    def merge(binary, clips, output, check_cancelled, mute=False, cuts=None):
+        # Each clip's bytes, with its cut when it is not the whole clip.
+        parts = [
+            clip.read_bytes()
+            + (b"" if cut == (0.0, None) else f"[{cut[0]:g}-{cut[1]:g}]".encode())
+            for clip, cut in zip(clips, cuts or [(0.0, None)] * len(clips), strict=True)
+        ]
+        output.write_bytes(b"|".join(parts) + (b" (muted)" if mute else b""))
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
     monkeypatch.setattr("app.rendering.tasks.merge", merge)
@@ -294,7 +302,7 @@ def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
     assert failed["merge"]["error"]["code"] == "ffmpeg_unavailable"
     assert all(scene["videoUrl"] for scene in failed["scenes"])
 
-    def merge(binary, clips, output, check_cancelled, mute=False):
+    def merge(binary, clips, output, check_cancelled, mute=False, cuts=None):
         output.write_bytes(b"merged")
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
@@ -554,6 +562,168 @@ def test_muted_film_asks_for_silence_and_merges_without_sound(client, muse, ffmp
     assert client.patch(path, json={"mute": False}).json()["status"] == "completed"
 
 
+def test_timeline_reorders_trims_and_drops_scenes_without_rendering(
+    client, muse, ffmpeg, monkeypatch
+):
+    from app.rendering.ffmpeg import Clip
+
+    # Clips are 10 and 5 seconds long, as the script says.
+    monkeypatch.setattr("app.api.routes.timeline.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr(
+        "app.api.routes.timeline.probe",
+        lambda binary, path: Clip(path, 10.0 if "01" in path.name else 5.0, 1280, 720, True),
+    )
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    timeline = path + "/timeline"
+    assert client.get("/api/projects/missing/timeline").status_code == 404
+    assert client.get(timeline).json()["items"] == []
+    whole = [
+        {"scene": 1, "start": 0, "end": 10, "enabled": True},
+        {"scene": 2, "start": 0, "end": 5, "enabled": True},
+    ]
+    locked = client.put(timeline, json={"items": whole})
+    assert locked.status_code == 409
+    assert locked.json()["detail"]["code"] == "timeline_locked"
+
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    start = client.get(timeline).json()
+    assert start["editable"] and start["totalSeconds"] == 15
+    assert [(i["scene"], i["start"], i["end"], i["clipSeconds"]) for i in start["items"]] == [
+        (1, 0, 10, 10),
+        (2, 0, 5, 5),
+    ]
+
+    for invalid in (
+        [whole[0]],  # A rendered scene is missing.
+        [whole[0], whole[0]],
+        [{**whole[0], "enabled": False}, {**whole[1], "enabled": False}],
+        [{**whole[0], "end": 12}, whole[1]],  # Past the end of the clip.
+        [{**whole[0], "start": 9.8}, whole[1]],  # Less than half a second left.
+    ):
+        refused = client.put(timeline, json={"items": invalid})
+        assert refused.status_code == 422, invalid
+    assert client.get(timeline).json() == start
+
+    # Scene 2 first, then the middle of scene 1.
+    saved = client.put(
+        timeline,
+        json={"items": [whole[1], {"scene": 1, "start": 2.5, "end": 8, "enabled": True}]},
+    )
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["status"] == "rendering" and not body["editable"]
+    assert body["totalSeconds"] == 10.5
+    done = wait_status(client, project["id"], "completed")
+    assert client.get(done["videoUrl"]).content == b"clip-2|clip-1[2.5-8]"
+
+    # Leaving a scene out keeps its clip; the film is just merged without it.
+    client.put(timeline, json={"items": [{**whole[1], "enabled": False}, whole[0]]})
+    done = wait_status(client, project["id"], "completed")
+    assert client.get(done["videoUrl"]).content == b"clip-1"
+    assert done["completedScenes"] == 2 and all(s["videoUrl"] for s in done["scenes"])
+    after = client.get(timeline).json()
+    assert [(i["scene"], i["enabled"]) for i in after["items"]] == [(2, False), (1, True)]
+    assert after["totalSeconds"] == 10
+    assert len(muse.prompts) == 2  # Nothing was ever rendered again.
+
+
+def test_reference_files_open_the_conversation_and_fields_reach_the_prompt(
+    client, muse, ffmpeg, settings
+):
+    add_account(client)
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "Tea",
+            "durationSeconds": 15,
+            "characterBible": "  Lan, a farmer  ",
+            "visualStyle": "Soft dawn light",
+            "music": "Gentle bamboo flute",
+        },
+    ).json()
+    assert (project["characterBible"], project["music"]) == ("Lan, a farmer", "Gentle bamboo flute")
+    path = f"/api/projects/{project['id']}"
+    references = path + "/references"
+
+    # Pictures and videos are accepted; other files, empty ones and a seventh are not.
+    png = {"Content-Type": "image/png"}
+    assert client.post(references, params={"name": "notes.txt"}, content=b"x", headers={"Content-Type": "text/plain"}).status_code == 415
+    assert client.post(references, params={"name": "empty.png"}, content=b"", headers=png).status_code == 422
+    assert client.post("/api/projects/missing/references", params={"name": "a.png"}, content=b"x", headers=png).status_code == 404
+    picture = client.post(references, params={"name": "..\\secret\\lan face.png"}, content=b"png-bytes", headers=png)
+    assert picture.status_code == 201
+    saved = picture.json()
+    assert (saved["name"], saved["mime"], saved["size"]) == ("lan face.png", "image/png", 9)
+    assert client.get(saved["url"]).content == b"png-bytes"
+    clip = client.post(references, params={"name": "walk.mp4"}, content=b"mp4-bytes", headers={"Content-Type": "video/mp4"}).json()
+    listed = client.get(path).json()["references"]
+    assert [item["name"] for item in listed] == ["lan face.png", "walk.mp4"]
+    for index in range(4):
+        assert client.post(references, params={"name": f"{index}.png"}, content=b"x", headers=png).status_code == 201
+    full = client.post(references, params={"name": "seventh.png"}, content=b"x", headers=png)
+    assert full.status_code == 409 and full.json()["detail"]["code"] == "too_many_files"
+    for item in client.get(references).json()[2:]:
+        assert client.delete(f"{references}/{item['id']}").status_code == 204
+    assert client.delete(f"{references}/missing").status_code == 404
+
+    client.put(
+        path + "/script",
+        json={
+            "expectedRevision": client.get(path).json()["scriptRevision"],
+            "characterBible": "Lan, a farmer",
+            "visualStyle": "Soft dawn light",
+            "scenes": [
+                {"number": 1, "title": "A", "prompt": "One", "durationSeconds": 10},
+                {"number": 2, "title": "B", "prompt": "Two", "durationSeconds": 5},
+            ],
+        },
+    )
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    # The files go with the first message of the conversation only.
+    assert len(muse.attachments[0]) == 2 and muse.attachments[1] == muse.attachments[0]
+    assert "Reference material: the attached files" in muse.prompts[0]
+    assert "Reference material" not in muse.prompts[1]
+    assert all("Music: Gentle bamboo flute" in prompt for prompt in muse.prompts)
+    assert client.get(saved["url"]).headers["x-content-type-options"] == "nosniff"
+
+    # Files go out with a conversation's first message, so a changed set of
+    # files makes the project's next message start a new conversation.
+    def thread():
+        with client.app.state.database.engine.begin() as connection:
+            return connection.exec_driver_sql("select muse_thread_path from projects").scalar()
+
+    assert thread() is not None
+    extra = client.post(references, params={"name": "extra.png"}, content=b"x", headers=png)
+    assert extra.status_code == 201 and thread() is None
+
+    folder = settings.data_dir / "projects" / project["id"] / "references"
+    assert len(list(folder.iterdir())) == 3
+    assert client.delete(path).status_code == 204
+    assert not folder.exists()
+    assert client.get(clip["url"]).status_code == 404
+
+
+def test_characters_and_style_can_change_until_a_render_starts(client, muse, ffmpeg):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    changed = client.patch(path, json={"characterBible": "Minh, a barista", "music": "Jazz"}).json()
+    assert changed["characterBible"] == "Minh, a barista" and changed["music"] == "Jazz"
+    # The script changed under any open editor or pending proposal.
+    assert changed["scriptRevision"] == project["scriptRevision"] + 1
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    assert "Recurring characters: Minh, a barista" in muse.prompts[0]
+    locked = client.patch(path, json={"visualStyle": "Noir"})
+    assert locked.status_code == 409 and locked.json()["detail"]["code"] == "project_locked"
+    # What the film should sound like is a render option, like the look.
+    assert client.patch(path, json={"music": "Strings"}).status_code == 200
+
+
 def test_narration_is_sent_as_a_voice_over(client, muse, ffmpeg):
     add_account(client)
     project = client.post(
@@ -649,15 +819,9 @@ def test_cancelled_render_resumes_in_the_same_conversation(client, muse, ffmpeg)
     add_account(client, "second-fixture")
     project = add_project(client)
     path = f"/api/projects/{project['id']}/render"
-    muse.gate = threading.Event()
+    # Scene 1 runs through; scene 2 is held, then cancelled.
+    muse.gate, muse.hold = threading.Event(), {2}
     client.post(path)
-    assert muse.entered.wait(5)
-    muse.gate.set()  # Scene 1 finishes...
-    deadline = time.monotonic() + 5
-    while render(client, project["id"])["completedScenes"] < 1:
-        assert time.monotonic() < deadline
-        time.sleep(0.01)
-    muse.gate = threading.Event()  # ...and scene 2 is held, then cancelled.
     deadline = time.monotonic() + 5
     while len(muse.prompts) < 2:
         assert time.monotonic() < deadline
@@ -744,6 +908,24 @@ def test_delete_removes_clips_and_stops_waiting_tasks(client, muse, ffmpeg, sett
         "succeeded",
     ]
     assert client.get(path + "/scenes/1/video").status_code == 404
+
+
+def test_all_scene_clips_download_as_one_archive(client, muse, ffmpeg):
+    import io
+    import zipfile
+
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    assert client.get(path + "/scenes.zip").status_code == 404  # Nothing rendered.
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    response = client.get(path + "/scenes.zip")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert archive.namelist() == ["scene-01.mp4", "scene-02.mp4"]
+        assert archive.read("scene-02.mp4") == b"clip-2"
 
 
 def test_clip_routes_report_missing_media(client):

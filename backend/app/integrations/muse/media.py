@@ -6,11 +6,10 @@ import time
 from dataclasses import dataclass
 from uuid import uuid4
 
-from playwright.sync_api import Error as BrowserError
-
 from app.integrations.muse.chat import (
     ANCHOR_JS,
     ANCHOR_WAIT,
+    attach_files,
     confirmed_session,
     fill_composer,
     open_composer,
@@ -24,8 +23,6 @@ ATTACHMENT = '[data-testid^="hatch-chat-attachment-presentation-"]'
 # The agent asks before acting on the user's behalf (for example publishing
 # the result as a public link). Nobody answers it here, so it would block.
 APPROVAL_CARD = '[data-testid="hatch-inline-approval-card"]'
-# The composer's upload control (reference: images are attached like a chat upload).
-FILE_INPUT = 'input[type="file"]'
 QUOTA_HINTS = ("out of credits", "usage limit", "limit reached", "token limit")
 MEDIA_STATE_JS = f"""([marker, all]) => {{
   const scrollers = [...document.querySelectorAll('*')].filter(e => {{
@@ -153,6 +150,7 @@ def generate_video(
     grace=ATTACHMENT_GRACE,
     reference: bytes | None = None,
     thread_path: str | None = None,
+    attachments=(),
 ) -> GeneratedVideo:
     """Ask Muse for one video and download the result.
 
@@ -177,14 +175,26 @@ def generate_video(
         continued = thread_path_of(page.url) is not None
         if continued:
             settle_conversation(page)
+        files = []
+        if attachments and not continued:
+            # The film's reference material, once per conversation.
+            files += [str(path) for path in attachments]
         if reference:
-            _attach_reference(page, reference, result)
+            files.append(
+                {
+                    "name": "previous-shot.jpg",
+                    "mimeType": "image/jpeg",
+                    "buffer": reference,
+                }
+            )
+        if files:
+            attach_files(page, files, result)
         point = fill_composer(
             page,
             f"[{marker}] {prompt}",
             check_cancelled,
             result,
-            wait=60 if reference else 15,
+            wait=120 if files else 15,
         )
         baseline = page.evaluate(MEDIA_STATE_JS, [None, True])
         check_cancelled()
@@ -204,19 +214,6 @@ def generate_video(
             height=attachment.get("h") or None,
             thread_path=thread_path_of(page.url),
         )
-
-
-def _attach_reference(page, image: bytes, result) -> None:
-    control = page.locator(FILE_INPUT).first
-    try:
-        control.wait_for(state="attached", timeout=10000)
-        control.set_input_files(
-            {"name": "previous-shot.jpg", "mimeType": "image/jpeg", "buffer": image}
-        )
-    except BrowserError:
-        raise MuseError("reference_upload_failed", partial=result) from None
-    # Let the composer register the file before the prompt is typed.
-    page.wait_for_timeout(1000)
 
 
 def _read_state(page, marker, baseline, anchor_wait, sent_at):

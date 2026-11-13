@@ -26,7 +26,8 @@ export async function requestJson(
 ): Promise<unknown> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
-  if (options.body !== undefined)
+  // JSON unless the caller says otherwise (a file upload sends its own type).
+  if (options.body !== undefined && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
 
   let response: Response;
