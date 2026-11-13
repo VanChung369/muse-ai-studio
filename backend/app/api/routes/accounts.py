@@ -1,6 +1,3 @@
-import json
-from datetime import UTC, datetime
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -10,14 +7,13 @@ from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
-from app.core.account_cookies import (
-    CookieImportError,
-    parse_cookie_bundle,
-    account_expiry,
-    limit_cookies,
+from app.accounts.operations import (
+    AccountChangedError,
+    AccountNotFoundError,
+    run_account_operation,
 )
+from app.core.account_cookies import CookieImportError, parse_cookie_bundle
 from app.core.account_operations import AccountBusyError
-from app.integrations.muse.client import MuseError
 from app.models.account import Account
 from app.repositories import accounts
 from app.schemas.account import (
@@ -262,84 +258,38 @@ def update_proxy(
 def run_operation(
     account_id: str, action: str, request: Request, session: DatabaseSession
 ):
-    vault = request.app.state.account_vault
-    with request.app.state.account_operations.acquire(account_id):
-        account = accounts.get_account(session, account_id)
-        if account is None:
-            raise not_found()
-        version = account.credential_version
-        cookies = vault.decrypt(account.encrypted_cookies)
-        expiries = json.loads(account.cookie_expiries)
-        proxy = (
-            vault.decrypt(account.encrypted_proxy) if account.encrypted_proxy else None
+    state = request.app.state
+    try:
+        outcome = run_account_operation(
+            session,
+            state.account_vault,
+            state.account_operations,
+            state.muse_client,
+            account_id,
+            action,
         )
-        session.rollback()  # Never hold a SQLite transaction across upstream I/O.
-        failure = None
-        try:
-            client = request.app.state.muse_client
-            result = (
-                client.quota(cookies, expiries, proxy)
-                if action == "quota"
-                else client.session(
-                    cookies, expiries, proxy, wake=action == "keep-alive"
-                )
+    except AccountNotFoundError:
+        raise not_found() from None
+    except AccountChangedError:
+        raise account_changed() from None
+    public = accounts.public_account(outcome.account, state.account_vault)
+    result, failure = outcome.result, outcome.failure
+    if failure:
+        if failure.code == "session_invalid":
+            return AccountActionResponse(
+                account=public, ok=False, code="session_invalid"
             )
-        except MuseError as error:
-            result, failure = error.partial, error
-        now = datetime.now(UTC)
-        updates = {
-            "last_checked_at": now,
-            "last_error": (
-                failure.code if failure else (None if result.ok else result.code)
-            ),
-        }
-        if action == "keep-alive" and failure is None and result.ok:
-            # Only a keep-alive that reached the workspace counts as one.
-            updates["last_keepalive_at"] = now
-        # A partial result whose hatch_sess expired (e.g. during keep-alive)
-        # cannot be stored: keep the previous credentials, record the failure.
-        if result is not None and result.cookies.get("hatch_sess"):
-            # Muse can grow the jar past the stored limit; keep the session.
-            stored_cookies, stored_expiries = limit_cookies(
-                result.cookies, result.expiries
-            )
-            updates.update(
-                encrypted_cookies=vault.encrypt(stored_cookies),
-                session_fingerprint=vault.fingerprint(stored_cookies["hatch_sess"]),
-                cookie_count=len(stored_cookies),
-                cookie_expiries=json.dumps(stored_expiries),
-                expires_at=account_expiry(stored_expiries),
-                credential_version=version + 1,
-            )
-            if result.verified:
-                # Rotated cookies from a failed check are kept, but only a
-                # confirmed session marks the account valid.
-                updates["session_status"] = "valid"
-            if result.quota is not None:
-                updates.update(
-                    quota_json=json.dumps(result.quota), quota_checked_at=now
-                )
-        if failure and failure.code == "session_invalid":
-            updates["session_status"] = "invalid"
-        account = accounts.update_values(session, account_id, updates, version)
-        if account is None:
-            raise account_changed()
-        public = accounts.public_account(account, vault)
-        if failure:
-            if failure.code == "session_invalid":
-                return AccountActionResponse(
-                    account=public, ok=False, code="session_invalid"
-                )
-            raise HTTPException(
-                failure.status,
-                detail={
-                    "code": failure.code,
-                    "message": failure.detail or "The account operation could not be completed.",
-                },
-            ) from None
-        return AccountActionResponse(
-            account=public, ok=result.ok, code=result.code, vm_state=result.vm_state
-        )
+        raise HTTPException(
+            failure.status,
+            detail={
+                "code": failure.code,
+                "message": failure.detail
+                or "The account operation could not be completed.",
+            },
+        ) from None
+    return AccountActionResponse(
+        account=public, ok=result.ok, code=result.code, vm_state=result.vm_state
+    )
 
 
 @router.post("/{account_id}/test", response_model=AccountActionResponse)

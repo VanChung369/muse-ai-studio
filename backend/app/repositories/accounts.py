@@ -1,8 +1,8 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,36 @@ def list_accounts(session: Session) -> list[Account]:
 
 def get_account(session: Session, account_id: str) -> Account | None:
     return session.get(Account, account_id)
+
+
+def sessions_due(
+    session: Session, now: datetime, interval: timedelta, retry_gap: timedelta
+) -> list[str]:
+    """IDs of enabled, verified accounts whose session should be re-checked.
+
+    Due when the last check is older than `interval`, or sooner (every
+    `retry_gap`) while the session would expire before the next regular check.
+    `now` is naive UTC, like the stored timestamps.
+    """
+    return list(
+        session.scalars(
+            select(Account.id)
+            .where(
+                Account.enabled.is_(True),
+                Account.session_status == "valid",
+                or_(
+                    Account.last_checked_at.is_(None),
+                    Account.last_checked_at <= now - interval,
+                    and_(
+                        Account.expires_at > now,
+                        Account.expires_at <= now + interval,
+                        Account.last_checked_at <= now - retry_gap,
+                    ),
+                ),
+            )
+            .order_by(Account.last_checked_at, Account.id)
+        )
+    )
 
 
 def import_account(

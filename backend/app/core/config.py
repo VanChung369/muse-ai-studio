@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Chromium instances at once (generation tasks + a quota check).
     browser_slots: int = 3
     planning_timeout: int = 300
+    # Re-check each enabled, verified account this often so Muse can rotate its
+    # cookies before they expire. 0 turns the background refresher off.
+    session_refresh_minutes: int = 360
+    # Also wake the workspace on each refresh (the "Keep alive" action).
+    session_refresh_wake: bool = False
 
     @field_validator("upstream_url")
     @classmethod

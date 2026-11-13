@@ -1,10 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
+from app.accounts.refresher import SessionRefresher
 from app.api.router import api_router
 from app.core.account_vault import AccountVault
 from app.repositories import accounts
@@ -35,9 +37,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await asyncio.to_thread(prepare_vault)
             # After migrations: a failed migration must not accept tasks.
             await asyncio.to_thread(coordinator.start)
+            refresher.start()
             yield
         finally:
             # Never block the event loop; worker threads are daemons.
+            await asyncio.to_thread(refresher.stop)
             await asyncio.to_thread(coordinator.stop)
             await asyncio.to_thread(database.close)
 
@@ -51,6 +55,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.task_coordinator = coordinator
     app.state.muse_client = MuseClient(settings)
     coordinator.register(PLANNING_KIND, make_script_handler(app))
+    refresher = SessionRefresher(
+        app,
+        timedelta(minutes=settings.session_refresh_minutes),
+        wake=settings.session_refresh_wake,
+    )
+    app.state.session_refresher = refresher
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

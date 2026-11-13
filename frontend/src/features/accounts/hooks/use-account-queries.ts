@@ -10,6 +10,7 @@ import {
   runAccountOperation,
 } from "../api/accounts";
 import { accountKeys } from "../api/query-keys";
+import { ACCOUNT_POLL_INTERVAL_MS } from "../constants";
 import type { AccountImport, AccountList } from "../types";
 
 export function useAccountsQuery() {
@@ -17,6 +18,9 @@ export function useAccountsQuery() {
     queryKey: accountKeys.list,
     queryFn: ({ signal }) => fetchAccounts(signal),
     retry: false,
+    // The server re-checks sessions in the background and tasks update
+    // account health, so keep the list current while the page is open.
+    refetchInterval: ACCOUNT_POLL_INTERVAL_MS,
   });
 }
 

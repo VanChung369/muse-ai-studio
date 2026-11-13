@@ -1,5 +1,6 @@
 export const ACCOUNT_FILTERS = ["all", "enabled", "disabled"] as const;
 export const ACCOUNT_QUERY_KEYS = { SEARCH: "q", FILTER: "status" } as const;
+export const ACCOUNT_POLL_INTERVAL_MS = 30_000;
 // Table columns (design/source/src/Accounts.dc.html).
 export const ACCOUNT_COLUMNS = [
   "account",
