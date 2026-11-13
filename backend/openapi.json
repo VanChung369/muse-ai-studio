@@ -1,0 +1,651 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Muse AI Studio",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "List Projects",
+        "operationId": "list_projects_api_projects_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Case- and accent-insensitive name search.",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Case- and accent-insensitive name search."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["all", "inProgress", "completed", "cancelled"],
+              "type": "string",
+              "default": "all",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["updated", "name", "duration"],
+              "type": "string",
+              "default": "updated",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 24,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`nextCursor` from the previous page.",
+              "title": "Cursor"
+            },
+            "description": "`nextCursor` from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cursor"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create Project",
+        "operationId": "create_project_api_projects_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Get Project",
+        "operationId": "get_project_api_projects__project_id__get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FeaturedProject": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "planning",
+              "ready",
+              "rendering",
+              "cancelling",
+              "cancelled",
+              "failed",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1"],
+            "title": "Aspectratio"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "title": "Durationseconds"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          },
+          "sceneCount": {
+            "type": "integer",
+            "title": "Scenecount",
+            "default": 0
+          },
+          "completedScenes": {
+            "type": "integer",
+            "title": "Completedscenes",
+            "default": 0
+          },
+          "coverTone": {
+            "type": "string",
+            "const": "coffee",
+            "title": "Covertone",
+            "default": "coffee"
+          },
+          "previewScenes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSceneTitle"
+            },
+            "type": "array",
+            "title": "Previewscenes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "aspectRatio",
+          "durationSeconds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "FeaturedProject"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "database": {
+            "type": "string",
+            "const": "ok",
+            "title": "Database",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "ProjectCounts": {
+        "properties": {
+          "all": {
+            "type": "integer",
+            "title": "All"
+          },
+          "inProgress": {
+            "type": "integer",
+            "title": "Inprogress"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled"
+          }
+        },
+        "type": "object",
+        "required": ["all", "inProgress", "completed", "cancelled"],
+        "title": "ProjectCounts"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "idea": {
+            "type": "string",
+            "maxLength": 12000,
+            "title": "Idea",
+            "default": ""
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1"],
+            "title": "Aspectratio",
+            "default": "16:9"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "multipleOf": 5.0,
+            "maximum": 300.0,
+            "minimum": 10.0,
+            "title": "Durationseconds",
+            "default": 60
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "title": "ProjectCreate"
+      },
+      "ProjectListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ProjectCounts"
+          },
+          "featured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeaturedProject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": ["items", "total", "nextCursor", "counts", "featured"],
+        "title": "ProjectListResponse"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "planning",
+              "ready",
+              "rendering",
+              "cancelling",
+              "cancelled",
+              "failed",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1"],
+            "title": "Aspectratio"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "title": "Durationseconds"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          },
+          "sceneCount": {
+            "type": "integer",
+            "title": "Scenecount",
+            "default": 0
+          },
+          "completedScenes": {
+            "type": "integer",
+            "title": "Completedscenes",
+            "default": 0
+          },
+          "coverTone": {
+            "type": "string",
+            "const": "coffee",
+            "title": "Covertone",
+            "default": "coffee"
+          },
+          "idea": {
+            "type": "string",
+            "title": "Idea"
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectScene"
+            },
+            "type": "array",
+            "title": "Scenes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "aspectRatio",
+          "durationSeconds",
+          "createdAt",
+          "updatedAt",
+          "idea"
+        ],
+        "title": "ProjectResponse"
+      },
+      "ProjectScene": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          }
+        },
+        "type": "object",
+        "required": ["number", "title", "prompt"],
+        "title": "ProjectScene"
+      },
+      "ProjectSceneTitle": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": ["number", "title"],
+        "title": "ProjectSceneTitle"
+      },
+      "ProjectSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "planning",
+              "ready",
+              "rendering",
+              "cancelling",
+              "cancelled",
+              "failed",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1"],
+            "title": "Aspectratio"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "title": "Durationseconds"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
+          },
+          "sceneCount": {
+            "type": "integer",
+            "title": "Scenecount",
+            "default": 0
+          },
+          "completedScenes": {
+            "type": "integer",
+            "title": "Completedscenes",
+            "default": 0
+          },
+          "coverTone": {
+            "type": "string",
+            "const": "coffee",
+            "title": "Covertone",
+            "default": "coffee"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "aspectRatio",
+          "durationSeconds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "ProjectSummary",
+        "description": "Fields a project card needs. Excludes `idea` and `scenes`, which can be\nlarge; fetch `GET /api/projects/{id}` for the full project."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

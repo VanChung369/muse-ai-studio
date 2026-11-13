@@ -3,13 +3,13 @@ import { Clapperboard } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { PROJECT_COVER_CLASSES } from "../constants";
-import type { Project } from "../types";
+import type { ProjectSummary } from "../types";
 
 export function ProjectCover({
   project,
   className,
 }: {
-  project: Project;
+  project: ProjectSummary;
   className?: string;
 }) {
   return (

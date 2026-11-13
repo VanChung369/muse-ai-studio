@@ -1,6 +1,6 @@
 # Muse AI Studio — Backend
 
-FastAPI backend scaffold with Pydantic settings, SQLite, SQLAlchemy, and Alembic. This stage provides configuration, database initialization, and a health endpoint. Product endpoints, Muse integration, and the task coordinator will be added later.
+FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation and project details. Muse integration and the task coordinator will be added later.
 
 ## Requirements
 
@@ -48,7 +48,7 @@ uv run alembic upgrade head
 uv run alembic check
 ```
 
-The baseline only initializes migration history; there are no product tables yet. Future models should inherit from `app.db.base.Base` and be imported in `migrations/env.py` before generating a migration:
+Migration `0001_baseline` initializes migration history; `0002_projects` creates the projects table and validation constraints; `0003_project_list_pagination` adds the normalized `name_key` column (backfilled for existing rows) and the indexes used by paginated project lists. Existing baseline databases upgrade on startup. Future models should inherit from `app.db.base.Base` and be imported in `migrations/env.py` before generating a migration:
 
 ```bash
 uv run alembic revision --autogenerate -m "Describe the schema change"
@@ -64,7 +64,10 @@ app/
   api/
     router.py         API route registration
     dependencies.py   Request-scoped database sessions
-    routes/health.py  Health endpoint and response schema
+    routes/           Health and project endpoints
+  models/project.py   SQLAlchemy project model
+  schemas/project.py  Request and response contracts
+  repositories/       Project queries and transaction handling
   core/config.py      Environment settings and stable data paths
   db/
     base.py           SQLAlchemy model base
@@ -72,4 +75,20 @@ app/
 migrations/           Alembic environment and migration history
 ```
 
-`httpx2` and `pytest` are included in the development dependency group for future API checks. This scaffold does not call external services.
+## Project API
+
+- `GET /api/projects`: list projects, most recently updated first.
+- `POST /api/projects`: create a draft; returns HTTP 201 with a `Location` header.
+- `GET /api/projects/{id}`: retrieve one project; unknown IDs return HTTP 404.
+
+Names are required and trimmed. Duration must be an integer from 10 to 300 in steps of 5; aspect ratios are `16:9`, `9:16`, or `1:1`. A new database contains no sample projects. Browser demo data from the previous UI is not imported. The current API serves local development without authentication and does not call external services.
+
+See [the API contract](api-contract.md) for payloads and errors. FastAPI's live OpenAPI schema is authoritative; `openapi.json` is its committed snapshot.
+
+## Validation
+
+```bash
+uv run --locked pytest -q
+```
+
+Tests use isolated temporary databases and cover validation, empty state, draft creation, detail lookup, restart persistence, baseline migration, model consistency, and the OpenAPI snapshot. They do not write to the development database.

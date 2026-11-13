@@ -4,6 +4,7 @@ from sqlalchemy.engine import Connection
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.session import Database
+import app.models  # Register all models before comparing migration metadata.
 
 config = context.config
 target_metadata = Base.metadata

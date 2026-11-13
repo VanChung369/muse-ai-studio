@@ -99,11 +99,10 @@
   "common": {
     "close": "Close",
     "cancel": "Cancel",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "retry": "Try again"
   },
   "projects": {
-    "demoBadge": "DEMO DATA",
-    "demoDescription": "Sample projects stored in this browser.",
     "newProject": "New project",
     "allProjects": "All projects",
     "filterLabel": "Filter by project status",
@@ -161,7 +160,7 @@
       "title": "Project details",
       "description": "Project overview and script preview.",
       "missingTitle": "Project not found",
-      "missingDescription": "This project is no longer available in this browser.",
+      "missingDescription": "This project does not exist or is no longer available.",
       "idea": "Story idea",
       "duration": "Duration",
       "ratio": "Aspect ratio",
@@ -171,7 +170,8 @@
       "scene": "Scene {{number}}",
       "noScript": "This project has no script yet.",
       "noIdea": "No story idea has been added.",
-      "previewNote": "Sample project. Video playback is not available in this preview."
+      "previewNote": "No video has been generated for this project yet.",
+      "loadError": "Could not load this project. Please try again."
     },
     "form": {
       "title": "New project",
@@ -191,7 +191,15 @@
         "idea": "Keep the story idea under 12,000 characters.",
         "durationSeconds": "Use 10–300 seconds in increments of 5.",
         "aspectRatio": "Choose a supported aspect ratio."
-      }
+      },
+      "saving": "Saving…",
+      "saveError": "Could not confirm that the draft was saved. Your input is preserved. Check the project list before retrying."
+    },
+    "loadError": "Could not load projects. Check the connection and try again.",
+    "pagination": {
+      "loadMore": "Load more",
+      "showing": "Showing {{shown}} of {{total}} projects",
+      "loadMoreError": "Could not load more projects."
     }
   }
 }

@@ -7,13 +7,13 @@ import { formatRelativeTime } from "@/lib/format";
 import { ProjectCover } from "./project-cover";
 import { ProjectProgress } from "./project-progress";
 import { ProjectStatusBadge } from "./project-status-badge";
-import type { Project } from "../types";
+import type { ProjectSummary } from "../types";
 
 export function ProjectCard({
   project,
   onOpen,
 }: {
-  project: Project;
+  project: ProjectSummary;
   onOpen: (id: string) => void;
 }) {
   const { t } = useTranslation();

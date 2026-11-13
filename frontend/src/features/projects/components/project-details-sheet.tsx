@@ -1,6 +1,7 @@
 import { Clapperboard } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -20,6 +21,11 @@ import type { Project } from "../types";
 type Props = {
   project: Project | undefined;
   open: boolean;
+  isLoading: boolean;
+  isMissing: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  onRetry: () => void;
   onClose: () => void;
   onCloseAutoFocus: (event: Event) => void;
 };
@@ -27,6 +33,11 @@ type Props = {
 export function ProjectDetailsSheet({
   project,
   open,
+  isLoading,
+  isMissing,
+  isError,
+  isFetching,
+  onRetry,
   onClose,
   onCloseAutoFocus,
 }: Props) {
@@ -47,19 +58,28 @@ export function ProjectDetailsSheet({
         <SheetHeader className="border-b px-6 py-5 pr-12">
           <SheetTitle className="text-base font-semibold">
             {t(
-              project
-                ? "projects.details.title"
-                : "projects.details.missingTitle",
+              isMissing
+                ? "projects.details.missingTitle"
+                : "projects.details.title",
             )}
           </SheetTitle>
           <SheetDescription className="mt-1 text-xs">
             {t(
-              project
-                ? "projects.details.description"
-                : "projects.details.missingDescription",
+              isMissing
+                ? "projects.details.missingDescription"
+                : "projects.details.description",
             )}
           </SheetDescription>
         </SheetHeader>
+        {isLoading && <PageLoading />}
+        {isError && (
+          <div role="alert" className="space-y-3 p-6">
+            <p className="text-sm text-muted-foreground">{t("projects.details.loadError")}</p>
+            <Button variant="outline" disabled={isFetching} onClick={onRetry}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        )}
         {project && (
           <div className="space-y-6 p-6">
             <div>

@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
-import type { Project } from "../types";
+import type { ProjectSummary } from "../types";
 
-export function ProjectProgress({ project }: { project: Project }) {
+export function ProjectProgress({ project }: { project: ProjectSummary }) {
   const { t } = useTranslation();
 
   return (

@@ -6,13 +6,13 @@ import { useLanguage } from "@/hooks/use-language";
 import { useNow } from "@/hooks/use-now";
 import { formatDuration, formatRelativeTime } from "@/lib/format";
 import { ProjectStatusBadge } from "./project-status-badge";
-import type { Project } from "../types";
+import type { FeaturedProject as FeaturedProjectData } from "../types";
 
 export function FeaturedProject({
   project,
   onOpen,
 }: {
-  project: Project;
+  project: FeaturedProjectData;
   onOpen: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -28,8 +28,8 @@ export function FeaturedProject({
         aria-hidden="true"
         className="grid grid-cols-3 gap-2 border-b p-4 desktop:border-r desktop:border-b-0"
       >
-        {project.scenes.length > 0 ? (
-          project.scenes.slice(0, 6).map((scene) => (
+        {project.previewScenes.length > 0 ? (
+          project.previewScenes.map((scene) => (
             <div
               key={scene.number}
               className="flex aspect-video min-w-0 flex-col justify-end gap-1 rounded-lg border border-input bg-secondary p-2"

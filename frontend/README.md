@@ -1,6 +1,6 @@
 # Muse AI Studio — Frontend
 
-React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list with browser-local demo data. Other feature pages remain placeholders; backend integration comes next.
+React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list connected to the FastAPI backend and SQLite. Other feature pages remain placeholders.
 
 ## Development
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite in the terminal (defaults to `http://localhost:5173`).
+Start the backend in a second terminal (see [backend setup](../backend/README.md)), then open the URL printed by Vite (defaults to `http://localhost:5173`). Vite proxies `/api` to `http://127.0.0.1:18610`. To use a different backend, copy `.env.example` to `.env` and set `MUSE_API_TARGET`; restart Vite after changing it. This variable configures the development proxy and is not a client credential.
 
 ## Type Checking and Production Build
 
@@ -20,7 +20,7 @@ npm run typecheck
 npm run build
 ```
 
-The production build is written to `dist/`. Run `npm run preview` to preview it locally. The planned deployment will serve these files through FastAPI in the same application container.
+The production build is written to `dist/`. `npm run preview` previews the static bundle; it does not provide the development API proxy. The planned deployment will serve these files through FastAPI in the same application container.
 
 ## Libraries
 
@@ -53,33 +53,34 @@ npx shadcn@latest add button
 - Theme tokens in `src/index.css` mirror `design/design-system/muse.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
 - `src/components/ui/button.tsx` uses the design button sizes (36px default, 44px on phones) and variants, including `danger` for solid destructive actions in dialogs.
 
-The frontend currently makes no API requests. The project list explicitly labels its sample data; the global shell does not report simulated task or account counts.
+The project list uses the real local API. The global shell does not report simulated task or account counts.
 
 ## Video Studio Project List
 
-- `/projects` loads the project-list feature on demand, with six fictional sample projects.
-- Search is case- and accent-insensitive. Status filters show counts across the full collection, and sorting supports recent updates, name, and longest duration first.
+- `/projects` loads the project-list feature on demand, using `GET /api/projects`. A fresh database starts empty.
+- The list loads 24 projects per request from `GET /api/projects` and shows a "Load more" button with "Showing X of Y"; focus moves to the first newly loaded card. Search (debounced 250 ms), status filters, sorting, chip counts, and the featured project are computed by the server, so they cover every project, not only loaded pages. Search is case- and accent-insensitive. Sorting supports recent updates, name, and longest duration first.
 - Search, status, sorting, and the selected project use the `q`, `status`, `sort`, and `project` query parameters, so the view can be refreshed or shared.
-- Project cards and the featured project open a detail sheet with metadata, the story idea, and available sample scene prompts. Missing project IDs have a dedicated state.
-- **New project** creates a local demo draft using React Hook Form and Zod. Names, duration, and aspect ratio are validated. Drafts persist across reloads under `STORAGE_KEYS.DEMO_PROJECTS` and can be inspected through the detail sheet.
-- The demo does not generate scripts, render videos, contact Muse, or consume quota. There is no video playback for these sample projects.
-- Project names, ideas, and scene prompts are example user content; switching interface language does not translate that content.
+- Project cards and the featured project open a detail sheet with metadata, the story idea, and available scene prompts via `GET /api/projects/{id}`. Loading, connection failures, and missing projects have separate states with retry controls.
+- **New project** uses React Hook Form and Zod, then saves with `POST /api/projects`. SQLite persists drafts across page reloads and backend restarts. A failed save preserves the form input. Submitting disables dismissal and duplicate submits; writes are never retried automatically.
+- Script generation, video rendering, Muse connectivity, and video playback are not implemented yet.
+- Project names, ideas, and scene prompts are user content; switching interface language does not translate that content.
 
 Feature structure:
 
 ```text
 src/features/projects/
   components/            Cards, filters, featured project, draft dialog, detail sheet
-  data/demo-projects.ts  Fictional sample data
-  hooks/use-project-list.ts
-  lib/project-list.ts    Filtering, sorting, validation, and draft creation helpers
+  api/                  Typed API parsing and query keys
+  data/demo-projects.ts  Inactive reference fixtures
+  hooks/                Server queries/mutation and view state
+  lib/project-list.ts    Query-parameter parsing for filter and sort
   constants.ts          Statuses, filter/sort options, query keys, and cover styles
-  schemas.ts            Zod schemas for drafts and persisted demo projects
+  schemas.ts            Zod schemas for drafts and API project responses
   types.ts              Shared project types
 src/pages/projects-page.tsx
 ```
 
-Runtime demo persistence is intentionally separate from the planned backend API. This boundary can be replaced with server queries and mutations without moving business logic into page markup.
+TanStack Query manages server data and cache updates; the project list uses `useInfiniteQuery` with the API's `nextCursor`. List items are summaries without `idea` and `scenes`; the detail sheet fetches the full project. Existing browser demo data is left untouched and is not automatically imported into SQLite. Only UI preferences continue to use local storage. API paths live in `src/constants/api.ts`, separately from frontend routes.
 
 ## Code Conventions
 

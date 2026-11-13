@@ -1,49 +1,69 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { STORAGE_KEYS } from "@/constants/storage";
-import { useLanguage } from "@/hooks/use-language";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { ApiError } from "@/lib/http";
 
 import { PROJECT_QUERY_KEYS } from "../constants";
-import { DEMO_PROJECTS } from "../data/demo-projects";
 import {
-  createProjectDraft,
-  getFeaturedProject,
-  getProjectCounts,
-  getVisibleProjects,
-  readDemoProjects,
-  resolveProjectFilter,
-  resolveProjectSort,
-} from "../lib/project-list";
+  useCreateProject,
+  useProjectQuery,
+  useProjectsQuery,
+} from "./use-project-queries";
+import { resolveProjectFilter, resolveProjectSort } from "../lib/project-list";
 import type {
   Project,
   ProjectDraft,
   ProjectFilter,
   ProjectSort,
+  ProjectSummary,
 } from "../types";
 
+const SEARCH_DEBOUNCE_MS = 250;
+const NO_COUNTS: Record<ProjectFilter, number> = {
+  all: 0,
+  inProgress: 0,
+  completed: 0,
+  cancelled: 0,
+};
+
 export function useProjectList() {
-  const [language] = useLanguage();
   const navigate = useNavigate();
-  const [storedProjects, setStoredProjects] = useLocalStorage(
-    STORAGE_KEYS.DEMO_PROJECTS,
-    DEMO_PROJECTS,
-  );
+  const createMutation = useCreateProject();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpenState] = useState(false);
   const projectTriggerRef = useRef<HTMLElement | null>(null);
   // True when the open sheet added its own history entry, so closing it can
   // step back instead of leaving a duplicate /projects entry behind.
   const sheetPushedHistory = useRef(false);
   const [lastCreated, setLastCreated] = useState<Project | null>(null);
-  const projects = readDemoProjects(storedProjects, DEMO_PROJECTS);
   const query = searchParams.get(PROJECT_QUERY_KEYS.SEARCH) ?? "";
   const filter = resolveProjectFilter(
     searchParams.get(PROJECT_QUERY_KEYS.FILTER),
   );
   const sort = resolveProjectSort(searchParams.get(PROJECT_QUERY_KEYS.SORT));
+  // The input updates on every keystroke; the request waits for a pause.
+  const debouncedQuery = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
+  const projectsQuery = useProjectsQuery({
+    q: debouncedQuery,
+    status: filter,
+    sort,
+  });
+  const pages = projectsQuery.data?.pages ?? [];
+  const firstPage = pages[0];
+  // Keyset pages never overlap, but a refetch after a create can race with
+  // "Load more"; drop duplicates defensively.
+  const seen = new Set<string>();
+  const projects: ProjectSummary[] = pages
+    .flatMap((page) => page.items)
+    .filter((project) => !seen.has(project.id) && seen.add(project.id));
   const selectedId = searchParams.get(PROJECT_QUERY_KEYS.SELECTED);
+  const projectQuery = useProjectQuery(selectedId);
+
+  function setCreateOpen(next: boolean) {
+    createMutation.reset();
+    setCreateOpenState(next);
+  }
 
   useEffect(() => {
     // Browser Back/Forward can close the sheet without closeProject().
@@ -114,12 +134,10 @@ export function useProjectList() {
     else document.getElementById("main-content")?.focus();
   }
 
-  function createDraft(values: ProjectDraft) {
-    const project = createProjectDraft(values);
-    // Keep stored entries as they are, including ones that fail validation,
-    // so a schema mismatch never erases earlier drafts.
-    setStoredProjects((previous) => [project, ...previous]);
-    setCreateOpen(false);
+  async function createDraft(values: ProjectDraft) {
+    setLastCreated(null);
+    const project = await createMutation.mutateAsync(values);
+    setCreateOpenState(false);
     setLastCreated(project);
     setSearchParams(
       (previous) => {
@@ -143,16 +161,43 @@ export function useProjectList() {
     setCreateOpen,
     selectedId,
     lastCreated,
-    selectedProject: projects.find((project) => project.id === selectedId),
-    visibleProjects: getVisibleProjects(
-      projects,
-      query,
-      filter,
-      sort,
-      language,
-    ),
-    featuredProject: getFeaturedProject(projects),
-    counts: getProjectCounts(projects),
+    selectedProject: projectQuery.isError ? undefined : projectQuery.data,
+    isLoading: projectsQuery.isPending,
+    // Failures of "Load more" are reported separately (loadMoreError) so the
+    // pages already loaded stay usable.
+    isError: projectsQuery.isError && !projectsQuery.isFetchNextPageError,
+    hasData: projectsQuery.data !== undefined,
+    isFetching: projectsQuery.isFetching,
+    retryProjects: () => {
+      void projectsQuery.refetch();
+    },
+    createError: createMutation.isError,
+    detailLoading: Boolean(selectedId) && projectQuery.isPending,
+    detailMissing:
+      projectQuery.error instanceof ApiError &&
+      projectQuery.error.status === 404,
+    detailError:
+      projectQuery.isError &&
+      !(
+        projectQuery.error instanceof ApiError &&
+        projectQuery.error.status === 404
+      ),
+    detailFetching: projectQuery.isFetching,
+    retryProject: () => {
+      void projectQuery.refetch();
+    },
+    // Matching projects across all pages, for "Showing X of Y".
+    total: firstPage?.total ?? 0,
+    featuredProject: firstPage?.featured ?? undefined,
+    counts: firstPage?.counts ?? NO_COUNTS,
+    hasMore: projectsQuery.hasNextPage,
+    loadMore: () => {
+      if (!projectsQuery.isFetchingNextPage) void projectsQuery.fetchNextPage();
+    },
+    isLoadingMore: projectsQuery.isFetchingNextPage,
+    loadMoreError: projectsQuery.isFetchNextPageError,
+    // A new search, filter, or sort is loading while the previous grid stays.
+    isUpdating: projectsQuery.isPlaceholderData,
     setQuery: (value: string) =>
       updateParameter(PROJECT_QUERY_KEYS.SEARCH, value),
     setFilter: (value: ProjectFilter) =>

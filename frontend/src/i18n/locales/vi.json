@@ -99,11 +99,10 @@
   "common": {
     "close": "Đóng",
     "cancel": "Hủy",
-    "loading": "Đang tải…"
+    "loading": "Đang tải…",
+    "retry": "Thử lại"
   },
   "projects": {
-    "demoBadge": "DỮ LIỆU DEMO",
-    "demoDescription": "Dự án mẫu được lưu trong trình duyệt này.",
     "newProject": "Dự án mới",
     "allProjects": "Tất cả dự án",
     "filterLabel": "Lọc theo trạng thái dự án",
@@ -161,7 +160,7 @@
       "title": "Chi tiết dự án",
       "description": "Thông tin dự án và bản xem trước kịch bản.",
       "missingTitle": "Không tìm thấy dự án",
-      "missingDescription": "Dự án này không còn trong trình duyệt hiện tại.",
+      "missingDescription": "Dự án này không tồn tại hoặc không còn khả dụng.",
       "idea": "Ý tưởng câu chuyện",
       "duration": "Thời lượng",
       "ratio": "Tỉ lệ khung hình",
@@ -171,7 +170,8 @@
       "scene": "Cảnh {{number}}",
       "noScript": "Dự án này chưa có kịch bản.",
       "noIdea": "Chưa có ý tưởng câu chuyện.",
-      "previewNote": "Dự án mẫu. Bản xem trước này chưa có video để phát."
+      "previewNote": "Dự án này chưa có video được tạo.",
+      "loadError": "Không tải được dự án này. Vui lòng thử lại."
     },
     "form": {
       "title": "Dự án mới",
@@ -191,7 +191,15 @@
         "idea": "Ý tưởng câu chuyện không quá 12.000 ký tự.",
         "durationSeconds": "Chọn 10–300 giây, theo bước 5 giây.",
         "aspectRatio": "Chọn tỉ lệ khung hình được hỗ trợ."
-      }
+      },
+      "saving": "Đang lưu…",
+      "saveError": "Chưa xác nhận được bản nháp đã lưu. Nội dung nhập vẫn được giữ. Kiểm tra danh sách dự án trước khi thử lại."
+    },
+    "loadError": "Không tải được dự án. Kiểm tra kết nối và thử lại.",
+    "pagination": {
+      "loadMore": "Tải thêm",
+      "showing": "Đang hiển thị {{shown}}/{{total}} dự án",
+      "loadMoreError": "Không tải được thêm dự án."
     }
   }
 }

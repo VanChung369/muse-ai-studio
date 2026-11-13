@@ -32,6 +32,9 @@ export const PROJECT_ERROR_CODES = [
   "unknown",
 ] as const;
 
+// Projects per request; matches the backend default.
+export const PROJECT_PAGE_SIZE = 24;
+
 export const PROJECT_QUERY_KEYS = {
   SEARCH: "q",
   FILTER: "status",
