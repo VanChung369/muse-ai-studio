@@ -14,6 +14,7 @@ import {
   fetchProject,
   fetchProjects,
   saveProjectScript,
+  updateProject,
 } from "../api/projects";
 import { projectKeys } from "../api/query-keys";
 import type { ProjectListParams } from "../types";
@@ -55,6 +56,25 @@ export function useCreateProject() {
   });
 }
 
+export function useUpdateProject() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateProject,
+    retry: false,
+    onSuccess: (project) => {
+      client.setQueryData(projectKeys.detail(project.id), project);
+      void client.invalidateQueries({ queryKey: projectKeys.lists });
+    },
+    onError: (error, { id }) => {
+      // A refusal means the project moved on (a render started, a script was
+      // saved): show what it is now.
+      if (error instanceof ApiError && error.status === 409)
+        void client.invalidateQueries({ queryKey: projectKeys.detail(id) });
+    },
+  });
+}
+
 export function useSaveProjectScript() {
   const client = useQueryClient();
 
@@ -75,7 +95,6 @@ export function useSaveProjectScript() {
   });
 }
 
-
 export function useDeleteProject() {
   const client = useQueryClient();
 
@@ -83,7 +102,10 @@ export function useDeleteProject() {
     mutationFn: deleteProject,
     retry: false,
     onSuccess: async (_, id) => {
-      await client.cancelQueries({ queryKey: projectKeys.detail(id), exact: true });
+      await client.cancelQueries({
+        queryKey: projectKeys.detail(id),
+        exact: true,
+      });
       client.removeQueries({ queryKey: projectKeys.detail(id), exact: true });
       // Reset page boundaries and remove deleted cards even if a later list
       // refresh fails. The active view reloads from the first page.

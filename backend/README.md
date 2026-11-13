@@ -106,6 +106,10 @@ Credentials are encrypted with Fernet before they enter SQLite. Startup creates 
 
 `POST /api/projects/{id}/render` renders every scene through Muse, one after another, then merges the clips with FFmpeg. Each scene is one `render_scene` task that depends on the previous one; the last task, `merge_video`, needs no account. A failed or cancelled scene holds back the rest of the chain until `POST /api/projects/{id}/render/resume` (or a task-level retry). `app/rendering/tasks.py` derives the project status from the chain wherever a task changes.
 
+One project is rendered in one Muse conversation: the first scene opens it and the next ones continue it on the same account (`Project.muse_thread_path`), up to `MUSE_THREAD_SCENE_LIMIT` scenes (default 12). Our own message is found on the page by a short label it starts with (`[shot-xxxxxxxx]`), and only what follows it counts as that scene's result, because a conversation that already holds earlier scenes renders them lazily.
+
+`app/rendering/prompt.py` builds each scene's prompt from the scene, the project's shared style and characters, its `look` and its `continuity` mode; with continuity on, the previous scene's last frame is attached to the message.
+
 Clips are stored under `data/media/projects/<project id>/` (`scene-01.mp4`, ..., `final.mp4`) and served by `GET /api/projects/{id}/scenes/{number}/video` and `GET /api/projects/{id}/video`. Back them up with the database.
 
 Merging needs an `ffmpeg` binary on `PATH`, or `MUSE_FFMPEG_PATH`. Without it the scenes still render and the merge task fails with `ffmpeg_unavailable`; install FFmpeg and resume. `MUSE_RENDER_TIMEOUT` (default 600 seconds) is how long one scene may take; it is extended while Muse is visibly still working. A scene prompt is the scene's own prompt plus the project's visual style and character description; narration is not sent yet.

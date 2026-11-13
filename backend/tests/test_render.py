@@ -32,6 +32,10 @@ class Muse:
 
     def __init__(self):
         self.prompts = []
+        self.references = []  # The frame attached to each call, or None.
+        self.threads = []  # The conversation each call was asked to continue.
+        self.accounts = []  # hatch_sess of the account each call ran on.
+        self.new_threads = 0
         self.failures = {}  # call number (from 1) -> MuseError
         self.gate = None  # Blocks a call until set, to observe "running".
         self.entered = threading.Event()
@@ -39,6 +43,9 @@ class Muse:
 
     def __call__(self, client, cookies, expiries, proxy, prompt, **hooks):
         self.prompts.append(prompt)
+        self.references.append(hooks.get("reference"))
+        self.threads.append(hooks.get("thread_path"))
+        self.accounts.append(cookies["hatch_sess"])
         call = len(self.prompts)
         hooks["before_send"](None)
         self.entered.set()
@@ -51,7 +58,14 @@ class Muse:
                 time.sleep(0.01)
         if call in self.failures:
             raise self.failures[call]
-        return GeneratedVideo(f"clip-{call}".encode(), "video/mp4", 1280, 720)
+        thread = hooks.get("thread_path")
+        if thread is None:
+            # Muse opens a new conversation for the first message.
+            self.new_threads += 1
+            thread = f"/thread/t-{self.new_threads}"
+        return GeneratedVideo(
+            f"clip-{call}".encode(), "video/mp4", 1280, 720, thread_path=thread
+        )
 
 
 @pytest.fixture
@@ -70,6 +84,10 @@ def ffmpeg(monkeypatch):
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
     monkeypatch.setattr("app.rendering.tasks.merge", merge)
+    monkeypatch.setattr(
+        "app.rendering.tasks.last_frame",
+        lambda binary, clip: b"frame-of-" + clip.read_bytes(),
+    )
 
 
 def add_account(client, value="render-fixture", verified=True):
@@ -158,6 +176,12 @@ def test_render_runs_every_scene_in_order_then_merges(client, muse, ffmpeg):
     assert "5 seconds long" in muse.prompts[1]
     assert "Visual style: Warm morning light" in muse.prompts[0]
     assert "Recurring characters: Lan, a farmer in a blue shirt" in muse.prompts[0]
+    assert "Quality: " in muse.prompts[0] and "Look: " not in muse.prompts[0]
+    # From scene 2 on, the previous scene's last frame rides along.
+    assert muse.references == [None, b"frame-of-clip-1"]
+    assert "Continuity: " not in muse.prompts[0]
+    assert "Use it as a visual reference" in muse.prompts[1]
+    assert "Previous shot: Lan walks into the field" in muse.prompts[1]
 
     clip = client.get(done["scenes"][1]["videoUrl"])
     assert clip.status_code == 200 and clip.content == b"clip-2"
@@ -258,6 +282,8 @@ def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: None)
     add_account(client)
     project = add_project(client)
+    # Without continuity no scene needs a frame of the one before it.
+    client.patch(f"/api/projects/{project['id']}", json={"continuity": "off"})
     path = f"/api/projects/{project['id']}/render"
     client.post(path)
 
@@ -275,6 +301,228 @@ def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
     done = wait_status(client, project["id"], "completed")
     assert client.get(done["videoUrl"]).content == b"merged"
     assert len(muse.prompts) == 2  # No scene was generated again.
+
+
+def test_continuity_needs_ffmpeg_before_anything_is_sent(client, muse, monkeypatch):
+    monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: None)
+    add_account(client)
+    project = add_project(client)
+    client.post(f"/api/projects/{project['id']}/render")
+
+    failed = wait_status(client, project["id"], "failed")
+    assert failed["scenes"][0]["task"]["status"] == "succeeded"
+    second = failed["scenes"][1]["task"]
+    assert second["error"]["code"] == "ffmpeg_unavailable"
+    # Scene 2 was never sent to Muse, so no generation was spent on it.
+    assert len(muse.prompts) == 1 and not second["submitted"]
+
+
+def test_look_and_continuity_shape_every_scene_prompt(client, muse, ffmpeg):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    saved = client.patch(path, json={"look": "realistic", "continuity": "seamless"})
+    assert saved.status_code == 200
+    assert (saved.json()["look"], saved.json()["continuity"]) == ("realistic", "seamless")
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+
+    assert all("Look: Photorealistic live-action footage" in p for p in muse.prompts)
+    assert "Begin this shot on exactly that frame" in muse.prompts[1]
+    assert muse.references[1] == b"frame-of-clip-1"
+
+
+def test_restart_redoes_one_scene_and_everything_after_it(client, muse, ffmpeg, settings):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    restart = path + "/render/restart"
+    assert client.post(restart, json={"fromScene": 1}).status_code == 409  # Never rendered.
+    client.post(path + "/render")
+    done = wait_status(client, project["id"], "completed")
+    first_clip = client.get(done["scenes"][0]["videoUrl"]).content
+
+    assert client.post(restart, json={"fromScene": 3}).status_code == 409  # No such scene.
+    assert client.post(restart, json={"fromScene": 0}).status_code == 422
+    # A new look for the redone part of the film.
+    assert client.patch(path, json={"look": "cinematic"}).status_code == 200
+    restarted = client.post(restart, json={"fromScene": 2})
+    assert restarted.status_code == 200
+    state = restarted.json()
+    assert state["status"] == "rendering" and state["completedScenes"] == 1
+    assert state["videoUrl"] is None and state["scenes"][1]["videoUrl"] is None
+    assert state["scenes"][0]["task"]["status"] == "succeeded"
+
+    done = wait_status(client, project["id"], "completed")
+    assert len(muse.prompts) == 3  # Scene 1 was kept; only scene 2 was sent again.
+    assert "Look: Cinematic feature-film look" in muse.prompts[2]
+    assert client.get(done["scenes"][0]["videoUrl"]).content == first_clip
+    assert client.get(done["scenes"][1]["videoUrl"]).content == b"clip-3"
+    assert client.get(done["videoUrl"]).content == b"clip-1|clip-3"
+
+    # From scene 1: the whole film.
+    assert client.post(restart, json={"fromScene": 1}).status_code == 200
+    folder = settings.media_dir / "projects" / project["id"]
+    done = wait_status(client, project["id"], "completed")
+    assert len(muse.prompts) == 5
+    assert sorted(file.name for file in folder.iterdir()) == [
+        "final.mp4",
+        "scene-01.mp4",
+        "scene-02.mp4",
+    ]
+
+
+def test_restart_needs_every_earlier_scene(client, muse, ffmpeg):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    muse.failures[1] = MuseError("generation_refused")
+    client.post(path + "/render")
+    wait_status(client, project["id"], "failed")
+    refused = client.post(path + "/render/restart", json={"fromScene": 2})
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["code"] == "render_not_restartable"
+    assert render(client, project["id"])["status"] == "failed"
+    assert client.post(path + "/render/restart", json={"fromScene": 1}).status_code == 200
+    assert wait_status(client, project["id"], "completed")["completedScenes"] == 2
+
+
+def test_project_brief_can_change_until_a_render_starts(client, muse, ffmpeg):
+    add_account(client)
+    assert client.patch("/api/projects/missing", json={"name": "x"}).status_code == 404
+    draft = add_project(client, scripted=False)
+    path = f"/api/projects/{draft['id']}"
+    changed = client.patch(
+        path,
+        json={"name": "  Tea film  ", "aspectRatio": "9:16", "durationSeconds": 30, "idea": "New idea"},
+    )
+    assert changed.status_code == 200
+    body = changed.json()
+    assert (body["name"], body["aspectRatio"], body["durationSeconds"], body["idea"]) == (
+        "Tea film", "9:16", 30, "New idea",
+    )  # fmt: skip
+    assert body["status"] == "draft" and body["updatedAt"] >= draft["updatedAt"]
+    # The renamed project is found by its new name.
+    assert client.get("/api/projects", params={"q": "tea"}).json()["total"] == 1
+    for invalid in ({"name": " "}, {"aspectRatio": "4:3"}, {"durationSeconds": 12},
+                    {"look": "noir"}, {"name": None}, {"status": "ready"}):  # fmt: skip
+        assert client.patch(path, json=invalid).status_code == 422, invalid
+    assert client.patch(path, json={}).json() == body
+
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    # A saved script adds up to 15 seconds: the ratio can change, the length cannot.
+    assert client.patch(path, json={"aspectRatio": "1:1"}).status_code == 200
+    locked = client.patch(path, json={"durationSeconds": 20})
+    assert locked.status_code == 409
+    assert locked.json()["detail"]["code"] == "duration_locked"
+    assert client.patch(path, json={"durationSeconds": 15}).status_code == 200
+    # Agreeing to drop the script makes room for another length.
+    reset = client.patch(path, json={"durationSeconds": 20, "discardScript": True}).json()
+    assert (reset["durationSeconds"], reset["status"], reset["sceneCount"]) == (20, "draft", 0)
+    assert reset["scenes"] == [] and reset["scriptRevision"] == project["scriptRevision"] + 1
+    # The same length keeps a script even when discarding was allowed.
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    kept = client.patch(
+        path,
+        json={"durationSeconds": 15, "discardScript": True, "aspectRatio": "1:1"},
+    ).json()
+    assert kept["sceneCount"] == 2 and kept["status"] == "ready"
+
+    muse.gate = threading.Event()
+    client.post(path + "/render")
+    assert muse.entered.wait(5)
+    busy = client.patch(path, json={"look": "anime"})
+    assert busy.status_code == 409 and busy.json()["detail"]["code"] == "project_busy"
+    muse.gate.set()
+    wait_status(client, project["id"], "completed")
+    after = client.patch(path, json={"name": "Renamed"})
+    assert after.status_code == 409 and after.json()["detail"]["code"] == "project_locked"
+    # Render options still apply to a later "render again".
+    assert client.patch(path, json={"look": "anime", "continuity": "off"}).status_code == 200
+    assert "1:1" in muse.prompts[0]
+
+
+def test_a_film_is_rendered_in_one_conversation_on_one_account(client, muse, ffmpeg):
+    add_account(client, "first-fixture")
+    add_account(client, "second-fixture")
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+
+    # Scene 1 opens the conversation; scene 2 continues it on the same account
+    # even though another account was free.
+    assert muse.threads == [None, "/thread/t-1"]
+    assert len(set(muse.accounts)) == 1
+    assert "This is shot 2 of the same film" in muse.prompts[1]
+    assert "same film as the earlier shots" not in muse.prompts[0]
+
+    # Rendering again starts a fresh conversation, so Muse does not hand back
+    # the clips it already made.
+    client.post(path + "/render/restart", json={"fromScene": 1})
+    wait_status(client, project["id"], "completed")
+    assert muse.threads[2:] == [None, "/thread/t-2"]
+
+
+def test_long_film_starts_a_new_conversation_at_the_limit(settings, muse, ffmpeg):
+    settings.thread_scene_limit = 1
+    app = create_app(settings)
+    app.state.task_coordinator.poll_interval = 0.02
+    with TestClient(app) as client:
+        add_account(client)
+        project = add_project(client)
+        client.post(f"/api/projects/{project['id']}/render")
+        wait_status(client, project["id"], "completed")
+    assert muse.threads == [None, None]
+    assert "same film as the earlier shots" not in muse.prompts[1]
+    # The reference frame still carries the look across conversations.
+    assert muse.references[1] == b"frame-of-clip-1"
+
+
+def test_account_problem_moves_the_rest_of_the_film_to_another_account(client, muse, ffmpeg):
+    add_account(client, "first-fixture")
+    add_account(client, "second-fixture")
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}/render"
+    muse.failures[2] = MuseError("quota_exhausted", 429)
+    client.post(path)
+    wait_status(client, project["id"], "failed")
+    client.post(path + "/resume")
+    wait_status(client, project["id"], "completed")
+
+    first, failed, retried = muse.accounts
+    assert first == failed and retried != failed
+    # Another account cannot open the first one's conversation.
+    assert muse.threads == [None, "/thread/t-1", None]
+
+
+def test_cancelled_render_resumes_in_the_same_conversation(client, muse, ffmpeg):
+    add_account(client, "first-fixture")
+    add_account(client, "second-fixture")
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}/render"
+    muse.gate = threading.Event()
+    client.post(path)
+    assert muse.entered.wait(5)
+    muse.gate.set()  # Scene 1 finishes...
+    deadline = time.monotonic() + 5
+    while render(client, project["id"])["completedScenes"] < 1:
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    muse.gate = threading.Event()  # ...and scene 2 is held, then cancelled.
+    deadline = time.monotonic() + 5
+    while len(muse.prompts) < 2:
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    client.post(path + "/cancel")
+    wait_status(client, project["id"], "cancelled")
+    muse.gate = None
+    client.post(path + "/resume")
+    wait_status(client, project["id"], "completed")
+    assert len(set(muse.accounts)) == 1
+    assert muse.threads == [None, "/thread/t-1", "/thread/t-1"]
 
 
 def test_task_level_retry_and_cancel_move_the_project(client, muse, ffmpeg):

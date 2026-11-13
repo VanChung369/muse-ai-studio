@@ -14,6 +14,7 @@ from app.rendering import storage
 from app.rendering.tasks import (
     RenderRequestError,
     cancel_render,
+    restart_render,
     resume_render,
     start_render,
     sync_project,
@@ -33,6 +34,7 @@ MESSAGES = {
     "render_not_active": "Nothing is rendering for this project.",
     "render_not_resumable": "This project has no stopped render to continue.",
     "confirm_required": "A scene may already have been sent to Muse. Confirm to send it again.",
+    "render_not_restartable": "Only a finished or stopped render can be redone, starting at a scene whose earlier scenes all have clips.",
 }
 
 
@@ -203,11 +205,43 @@ def resume_project_render(
     """Continue a failed or cancelled render from the first unfinished scene."""
     try:
         resume_render(
-            session, project_id, confirm_duplicate=bool(values and values.confirm_duplicate)
+            session,
+            project_id,
+            confirm_duplicate=bool(values and values.confirm_duplicate),
         )
     except RenderRequestError as error:
         raise request_error(error) from None
     sync_project(session, project_id)
+    request.app.state.task_coordinator.wake()
+    return render_response(session, project_id)
+
+
+class RenderRestart(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+    # This scene and every later one are rendered again.
+    from_scene: int = Field(strict=True, ge=1, le=30)
+
+
+@router.post(
+    "/{project_id}/render/restart",
+    response_model=RenderResponse,
+    responses={
+        404: {"description": "Project not found"},
+        409: {"description": "Still rendering, never rendered, or no usable account"},
+    },
+)
+def restart_project_render(
+    project_id: str, values: RenderRestart, request: Request, session: DatabaseSession
+) -> RenderResponse:
+    """Render again from one scene to the last, keeping the earlier scenes.
+    The current clips of the redone scenes and the merged video are deleted."""
+    try:
+        stale = restart_render(session, project_id, values.from_scene)
+    except RenderRequestError as error:
+        raise request_error(error) from None
+    folder = storage.project_dir(request.app.state.settings, project_id)
+    for name in stale:
+        (folder / Path(name).name).unlink(missing_ok=True)
     request.app.state.task_coordinator.wake()
     return render_response(session, project_id)
 

@@ -17,6 +17,24 @@ export const PROJECT_FILTERS = [
 ] as const;
 export const PROJECT_SORTS = ["updated", "name", "duration"] as const;
 export const PROJECT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
+// The film's visual look; "auto" leaves it to the script's visual style.
+export const PROJECT_LOOKS = [
+  "auto",
+  "realistic",
+  "cinematic",
+  "documentary",
+  "commercial",
+  "animation3d",
+  "anime",
+] as const;
+// How a scene uses the last frame of the one before it.
+export const PROJECT_CONTINUITIES = ["reference", "seamless", "off"] as const;
+export const PROJECT_UPDATE_ERROR_CODES = [
+  "project_busy",
+  "project_locked",
+  "duration_locked",
+  "project_not_found",
+] as const;
 export const PROJECT_COVER_TONES = [
   "coffee",
   "night",
@@ -40,6 +58,7 @@ export const RENDER_ERROR_CODES = [
   "render_not_active",
   "render_not_resumable",
   "confirm_required",
+  "render_not_restartable",
   "project_not_found",
 ] as const;
 

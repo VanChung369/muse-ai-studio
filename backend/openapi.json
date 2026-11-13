@@ -613,6 +613,60 @@
           }
         }
       },
+      "patch": {
+        "tags": ["Projects"],
+        "summary": "Update Project",
+        "operationId": "update_project_api_projects__project_id__patch",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Locked by a render, or duration fixed by the script"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": ["Projects"],
         "summary": "Delete Project",
@@ -988,6 +1042,63 @@
           },
           "409": {
             "description": "Nothing to continue, or confirmation required"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/render/restart": {
+      "post": {
+        "tags": ["Render"],
+        "summary": "Restart Project Render",
+        "description": "Render again from one scene to the last, keeping the earlier scenes.\nThe current clips of the redone scenes and the merged video are deleted.",
+        "operationId": "restart_project_render_api_projects__project_id__render_restart_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderRestart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Still rendering, never rendered, or no usable account"
           },
           "422": {
             "description": "Validation Error",
@@ -1886,6 +1997,26 @@
             "minimum": 10.0,
             "title": "Durationseconds",
             "default": 60
+          },
+          "look": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "realistic",
+              "cinematic",
+              "documentary",
+              "commercial",
+              "animation3d",
+              "anime"
+            ],
+            "title": "Look",
+            "default": "auto"
+          },
+          "continuity": {
+            "type": "string",
+            "enum": ["off", "reference", "seamless"],
+            "title": "Continuity",
+            "default": "reference"
           }
         },
         "additionalProperties": false,
@@ -1998,6 +2129,24 @@
             "type": "string",
             "title": "Idea"
           },
+          "look": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "realistic",
+              "cinematic",
+              "documentary",
+              "commercial",
+              "animation3d",
+              "anime"
+            ],
+            "title": "Look"
+          },
+          "continuity": {
+            "type": "string",
+            "enum": ["off", "reference", "seamless"],
+            "title": "Continuity"
+          },
           "characterBible": {
             "type": "string",
             "title": "Characterbible"
@@ -2028,6 +2177,8 @@
           "createdAt",
           "updatedAt",
           "idea",
+          "look",
+          "continuity",
           "characterBible",
           "visualStyle",
           "scriptRevision"
@@ -2195,6 +2346,102 @@
         "title": "ProjectSummary",
         "description": "Fields a project card needs. Excludes `idea` and `scenes`, which can be\nlarge; fetch `GET /api/projects/{id}` for the full project."
       },
+      "ProjectUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "idea": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 12000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idea"
+          },
+          "aspectRatio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["16:9", "9:16", "1:1"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aspectratio"
+          },
+          "durationSeconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "multipleOf": 5.0,
+                "maximum": 300.0,
+                "minimum": 10.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Durationseconds"
+          },
+          "look": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "realistic",
+                  "cinematic",
+                  "documentary",
+                  "commercial",
+                  "animation3d",
+                  "anime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Look"
+          },
+          "continuity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["off", "reference", "seamless"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Continuity"
+          },
+          "discardScript": {
+            "type": "boolean",
+            "title": "Discardscript",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ProjectUpdate",
+        "description": "Partial update. Name, idea, ratio and duration can change until a\nrender starts; the render options until one is running."
+      },
       "ProxyInput": {
         "properties": {
           "server": {
@@ -2338,6 +2585,20 @@
           "usableAccounts"
         ],
         "title": "RenderResponse"
+      },
+      "RenderRestart": {
+        "properties": {
+          "fromScene": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Fromscene"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["fromScene"],
+        "title": "RenderRestart"
       },
       "RenderResume": {
         "properties": {

@@ -5,6 +5,7 @@ import shutil
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from playwright.sync_api import Error as BrowserError, sync_playwright
 
@@ -30,9 +31,36 @@ SEND_BUTTON_JS = """() => {
 }"""
 
 
+GENERATING_JS = """() => !!(document.querySelector('[data-testid="hatch-composer-stop-button"]')
+    || document.querySelector('button[aria-label*="Stop" i]')
+    || document.querySelector('button[aria-label*="停止"]'))"""
+
+
+def _open_thread(page, client, thread_path) -> bool:
+    """Open a saved conversation. False when it cannot take a new message:
+    it no longer exists, Muse sent us elsewhere, or it is still busy."""
+    try:
+        page.goto(
+            client.base + thread_path, wait_until="domcontentloaded", timeout=30000
+        )
+        page.locator("textarea:visible").first.wait_for(state="visible", timeout=30000)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            if urlsplit(page.url).path.rstrip("/") != thread_path:
+                return False
+            if not page.evaluate(GENERATING_JS):
+                return True
+            page.wait_for_timeout(500)
+    except BrowserError:
+        pass
+    return False
+
+
 @contextmanager
-def open_composer(client, result, proxy):
-    """Yield a new Muse thread page in a private browser context.
+def open_composer(client, result, proxy, thread_path=None):
+    """Yield a Muse thread page in a private browser context: the saved
+    conversation at `thread_path` when it can be continued, otherwise a
+    new one.
 
     Holds one browser slot for as long as the page is open. `result` is the
     confirmed session; it rides along on every error as `partial` so cookies
@@ -71,14 +99,15 @@ def open_composer(client, result, proxy):
                     ]
                 )
                 page = context.new_page()
-                page.goto(
-                    client.base + "/thread/new",
-                    wait_until="domcontentloaded",
-                    timeout=30000,
-                )
-                page.locator("textarea:visible").first.wait_for(
-                    state="visible", timeout=30000
-                )
+                if not (thread_path and _open_thread(page, client, thread_path)):
+                    page.goto(
+                        client.base + "/thread/new",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    page.locator("textarea:visible").first.wait_for(
+                        state="visible", timeout=30000
+                    )
                 yield page
             finally:
                 browser.close()
@@ -92,10 +121,13 @@ def open_composer(client, result, proxy):
         client.browser_lock.release()
 
 
-def fill_composer(page, prompt, check_cancelled, result):
-    """Type `prompt` and return the send button's click point (not clicked yet)."""
+def fill_composer(page, prompt, check_cancelled, result, wait=15):
+    """Type `prompt` and return the send button's click point (not clicked yet).
+
+    The button stays disabled while an attachment uploads; `wait` is how
+    long to give it."""
     page.locator("textarea:visible").first.fill(prompt)
-    deadline = time.monotonic() + 15
+    deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
         check_cancelled()
         point = page.evaluate(SEND_BUTTON_JS)

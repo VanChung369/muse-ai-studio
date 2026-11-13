@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # Seconds to wait for one scene's video. Extended while Muse is visibly
     # still working on it.
     render_timeout: int = 600
+    # Scenes of one project share a Muse conversation; after this many a
+    # new one is started so the page stays responsive.
+    thread_scene_limit: int = 12
     # FFmpeg binary for merging scenes; found on PATH when unset.
     ffmpeg_path: str | None = None
     # Re-check each enabled, verified account this often so Muse can rotate its

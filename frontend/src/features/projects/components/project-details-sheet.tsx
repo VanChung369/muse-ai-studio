@@ -1,3 +1,5 @@
+import { Settings2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -15,7 +17,9 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { formatDuration } from "@/lib/format";
 import { projectTasksHref } from "@/features/tasks/lib/task-format";
+import { isRenderActive } from "../lib/project-render";
 import { DeleteProjectDialog } from "./delete-project-dialog";
+import { EditProjectDialog } from "./edit-project-dialog";
 import { ProjectCover } from "./project-cover";
 import { ProjectRenderSection } from "./project-render-section";
 import { ProjectScriptSection } from "./project-script-section";
@@ -49,6 +53,7 @@ export function ProjectDetailsSheet({
 }: Props) {
   const { t } = useTranslation();
   const [language] = useLanguage();
+  const [editing, setEditing] = useState(false);
 
   return (
     <Sheet
@@ -137,6 +142,29 @@ export function ProjectDetailsSheet({
                 </dd>
               </div>
             </dl>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+                {t("projects.settings.summary", {
+                  look: t(`projects.settings.looks.${project.look}`),
+                  continuity: t(
+                    `projects.settings.continuities.${project.continuity}`,
+                  ),
+                })}
+              </p>
+              {/* While a render runs nothing about the project can change. */}
+              {!isRenderActive(project.status) && (
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  <Settings2 aria-hidden="true" />
+                  {t("projects.settings.open")}
+                </Button>
+              )}
+            </div>
+            {editing && (
+              <EditProjectDialog
+                project={project}
+                onClose={() => setEditing(false)}
+              />
+            )}
             <section>
               <h3 className="mb-2 text-sm font-semibold">
                 {t("projects.details.idea")}

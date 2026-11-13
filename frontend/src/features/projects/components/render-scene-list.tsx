@@ -1,11 +1,11 @@
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, Download, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { TaskStatusBadge } from "@/features/tasks/components/task-status-badge";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { downloadHref } from "../lib/project-render";
+import { downloadHref, isRenderActive } from "../lib/project-render";
 import type { Project, ProjectRender } from "../types";
 import { RenderElapsed } from "./render-elapsed";
 
@@ -40,12 +40,16 @@ export function RenderVideo({
 export function RenderSceneList({
   render,
   aspectRatio,
+  onRestart,
 }: {
   render: ProjectRender;
   aspectRatio: Project["aspectRatio"];
+  onRestart: (fromScene: number) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
+  // Only a finished or stopped render can be redone from a scene.
+  const canRestart = !isRenderActive(render.status);
 
   return (
     <ol className="divide-y rounded-lg border bg-card">
@@ -109,6 +113,21 @@ export function RenderSceneList({
                 <span className="rounded-md border px-2 py-0.5 text-xs whitespace-nowrap text-faint">
                   {t("projects.render.notRendered")}
                 </span>
+              )}
+              {scene.videoUrl && canRestart && (
+                <button
+                  type="button"
+                  title={t("projects.render.restart.action", {
+                    number: scene.number,
+                  })}
+                  aria-label={t("projects.render.restart.action", {
+                    number: scene.number,
+                  })}
+                  className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={() => onRestart(scene.number)}
+                >
+                  <RotateCcw className="size-3.5" aria-hidden="true" />
+                </button>
               )}
               {scene.videoUrl && (
                 <button

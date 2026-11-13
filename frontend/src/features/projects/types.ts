@@ -10,6 +10,7 @@ import type {
   featuredProjectSchema,
   projectDraftSchema,
   projectSchema,
+  projectSettingsSchema,
   projectSummarySchema,
   projectScriptDraftSchema,
 } from "./schemas";
@@ -19,6 +20,7 @@ export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 export type FeaturedProject = z.infer<typeof featuredProjectSchema>;
 export type ProjectScriptDraft = z.infer<typeof projectScriptDraftSchema>;
 export type ProjectDraft = z.infer<typeof projectDraftSchema>;
+export type ProjectSettings = z.infer<typeof projectSettingsSchema>;
 export type ProjectRender = z.infer<typeof projectRenderSchema>;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export type ProjectFilter = (typeof PROJECT_FILTERS)[number];

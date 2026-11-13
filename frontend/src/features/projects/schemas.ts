@@ -2,8 +2,10 @@ import { z } from "zod";
 
 import {
   PROJECT_ASPECT_RATIOS,
+  PROJECT_CONTINUITIES,
   PROJECT_COVER_TONES,
   PROJECT_ERROR_CODES,
+  PROJECT_LOOKS,
   PROJECT_STATUSES,
 } from "./constants";
 
@@ -12,6 +14,12 @@ export const projectDraftSchema = z.object({
   idea: z.string().trim().max(12000),
   aspectRatio: z.enum(PROJECT_ASPECT_RATIOS),
   durationSeconds: z.number().int().min(10).max(300).multipleOf(5),
+});
+
+// What the "Edit project" form holds: the brief plus the render options.
+export const projectSettingsSchema = projectDraftSchema.extend({
+  look: z.enum(PROJECT_LOOKS),
+  continuity: z.enum(PROJECT_CONTINUITIES),
 });
 
 const sceneProgressIsValid = (project: {
@@ -60,6 +68,8 @@ export const projectScriptDraftSchema = z.object({
 export const projectSchema = projectSummaryShape
   .extend({
     idea: projectDraftSchema.shape.idea,
+    look: z.enum(PROJECT_LOOKS),
+    continuity: z.enum(PROJECT_CONTINUITIES),
     characterBible: z.string().max(10000),
     visualStyle: z.string().max(3000),
     scriptRevision: z.number().int().nonnegative(),

@@ -33,10 +33,11 @@ type Dialog = "start" | "cancel" | "resume" | null;
 // the project sheet. Hidden until the project has a script.
 export function ProjectRenderSection({ project }: { project: Project }) {
   const { t } = useTranslation();
-  const { query, refreshProject, start, cancel, resume } = useProjectRender(
-    project.id,
-  );
+  const { query, refreshProject, start, cancel, resume, restart } =
+    useProjectRender(project.id);
   const [dialog, setDialog] = useState<Dialog>(null);
+  // The scene a "render again" would start from, while its dialog is open.
+  const [restartFrom, setRestartFrom] = useState<number | null>(null);
   const render = query.data;
 
   // The render endpoint is polled; the project (badge, cards, script lock)
@@ -55,9 +56,11 @@ export function ProjectRenderSection({ project }: { project: Project }) {
 
   function close() {
     setDialog(null);
+    setRestartFrom(null);
     start.reset();
     cancel.reset();
     resume.reset();
+    restart.reset();
   }
 
   function continueRender(current: ProjectRender) {
@@ -86,7 +89,12 @@ export function ProjectRenderSection({ project }: { project: Project }) {
         <>
           <RenderStatusPanel
             render={render}
-            pending={start.isPending || cancel.isPending || resume.isPending}
+            pending={
+              start.isPending ||
+              cancel.isPending ||
+              resume.isPending ||
+              restart.isPending
+            }
             error={
               !dialog && resume.isError
                 ? t(renderErrorKey(resume.error))
@@ -115,6 +123,7 @@ export function ProjectRenderSection({ project }: { project: Project }) {
             <RenderSceneList
               render={render}
               aspectRatio={project.aspectRatio}
+              onRestart={setRestartFrom}
             />
           )}
           <RenderConfirmDialog
@@ -131,20 +140,83 @@ export function ProjectRenderSection({ project }: { project: Project }) {
             error={start.isError ? t(renderErrorKey(start.error)) : undefined}
             onConfirm={() => start.mutate(project.id, { onSuccess: close })}
           >
-            <dl className="rounded-lg border bg-card p-3 text-[13px]">
-              <dt className="text-xs text-faint">
-                {t("projects.render.start.account")}
-              </dt>
-              <dd className="mt-1">
-                {t("projects.render.start.automatic", {
-                  count: render.usableAccounts,
-                })}
-              </dd>
+            <dl className="space-y-3 rounded-lg border bg-card p-3 text-[13px]">
+              <div>
+                <dt className="text-xs text-faint">
+                  {t("projects.render.start.account")}
+                </dt>
+                <dd className="mt-1">
+                  {t("projects.render.start.automatic", {
+                    count: render.usableAccounts,
+                  })}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-faint">
+                  {t("projects.render.look")}
+                </dt>
+                <dd className="mt-1">
+                  {t(`projects.settings.looks.${project.look}`)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-faint">
+                  {t("projects.render.continuity")}
+                </dt>
+                <dd className="mt-1">
+                  {t(`projects.settings.continuities.${project.continuity}`)}
+                </dd>
+              </div>
             </dl>
             <p className="text-xs leading-5 text-muted-foreground">
               {t("projects.render.start.locked")}
             </p>
           </RenderConfirmDialog>
+          {restartFrom !== null && (
+            <RenderConfirmDialog
+              open
+              onOpenChange={close}
+              title={t("projects.render.restart.title", {
+                number: restartFrom,
+              })}
+              description={[
+                t(
+                  restartFrom === 1
+                    ? "projects.render.restart.all"
+                    : restartFrom === render.sceneCount
+                      ? "projects.render.restart.last"
+                      : "projects.render.restart.range",
+                  { number: restartFrom, count: render.sceneCount },
+                ),
+                restartFrom === 2 && t("projects.render.restart.keptOne"),
+                restartFrom > 2 &&
+                  t("projects.render.restart.keptRange", {
+                    previous: restartFrom - 1,
+                  }),
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              dismissLabel={t("projects.render.restart.keep")}
+              confirmLabel={t("projects.render.restart.confirm", {
+                count: render.sceneCount - restartFrom + 1,
+              })}
+              pendingLabel={t("projects.render.restart.restarting")}
+              pending={restart.isPending}
+              error={
+                restart.isError ? t(renderErrorKey(restart.error)) : undefined
+              }
+              onConfirm={() =>
+                restart.mutate(
+                  { id: project.id, fromScene: restartFrom },
+                  { onSuccess: close },
+                )
+              }
+            >
+              <p className="text-xs leading-5 text-muted-foreground">
+                {t("projects.render.restart.cost")}
+              </p>
+            </RenderConfirmDialog>
+          )}
           <RenderConfirmDialog
             open={dialog === "cancel"}
             onOpenChange={close}

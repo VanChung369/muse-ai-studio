@@ -1,19 +1,53 @@
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
-ProjectStatus = Literal["draft", "planning", "ready", "rendering", "cancelling", "cancelled", "failed", "completed"]
+ProjectStatus = Literal[
+    "draft",
+    "planning",
+    "ready",
+    "rendering",
+    "cancelling",
+    "cancelled",
+    "failed",
+    "completed",
+]
+AspectRatio = Literal["16:9", "9:16", "1:1"]
+# The film's visual look; `auto` leaves it to the script's visual style.
+ProjectLook = Literal[
+    "auto",
+    "realistic",
+    "cinematic",
+    "documentary",
+    "commercial",
+    "animation3d",
+    "anime",
+]
+# How a scene uses the last frame of the previous one: not at all, as a
+# visual reference, or as its own first frame.
+ProjectContinuity = Literal["off", "reference", "seamless"]
 
 
 class ProjectCreate(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, extra="forbid")
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True, extra="forbid"
+    )
 
     name: str = Field(min_length=1, max_length=100)
     idea: str = Field(default="", max_length=12000)
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
     duration_seconds: int = Field(default=60, strict=True, ge=10, le=300, multiple_of=5)
+    look: ProjectLook = "auto"
+    continuity: ProjectContinuity = "reference"
 
     @field_validator("name", "idea", mode="before")
     @classmethod
@@ -21,10 +55,46 @@ class ProjectCreate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class ProjectUpdate(BaseModel):
+    """Partial update. Name, idea, ratio and duration can change until a
+    render starts; the render options until one is running."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True, extra="forbid"
+    )
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    idea: str | None = Field(default=None, max_length=12000)
+    aspect_ratio: AspectRatio | None = None
+    duration_seconds: int | None = Field(
+        default=None, strict=True, ge=10, le=300, multiple_of=5
+    )
+    look: ProjectLook | None = None
+    continuity: ProjectContinuity | None = None
+    # A saved script adds up to the current duration. Changing the
+    # duration is refused unless the caller agrees to drop that script.
+    discard_script: bool = Field(default=False, strict=True)
+
+    @field_validator("name", "idea", mode="before")
+    @classmethod
+    def trim_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def reject_nulls(self):
+        # A field is either left out or given a value; null clears nothing.
+        if any(getattr(self, name) is None for name in self.model_fields_set):
+            raise ValueError("Fields cannot be null.")
+        return self
+
+
 class ProjectScene(BaseModel):
     model_config = ConfigDict(
-        alias_generator=to_camel, validate_by_name=True,
-        from_attributes=True, extra="forbid", str_strip_whitespace=True,
+        alias_generator=to_camel,
+        validate_by_name=True,
+        from_attributes=True,
+        extra="forbid",
+        str_strip_whitespace=True,
     )
 
     number: int = Field(strict=True, ge=1, le=30)
@@ -36,8 +106,10 @@ class ProjectScene(BaseModel):
 
 class ProjectScriptUpdate(BaseModel):
     model_config = ConfigDict(
-        alias_generator=to_camel, validate_by_name=True,
-        extra="forbid", str_strip_whitespace=True,
+        alias_generator=to_camel,
+        validate_by_name=True,
+        extra="forbid",
+        str_strip_whitespace=True,
     )
 
     expected_revision: int = Field(strict=True, ge=0)
@@ -47,7 +119,9 @@ class ProjectScriptUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_scene_order(self):
-        if [scene.number for scene in self.scenes] != list(range(1, len(self.scenes) + 1)):
+        if [scene.number for scene in self.scenes] != list(
+            range(1, len(self.scenes) + 1)
+        ):
             raise ValueError("Scenes must be numbered consecutively from 1.")
         return self
 
@@ -57,7 +131,9 @@ ProjectSort = Literal["updated", "name", "duration"]
 
 
 class CamelModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, validate_by_name=True, from_attributes=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, validate_by_name=True, from_attributes=True
+    )
 
 
 class ProjectSummary(CamelModel):
@@ -79,11 +155,15 @@ class ProjectSummary(CamelModel):
     @classmethod
     def ensure_utc(cls, value: datetime) -> datetime:
         # SQLite restores timezone-free datetimes; stored values are always UTC.
-        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+        return (
+            value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+        )
 
 
 class ProjectResponse(ProjectSummary):
     idea: str
+    look: ProjectLook
+    continuity: ProjectContinuity
     character_bible: str
     visual_style: str
     script_revision: int

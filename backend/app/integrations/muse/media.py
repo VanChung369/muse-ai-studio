@@ -2,8 +2,13 @@
 
 import base64
 import json
+import re
 import time
 from dataclasses import dataclass
+from urllib.parse import urlsplit
+from uuid import uuid4
+
+from playwright.sync_api import Error as BrowserError
 
 from app.integrations.muse.chat import (
     confirmed_session,
@@ -17,17 +22,38 @@ ATTACHMENT = '[data-testid^="hatch-chat-attachment-presentation-"]'
 # The agent asks before acting on the user's behalf (for example publishing
 # the result as a public link). Nobody answers it here, so it would block.
 APPROVAL_CARD = '[data-testid="hatch-inline-approval-card"]'
+# The composer's upload control (reference: images are attached like a chat upload).
+FILE_INPUT = 'input[type="file"]'
 QUOTA_HINTS = ("out of credits", "usage limit", "limit reached", "token limit")
+# A real conversation, not the empty "new thread" page.
+THREAD_PATH = re.compile(r"^/thread/(?!new$)[A-Za-z0-9_-]{1,100}$")
 
-MEDIA_STATE_JS = f"""() => {{
+# Everything is read relative to our own message, found by the marker it
+# starts with. A conversation that already holds earlier scenes renders them
+# lazily, so "what was on the page before sending" is not a safe baseline:
+# only what follows our message in the document belongs to this request.
+_ANCHOR_JS = """
+  let anchor = null;
+  if (marker) {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeValue.includes(marker)) anchor = node;
+    }
+  }
+  const after = node => !!anchor
+    && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+"""
+
+MEDIA_STATE_JS = f"""marker => {{
   const scrollers = [...document.querySelectorAll('*')].filter(e => {{
     const s = getComputedStyle(e);
     return (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 50;
   }});
   scrollers.forEach(e => {{ e.scrollTop = e.scrollHeight; }});
-  const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})];
+  {_ANCHOR_JS}
+  const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})].filter(after);
   const last = bubbles.length ? (bubbles[bubbles.length - 1].innerText || '').trim() : '';
-  const attachments = [...document.querySelectorAll({json.dumps(ATTACHMENT)})].map(a => {{
+  const attachments = [...document.querySelectorAll({json.dumps(ATTACHMENT)})].filter(after).map(a => {{
     const v = a.querySelector('video'), i = a.querySelector('img');
     const m = v || i;
     return {{
@@ -39,6 +65,7 @@ MEDIA_STATE_JS = f"""() => {{
     }};
   }});
   return {{
+    sent: !!anchor,
     agentCount: bubbles.length,
     lastText: last,
     generating: !!(document.querySelector('[data-testid="hatch-composer-stop-button"]')
@@ -62,8 +89,9 @@ DENY_APPROVALS_JS = f"""() => {{
 }}"""
 
 # Media delivered as a link or bare <video> in the reply instead of an attachment.
-LAST_BUBBLE_LINKS_JS = f"""() => {{
-  const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})];
+LAST_BUBBLE_LINKS_JS = f"""marker => {{
+  {_ANCHOR_JS}
+  const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})].filter(after);
   const bubble = bubbles.length ? bubbles[bubbles.length - 1] : null;
   if (!bubble) return [];
   const urls = [];
@@ -108,6 +136,9 @@ class GeneratedVideo:
     mime: str
     width: int | None = None
     height: int | None = None
+    # The conversation the video was made in ("/thread/<id>"), so the next
+    # scene of the same film can continue there. None when it is unknown.
+    thread_path: str | None = None
 
 
 def video_prompt(prompt: str, aspect_ratio: str, duration_seconds: int) -> str:
@@ -125,6 +156,11 @@ def pick_video_link(links: list[str]) -> str | None:
     return None
 
 
+def thread_path_of(url: str) -> str | None:
+    path = urlsplit(url).path.rstrip("/")
+    return path if THREAD_PATH.fullmatch(path) else None
+
+
 def generate_video(
     client,
     cookies,
@@ -137,8 +173,19 @@ def generate_video(
     check_cancelled,
     timeout=600,
     grace=ATTACHMENT_GRACE,
+    reference: bytes | None = None,
+    thread_path: str | None = None,
 ) -> GeneratedVideo:
-    """Ask Muse for one video in a new thread and download the result.
+    """Ask Muse for one video and download the result.
+
+    `thread_path` continues an existing conversation, so every scene of a
+    film shares one chat and the agent keeps its context. If that
+    conversation cannot be opened, a new one is started instead.
+
+    `reference` is a JPEG attached to the message (a frame of the previous
+    scene); the prompt says how to use it. If it cannot be attached the
+    request is not sent, so no generation is spent on a scene that would
+    ignore it.
 
     The request is sent once. A timeout or an unknown outcome is reported,
     never resent: the caller decides whether to spend another generation.
@@ -146,15 +193,24 @@ def generate_video(
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
     )
-    with open_composer(client, result, proxy) as page:
-        point = fill_composer(page, prompt, check_cancelled, result)
-        baseline = page.evaluate(MEDIA_STATE_JS)
+    # Our message is recognised on the page by this label (see _ANCHOR_JS).
+    marker = f"shot-{uuid4().hex[:8]}"
+    with open_composer(client, result, proxy, thread_path) as page:
+        if reference:
+            _attach_reference(page, reference, result)
+        point = fill_composer(
+            page,
+            f"[{marker}] {prompt}",
+            check_cancelled,
+            result,
+            wait=60 if reference else 15,
+        )
         check_cancelled()
         # Record submission BEFORE the click; refreshed cookies are already saved.
         before_send(result)
         page.mouse.click(point["x"], point["y"])
         attachment = _wait_for_video(
-            page, baseline, check_cancelled, result, timeout, grace
+            page, marker, check_cancelled, result, timeout, grace
         )
         fetched = page.evaluate(FETCH_MEDIA_JS, attachment["src"])
         if not fetched.get("ok") or not fetched.get("b64"):
@@ -164,12 +220,25 @@ def generate_video(
             mime=fetched.get("mime") or "video/mp4",
             width=attachment.get("w") or None,
             height=attachment.get("h") or None,
+            thread_path=thread_path_of(page.url),
         )
 
 
-def _wait_for_video(page, baseline, check_cancelled, result, timeout, grace):
-    known = len(baseline["attachments"])
-    agent_count = baseline["agentCount"]
+def _attach_reference(page, image: bytes, result) -> None:
+    control = page.locator(FILE_INPUT).first
+    try:
+        control.wait_for(state="attached", timeout=10000)
+        control.set_input_files(
+            {"name": "previous-shot.jpg", "mimeType": "image/jpeg", "buffer": image}
+        )
+    except BrowserError:
+        raise MuseError("reference_upload_failed", partial=result) from None
+    # Let the composer register the file before the prompt is typed.
+    page.wait_for_timeout(1000)
+
+
+def _wait_for_video(page, marker, check_cancelled, result, timeout, grace):
+    agent_count = 0
     started = time.monotonic()
     text_done_at = None
     asked_to_attach = denied = busy = False
@@ -179,17 +248,21 @@ def _wait_for_video(page, baseline, check_cancelled, result, timeout, grace):
             raise MuseError("generation_timeout", 504, partial=result)
         check_cancelled()
         page.wait_for_timeout(POLL_MS)
-        state = page.evaluate(MEDIA_STATE_JS)
+        state = page.evaluate(MEDIA_STATE_JS, marker)
         if state["approval"]:
             page.evaluate(DENY_APPROVALS_JS)
             denied, text_done_at = True, None
             continue
-        fresh = state["attachments"][known:]
+        busy = state["generating"]
+        if not state["sent"]:
+            # Our message is not on the page yet.
+            continue
+        fresh = state["attachments"]
         ready = [a for a in fresh if a["kind"] == "video" and a["src"]]
         if ready:
             return ready[-1]
         loading = any("video" in a["tid"] for a in fresh)
-        busy = state["generating"] or loading
+        busy = busy or loading
         if loading:
             # The attachment is on the page but its source has not loaded yet.
             text_done_at = None
@@ -220,7 +293,7 @@ def _wait_for_video(page, baseline, check_cancelled, result, timeout, grace):
             asked_to_attach, text_done_at = True, None
             agent_count = state["agentCount"]
             continue
-        link = pick_video_link(page.evaluate(LAST_BUBBLE_LINKS_JS))
+        link = pick_video_link(page.evaluate(LAST_BUBBLE_LINKS_JS, marker))
         if link:
             return {"src": link, "kind": "video"}
         raise MuseError(

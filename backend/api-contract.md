@@ -68,6 +68,10 @@ Muse must return a complete JSON script with the exact target timeline (10-secon
 
 `GET /api/projects/{project_id}/script-generation` returns the latest planning task or null; unknown projects return 404. Task state and proposals persist across reloads. While a planning task is queued/running, project deletion returns 409. The UI polls active tasks, supports stopping them, and warns that a new attempt can consume additional quota. There is no video rendering in this operation.
 
+## Project settings
+
+`PATCH /api/projects/{project_id}` changes any of `name`, `idea`, `aspectRatio`, `durationSeconds`, `look`, `continuity`; only the fields sent are changed, and null is rejected. The first four can change while the project is `draft` or `ready`; after a render has started they return 409 `project_locked`. `look` (`auto`, `realistic`, `cinematic`, `documentary`, `commercial`, `animation3d`, `anime`) and `continuity` (`off`, `reference`, `seamless`) can change whenever no render is running (409 `project_busy` otherwise), so they also apply to a later "render again". A saved script adds up to the current duration: a different `durationSeconds` returns 409 `duration_locked` unless `discardScript: true` is sent, which deletes the script and returns the project to `draft`.
+
 ## Rendering
 
 `POST /api/projects/{project_id}/render` (HTTP 202) queues one `render_scene` task per scene, chained in order, and a final `merge_video` task. The project must be `ready` with at least one scene, and at least one enabled account must have a verified session (accounts are picked automatically, least recently used first). Otherwise it returns 409 `render_not_ready` or `account_unavailable`; nothing is queued. Starting a render sets the project to `rendering`, which locks its script.
@@ -77,5 +81,11 @@ Muse must return a complete JSON script with the exact target timeline (10-secon
 `POST /api/projects/{project_id}/render/cancel` cancels waiting tasks immediately and the running one after its current step; finished scenes are kept. `POST /api/projects/{project_id}/render/resume` queues every failed, cancelled, or interrupted task of the chain again and releases their pinned accounts. A scene interrupted by a restart may already exist on Muse, so resuming it requires `{"confirmDuplicate": true}` (409 `confirm_required` otherwise). Retrying or cancelling a single render task through `/api/tasks/{id}/...` has the same effect on the project.
 
 The project status follows the chain: `completed` when every task succeeded, `cancelling` while a cancelled task is still running, `rendering` while one runs, `failed` after a failed or interrupted task, `cancelled` after a cancel. A scene request is sent to Muse once per attempt and is never resent automatically; a timeout or refusal fails the task and waits for the user. Task error codes added by rendering: `quota_exhausted`, `generation_timeout`, `generation_refused`, `media_download_failed`, `scene_missing`, `ffmpeg_unavailable`, `merge_failed`.
+
+`POST /api/projects/{project_id}/render/restart` with `{"fromScene": n}` renders scene n and every later scene again, then merges again. It needs a finished or stopped render and a clip for every scene before n (409 `render_not_restartable` otherwise). The replaced clips and the merged video are deleted.
+
+Scene prompts carry the scene's own prompt, the shared visual style and characters, the project's `look`, and quality requirements. With `continuity` other than `off`, the last frame of the previous scene is attached to the message (extracted with FFmpeg, so FFmpeg is then needed before scene 2 is sent): `reference` asks Muse to match it, `seamless` to start on it. If the frame cannot be read or attached the scene fails with `reference_frame_failed` or `reference_upload_failed` before anything is sent.
+
+All scenes of a project are sent to one Muse conversation on one account, so the agent keeps the film's context. A new conversation is started after `MUSE_THREAD_SCENE_LIMIT` scenes (default 12), when the render moves to another account (only after a failure that points at the account), when the saved conversation can no longer be opened, and for every "render again".
 
 `GET /api/projects/{project_id}/scenes/{number}/video` and `GET /api/projects/{project_id}/video` serve a scene clip and the merged video (HTTP range requests supported); `?download=true` adds a download filename. Missing media returns 404 `media_not_found`. Deleting a project removes its media folder and cancels its waiting render tasks.

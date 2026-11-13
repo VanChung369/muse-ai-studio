@@ -64,6 +64,29 @@ def probe(ffmpeg: str, path: Path) -> Clip:
     )
 
 
+def last_frame(ffmpeg: str, clip: Path) -> bytes:
+    """The clip's final frame as a JPEG."""
+    with tempfile.TemporaryDirectory() as folder:
+        target = Path(folder) / "frame.jpg"
+        try:
+            # Decode the last second and keep overwriting one image, which
+            # leaves the final frame (seeking straight to it can miss).
+            subprocess.run(  # noqa: S603 - fixed arguments, no shell
+                [
+                    ffmpeg, "-y", "-v", "error", "-sseof", "-1", "-i", str(clip),
+                    "-update", "1", "-q:v", "3", str(target),
+                ],  # fmt: skip
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=60,
+            )
+        except (OSError, subprocess.SubprocessError):
+            raise MergeError from None
+        if not target.is_file() or target.stat().st_size == 0:
+            raise MergeError
+        return target.read_bytes()
+
+
 def merge(
     ffmpeg: str,
     paths: list[Path],

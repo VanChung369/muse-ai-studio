@@ -14,6 +14,7 @@ import type {
   ProjectDraft,
   ProjectListParams,
   ProjectScriptDraft,
+  ProjectSettings,
 } from "../types";
 
 const count = z.number().int().nonnegative();
@@ -67,6 +68,23 @@ export async function createProject(values: ProjectDraft) {
   );
 }
 
+export async function updateProject({
+  id,
+  values,
+}: {
+  id: string;
+  // Only the fields that changed. `discardScript` allows a new duration to
+  // drop a script written for the old one.
+  values: Partial<ProjectSettings> & { discardScript?: boolean };
+}) {
+  return projectSchema.parse(
+    await requestJson(`${API_ENDPOINTS.PROJECTS}/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(values),
+    }),
+  );
+}
+
 export async function saveProjectScript({
   id,
   values,
@@ -91,7 +109,6 @@ export async function saveProjectScript({
     ),
   );
 }
-
 
 export async function deleteProject(id: string): Promise<void> {
   try {

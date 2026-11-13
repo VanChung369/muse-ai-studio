@@ -33,6 +33,14 @@ class Project(Base):
         ),
         CheckConstraint("script_revision >= 0", name="ck_projects_script_revision"),
         CheckConstraint("scene_count BETWEEN 0 AND 30", name="ck_projects_scene_count"),
+        CheckConstraint(
+            "look IN ('auto', 'realistic', 'cinematic', 'documentary', 'commercial', 'animation3d', 'anime')",
+            name="ck_projects_look",
+        ),
+        CheckConstraint(
+            "continuity IN ('off', 'reference', 'seamless')",
+            name="ck_projects_continuity",
+        ),
         # Keyset pagination orders (see app/repositories/projects.py).
         Index("ix_projects_updated", "updated_at", "id"),
         Index("ix_projects_name_key", "name_key", "id"),
@@ -67,6 +75,15 @@ class Project(Base):
     )
     # Stored rather than counted per query; save_script keeps it in sync.
     scene_count: Mapped[int] = mapped_column(default=0)
+    # Render options (app/rendering/prompt.py): the film's visual look, and
+    # how each scene uses a frame of the one before it.
+    look: Mapped[str] = mapped_column(String(16), default="auto")
+    continuity: Mapped[str] = mapped_column(String(16), default="reference")
+    # The Muse conversation this film is rendered in, the account that
+    # owns it, and how many scenes it already holds.
+    muse_thread_path: Mapped[str | None] = mapped_column(String(120))
+    muse_thread_account_id: Mapped[str | None] = mapped_column(String(36))
+    muse_thread_scenes: Mapped[int] = mapped_column(default=0)
     # Scenes with a rendered clip; the render handlers keep it in sync.
     completed_scenes: Mapped[int] = mapped_column(default=0)
     # Merged film, a file name inside the project's media folder.

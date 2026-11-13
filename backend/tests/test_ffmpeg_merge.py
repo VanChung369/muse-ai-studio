@@ -5,7 +5,7 @@ import subprocess
 import pytest
 
 from app.core.config import Settings
-from app.rendering.ffmpeg import MergeError, find_ffmpeg, merge, probe
+from app.rendering.ffmpeg import MergeError, find_ffmpeg, last_frame, merge, probe
 
 FFMPEG = find_ffmpeg(Settings())
 needs_ffmpeg = pytest.mark.skipif(FFMPEG is None, reason="FFmpeg is not installed.")
@@ -44,7 +44,12 @@ def test_clips_are_joined_in_order(tmp_path):
 def test_mixed_containers_are_re_encoded(tmp_path):
     clips = [
         clip(tmp_path / "scene-01.mp4", 1, "red"),
-        clip(tmp_path / "scene-02.webm", 1, "green", ("-c:v", "libvpx", "-c:a", "libvorbis")),
+        clip(
+            tmp_path / "scene-02.webm",
+            1,
+            "green",
+            ("-c:v", "libvpx", "-c:a", "libvorbis"),
+        ),
     ]
     output = tmp_path / "final.mp4"
     merge(FFMPEG, clips, output, lambda: None)
@@ -90,9 +95,24 @@ def test_unreadable_clip_and_cancel_leave_no_output(tmp_path):
     assert not output.exists() and not list(tmp_path.glob("*.part.mp4"))
 
 
+@needs_ffmpeg
+def test_last_frame_is_a_jpeg_of_the_clip_end(tmp_path):
+    frame = last_frame(FFMPEG, clip(tmp_path / "scene-01.mp4", 2, "red"))
+    assert frame[:3] == b"\xff\xd8\xff" and len(frame) > 500
+    broken = tmp_path / "broken.mp4"
+    broken.write_bytes(b"not a video")
+    with pytest.raises(MergeError):
+        last_frame(FFMPEG, broken)
+
+
 def test_missing_binary_is_a_merge_error(tmp_path):
     with pytest.raises(MergeError):
-        merge(str(tmp_path / "no-ffmpeg"), [tmp_path / "a.mp4"], tmp_path / "o.mp4", lambda: None)
+        merge(
+            str(tmp_path / "no-ffmpeg"),
+            [tmp_path / "a.mp4"],
+            tmp_path / "o.mp4",
+            lambda: None,
+        )
 
 
 def test_configured_path_must_exist(tmp_path):

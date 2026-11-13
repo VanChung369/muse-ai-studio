@@ -361,7 +361,73 @@
         "render_not_resumable": "There is no stopped render to continue.",
         "confirm_required": "A scene may already have been sent to Muse. Confirm to send it again.",
         "project_not_found": "This project no longer exists.",
+        "render_not_restartable": "This scene cannot be rendered again right now. Every earlier scene needs a clip first.",
         "unknown": "The request failed. Please try again."
+      },
+      "look": "Look",
+      "continuity": "Continuity",
+      "restart": {
+        "action": "Render again from scene {{number}}",
+        "title": "Render again from scene {{number}}?",
+        "all": "All {{count}} scenes are rendered again.",
+        "last": "Only scene {{number}} is rendered again.",
+        "range": "Scenes {{number}}–{{count}} are rendered again so they stay connected.",
+        "keptOne": "Scene 1 is kept.",
+        "keptRange": "Scenes 1–{{previous}} are kept.",
+        "cost": "The current clips of those scenes and the merged video are replaced, each new scene uses Muse quota, and a new conversation is started on Muse.",
+        "keep": "Keep as is",
+        "confirm_one": "Render {{count}} scene again",
+        "confirm_other": "Render {{count}} scenes again",
+        "restarting": "Starting…"
+      }
+    },
+    "settings": {
+      "open": "Edit project",
+      "summary": "Look: {{look}} · Continuity: {{continuity}}",
+      "title": "Edit project",
+      "description": "The name, idea, ratio and duration can change until a render starts. The render options also apply when you render again.",
+      "lockedBrief": "This project has been rendered, so only the render options can change.",
+      "durationWithScript": "The saved script is written for {{seconds}} seconds.",
+      "discardScript": "Delete the current script so the duration can change",
+      "renderOptions": "Render options",
+      "look": "Look",
+      "looks": {
+        "auto": "Automatic (follow the script)",
+        "realistic": "Realistic live action",
+        "cinematic": "Cinematic film",
+        "documentary": "Documentary",
+        "commercial": "Commercial",
+        "animation3d": "3D animation",
+        "anime": "Anime"
+      },
+      "lookHints": {
+        "auto": "Adds nothing: the look comes from the visual style written in the script.",
+        "realistic": "Asks for real-camera footage: natural skin and light, no CGI or plastic look.",
+        "cinematic": "Film look: anamorphic lens, graded color, deliberate camera moves.",
+        "documentary": "Handheld camera, available light, candid moments.",
+        "commercial": "Clean studio lighting, crisp detail, polished grade.",
+        "animation3d": "Stylized 3D characters with soft lighting and rich textures.",
+        "anime": "Line art, cel shading and painted backgrounds."
+      },
+      "continuity": "Continuity between scenes",
+      "continuities": {
+        "reference": "Match the previous scene (recommended)",
+        "seamless": "Continue from the last frame",
+        "off": "Off"
+      },
+      "continuityHints": {
+        "reference": "The last frame of the previous scene is attached as a reference for characters, wardrobe and color. Scenes may still cut to a new place.",
+        "seamless": "Each scene starts exactly on the last frame of the previous one. Best for one continuous location; cuts to a new place look forced.",
+        "off": "Each scene is generated from its prompt alone."
+      },
+      "save": "Save changes",
+      "saving": "Saving…",
+      "errors": {
+        "project_busy": "This project is rendering. Cancel the render or wait for it to finish.",
+        "project_locked": "A render has started, so only the render options can change now.",
+        "duration_locked": "The script is written for the current duration. Tick the box to delete it, or keep the duration.",
+        "project_not_found": "This project no longer exists.",
+        "unknown": "The changes could not be saved. Please try again."
       }
     }
   },
@@ -690,7 +756,9 @@
       "media_download_failed": "The video was generated but could not be downloaded. Retry the scene.",
       "scene_missing": "The clip of a scene is missing, so the video could not be merged.",
       "ffmpeg_unavailable": "FFmpeg is not installed on the server, so the scenes could not be merged. Install it, then continue.",
-      "merge_failed": "FFmpeg could not merge the scenes."
+      "merge_failed": "FFmpeg could not merge the scenes.",
+      "reference_upload_failed": "The frame of the previous scene could not be attached, so nothing was sent to Muse. Retry, or turn continuity off in the project settings.",
+      "reference_frame_failed": "The last frame of the previous scene could not be read. Retry, or render again from that scene."
     },
     "refresh": "Refresh",
     "autoUpdate": "Updates every 5 seconds while this tab is visible. Progress is shown only when reported by Muse.",

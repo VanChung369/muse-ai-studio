@@ -7,6 +7,7 @@ bubbles, attachment presentations, approval cards.
 
 import json
 import os
+import re
 import shutil
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,13 +17,19 @@ import pytest
 
 from app.core.config import Settings
 from app.integrations.muse.client import MuseClient, MuseError
-from app.integrations.muse.media import generate_video, pick_video_link, video_prompt
+from app.integrations.muse.media import (
+    generate_video,
+    pick_video_link,
+    thread_path_of,
+    video_prompt,
+)
 
 CLIP = b"\x00\x00\x00\x18ftypmp42 fake clip bytes"
 
 PAGE = """<!doctype html><html><body><main>
 <div id="chat" style="height:300px;overflow-y:auto"></div>
 <form onsubmit="return false">
+  <input type="file" style="display:none">
   <textarea></textarea>
   <button type="button" data-testid="hatch-composer-send-button" aria-label="Send message">Send</button>
 </form>
@@ -55,9 +62,27 @@ function approval() {
   card.appendChild(deny);
   chat.appendChild(card);
 }
+if (location.pathname === '/thread/gone') location.replace('/thread/new');
+function oldClip() {
+  const holder = document.createElement('div');
+  holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video-0');
+  const video = document.createElement('video');
+  video.src = '/media/old.mp4';
+  holder.appendChild(video);
+  chat.prepend(holder);
+}
 document.querySelector('button').onclick = () => {
   sent += 1;
+  const mine = document.createElement('div');
+  mine.className = 'user-bubble';
+  mine.innerText = textarea.value;
+  chat.appendChild(mine);
+  if (location.pathname === '/thread/new') history.pushState({}, '', '/thread/t-001');
+  // An earlier scene of this conversation, rendered lazily after we sent.
+  else setTimeout(oldClip, 100);
+  const file = document.querySelector('input[type=file]').files[0];
   fetch('/__sent', { method: 'POST', body: textarea.value });
+  if (file) file.arrayBuffer().then(bytes => fetch('/__file?name=' + file.name + '&type=' + file.type, { method: 'POST', body: bytes }));
   textarea.value = '';
   setTimeout(() => {
     if (MODE === 'video') { bubble("Here's your video."); setTimeout(attach, 300); }
@@ -74,6 +99,7 @@ class FakeMuse:
     def __init__(self):
         self.mode = "video"
         self.sent = []
+        self.files = []  # (request path, bytes) of every uploaded attachment.
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -96,15 +122,20 @@ class FakeMuse:
                     )
                 elif self.path == "/media/clip.mp4":
                     self.reply(CLIP, "video/mp4")
+                elif self.path == "/media/old.mp4":
+                    self.reply(b"an earlier scene", "video/mp4")
                 else:
                     self.reply(
-                        (PAGE % json.dumps(fake.mode)).encode(), "text/html; charset=utf-8"
+                        (PAGE % json.dumps(fake.mode)).encode(),
+                        "text/html; charset=utf-8",
                     )
 
             def do_POST(self):
                 body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
                 if self.path == "/__sent":
                     fake.sent.append(body.decode())
+                if self.path.startswith("/__file"):
+                    fake.files.append((self.path, body))
                 self.reply(b"{}")
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -164,9 +195,57 @@ def test_video_attachment_is_downloaded_from_the_page(muse):
     video, events = generate(muse)
     assert video.data == CLIP and video.mime == "video/mp4"
     assert events == ["session", "send"]
-    assert muse.sent == [
-        "Generate a video (aspect ratio 9:16, 5 seconds long): A cat in a garden"
-    ]
+    # The message starts with the label it is later recognised by.
+    assert len(muse.sent) == 1 and re.fullmatch(
+        r"\[shot-[0-9a-f]{8}\] Generate a video \(aspect ratio 9:16, 5 seconds long\): "
+        r"A cat in a garden",
+        muse.sent[0],
+    )
+    assert video.thread_path == "/thread/t-001"
+
+
+@needs_browser
+def test_saved_conversation_is_continued_and_its_older_clips_ignored(muse):
+    video, _ = generate(muse, thread_path="/thread/old-1")
+    # The earlier scene's clip shows up on the page too, but it sits above
+    # our message, so only the new one counts.
+    assert video.data == CLIP
+    assert video.thread_path == "/thread/old-1"
+
+
+@needs_browser
+def test_conversation_that_is_gone_falls_back_to_a_new_one(muse):
+    video, _ = generate(muse, thread_path="/thread/gone")
+    assert video.data == CLIP
+    assert video.thread_path == "/thread/t-001"
+    assert len(muse.sent) == 1
+
+
+def test_only_real_conversations_are_remembered():
+    assert thread_path_of("https://muse.ai/thread/abc_123-X?x=1") == "/thread/abc_123-X"
+    assert thread_path_of("https://muse.ai/thread/new") is None
+    assert thread_path_of("https://muse.ai/settings") is None
+    assert thread_path_of("https://muse.ai/thread/a/b") is None
+
+
+@needs_browser
+def test_reference_frame_is_attached_to_the_message(muse):
+    frame = b"\xff\xd8\xff\xe0 fake jpeg"
+    video, _ = generate(muse, reference=frame)
+    assert video.data == CLIP
+    assert muse.files == [("/__file?name=previous-shot.jpg&type=image/jpeg", frame)]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_missing_upload_control_stops_before_sending(muse, monkeypatch):
+    monkeypatch.setattr(
+        "app.integrations.muse.media.FILE_INPUT", "input.no-such-control"
+    )
+    with pytest.raises(MuseError) as failed:
+        generate(muse, reference=b"frame")
+    assert failed.value.code == "reference_upload_failed"
+    assert muse.sent == []
 
 
 @needs_browser

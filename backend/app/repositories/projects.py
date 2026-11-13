@@ -13,6 +13,7 @@ from app.models import Project, Scene
 from app.models.task import Task
 from app.schemas.project import (
     ProjectCreate,
+    ProjectUpdate,
     ProjectFilter,
     ProjectSort,
     ProjectScriptUpdate,
@@ -211,6 +212,114 @@ def create_project(session: Session, values: ProjectCreate) -> Project:
         session.rollback()
         raise
     return project
+
+
+class ProjectUpdateError(ValueError):
+    def __init__(self, code: str, status_code: int, message: str):
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
+
+# Fixed once a render starts: clips already exist in that shape.
+BRIEF_FIELDS = ("name", "idea", "aspect_ratio", "duration_seconds")
+
+
+def update_project(session: Session, project_id: str, values: ProjectUpdate) -> Project:
+    changes = values.model_dump(exclude_unset=True)
+    discard_script = changes.pop("discard_script", False)
+    if not changes:
+        project = get_project(session, project_id)
+        if project is None:
+            raise ProjectUpdateError("project_not_found", 404, "Project not found.")
+        return project
+    conditions = [Project.id == project_id]
+    if any(name in changes for name in BRIEF_FIELDS):
+        conditions.append(Project.status.in_(("draft", "ready")))
+    else:
+        # Render options also apply to a later "render again".
+        conditions.append(Project.status.not_in(("rendering", "cancelling")))
+    if "duration_seconds" in changes and not discard_script:
+        # A saved script adds up to the current duration; changing it would
+        # leave the scenes and the target out of step.
+        conditions.append(
+            or_(
+                Project.scene_count == 0,
+                Project.duration_seconds == changes["duration_seconds"],
+            )
+        )
+    try:
+        # Write before reading (SQLite WAL), like save_script.
+        result = session.execute(
+            update(Project)
+            .where(*conditions)
+            .values(**changes, updated_at=datetime.now(UTC))
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            project = get_project(session, project_id)
+            if project is None:
+                raise ProjectUpdateError("project_not_found", 404, "Project not found.")
+            if project.status in ("rendering", "cancelling"):
+                raise ProjectUpdateError(
+                    "project_busy",
+                    409,
+                    "This project is rendering. Wait or cancel the render first.",
+                )
+            if project.status not in ("draft", "ready"):
+                raise ProjectUpdateError(
+                    "project_locked",
+                    409,
+                    "Only the render options can change after a render has started.",
+                )
+            raise ProjectUpdateError(
+                "duration_locked",
+                409,
+                "The script is written for the current duration. Replace the script to change it.",
+            )
+        if "duration_seconds" in changes and discard_script:
+            # Drop a script that no longer fits; the project is a draft again.
+            session.execute(
+                update(Project)
+                .where(
+                    Project.id == project_id,
+                    Project.scene_count > 0,
+                    select(func.coalesce(func.sum(Scene.duration_seconds), 0))
+                    .where(Scene.project_id == project_id)
+                    .scalar_subquery()
+                    != changes["duration_seconds"],
+                )
+                .values(
+                    status="draft",
+                    scene_count=0,
+                    script_revision=Project.script_revision + 1,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            session.execute(
+                delete(Scene).where(
+                    Scene.project_id == project_id,
+                    select(Project.scene_count)
+                    .where(Project.id == project_id)
+                    .scalar_subquery()
+                    == 0,
+                )
+            )
+        if "name" in changes:
+            # A bulk UPDATE bypasses the ORM validator that maintains name_key.
+            session.execute(
+                update(Project)
+                .where(Project.id == project_id)
+                .values(name_key=normalize_search_text(changes["name"]))
+                .execution_options(synchronize_session=False)
+            )
+        session.commit()
+        session.expire_all()
+        return get_project(session, project_id)
+    except Exception:
+        session.rollback()
+        raise
 
 
 class ScriptUpdateError(ValueError):

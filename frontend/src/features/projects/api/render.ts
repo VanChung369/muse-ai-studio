@@ -52,6 +52,15 @@ export async function cancelRender(id: string) {
   );
 }
 
+export async function restartRender(values: { id: string; fromScene: number }) {
+  return projectRenderSchema.parse(
+    await requestJson(renderPath(values.id, "/restart"), {
+      method: "POST",
+      body: JSON.stringify({ fromScene: values.fromScene }),
+    }),
+  );
+}
+
 export async function resumeRender(values: {
   id: string;
   confirmDuplicate: boolean;

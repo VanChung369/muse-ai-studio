@@ -62,6 +62,8 @@ export const TASK_ERROR_CODES = [
   "scene_missing",
   "ffmpeg_unavailable",
   "merge_failed",
+  "reference_upload_failed",
+  "reference_frame_failed",
 ] as const;
 
 export const TASK_KINDS = [

@@ -361,7 +361,73 @@
         "render_not_resumable": "Không có lần render nào đang dừng để tiếp tục.",
         "confirm_required": "Có cảnh có thể đã được gửi tới Muse. Hãy xác nhận để gửi lại.",
         "project_not_found": "Dự án này không còn tồn tại.",
+        "render_not_restartable": "Chưa thể tạo lại từ cảnh này. Các cảnh phía trước đều phải có video.",
         "unknown": "Yêu cầu thất bại. Vui lòng thử lại."
+      },
+      "look": "Phong cách",
+      "continuity": "Liền mạch",
+      "restart": {
+        "action": "Tạo lại từ cảnh {{number}}",
+        "title": "Tạo lại từ cảnh {{number}}?",
+        "all": "Toàn bộ {{count}} cảnh sẽ được tạo lại.",
+        "last": "Chỉ cảnh {{number}} được tạo lại.",
+        "range": "Cảnh {{number}}–{{count}} sẽ được tạo lại để giữ liền mạch.",
+        "keptOne": "Cảnh 1 giữ nguyên.",
+        "keptRange": "Cảnh 1–{{previous}} giữ nguyên.",
+        "cost": "Video hiện tại của các cảnh đó và video đã ghép sẽ bị thay thế, mỗi cảnh tạo lại dùng thêm quota Muse, và Muse sẽ mở một đoạn chat mới.",
+        "keep": "Giữ nguyên",
+        "confirm_one": "Tạo lại {{count}} cảnh",
+        "confirm_other": "Tạo lại {{count}} cảnh",
+        "restarting": "Đang bắt đầu…"
+      }
+    },
+    "settings": {
+      "open": "Chỉnh dự án",
+      "summary": "Phong cách: {{look}} · Liền mạch: {{continuity}}",
+      "title": "Chỉnh dự án",
+      "description": "Tên, ý tưởng, tỉ lệ và thời lượng sửa được cho tới khi bắt đầu render. Tùy chọn render còn áp dụng khi tạo lại.",
+      "lockedBrief": "Dự án đã render nên chỉ còn chỉnh được tùy chọn render.",
+      "durationWithScript": "Kịch bản đang lưu được viết cho {{seconds}} giây.",
+      "discardScript": "Xóa kịch bản hiện tại để đổi thời lượng",
+      "renderOptions": "Tùy chọn render",
+      "look": "Phong cách hình ảnh",
+      "looks": {
+        "auto": "Tự động (theo kịch bản)",
+        "realistic": "Người thật, cảnh thật",
+        "cinematic": "Điện ảnh",
+        "documentary": "Phim tài liệu",
+        "commercial": "Quảng cáo",
+        "animation3d": "Hoạt hình 3D",
+        "anime": "Anime"
+      },
+      "lookHints": {
+        "auto": "Không thêm gì: phong cách lấy từ phần phong cách hình ảnh trong kịch bản.",
+        "realistic": "Yêu cầu hình như quay bằng máy quay thật: da và ánh sáng tự nhiên, không CGI, không da nhựa.",
+        "cinematic": "Chất phim: ống kính anamorphic, màu đã chỉnh, máy quay di chuyển có chủ đích.",
+        "documentary": "Máy quay cầm tay, ánh sáng tự nhiên, khoảnh khắc đời thường.",
+        "commercial": "Ánh sáng studio sạch, chi tiết sắc nét, màu bóng bẩy.",
+        "animation3d": "Nhân vật 3D cách điệu, ánh sáng mềm, chất liệu chi tiết.",
+        "anime": "Nét vẽ, tô bóng cel và phông nền vẽ tay."
+      },
+      "continuity": "Liền mạch giữa các cảnh",
+      "continuities": {
+        "reference": "Khớp với cảnh trước (khuyên dùng)",
+        "seamless": "Nối tiếp từ khung hình cuối",
+        "off": "Tắt"
+      },
+      "continuityHints": {
+        "reference": "Khung hình cuối của cảnh trước được đính kèm làm mẫu cho nhân vật, trang phục và màu sắc. Cảnh vẫn có thể chuyển sang nơi khác.",
+        "seamless": "Mỗi cảnh bắt đầu đúng từ khung hình cuối của cảnh trước. Hợp với một bối cảnh liên tục; chuyển sang nơi khác sẽ gượng.",
+        "off": "Mỗi cảnh chỉ được tạo từ prompt của chính nó."
+      },
+      "save": "Lưu thay đổi",
+      "saving": "Đang lưu…",
+      "errors": {
+        "project_busy": "Dự án đang render. Hãy hủy render hoặc chờ xong.",
+        "project_locked": "Đã bắt đầu render nên giờ chỉ chỉnh được tùy chọn render.",
+        "duration_locked": "Kịch bản đang viết cho thời lượng hiện tại. Tích ô xóa kịch bản, hoặc giữ nguyên thời lượng.",
+        "project_not_found": "Dự án này không còn tồn tại.",
+        "unknown": "Không lưu được thay đổi. Vui lòng thử lại."
       }
     }
   },
@@ -690,7 +756,9 @@
       "media_download_failed": "Video đã được tạo nhưng không tải về được. Hãy thử lại cảnh này.",
       "scene_missing": "Thiếu video của một cảnh nên chưa ghép được.",
       "ffmpeg_unavailable": "Máy chủ chưa cài FFmpeg nên chưa ghép được các cảnh. Cài FFmpeg rồi bấm tiếp tục.",
-      "merge_failed": "FFmpeg không ghép được các cảnh."
+      "merge_failed": "FFmpeg không ghép được các cảnh.",
+      "reference_upload_failed": "Không đính kèm được khung hình của cảnh trước nên chưa gửi gì tới Muse. Thử lại, hoặc tắt liền mạch trong phần chỉnh dự án.",
+      "reference_frame_failed": "Không đọc được khung hình cuối của cảnh trước. Thử lại, hoặc tạo lại từ cảnh đó."
     },
     "refresh": "Làm mới",
     "autoUpdate": "Tự cập nhật mỗi 5 giây khi tab đang hiển thị. Tiến độ chỉ xuất hiện khi Muse báo về.",

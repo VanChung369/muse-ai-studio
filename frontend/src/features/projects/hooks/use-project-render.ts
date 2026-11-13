@@ -6,6 +6,7 @@ import {
   cancelRender,
   fetchRender,
   renderKey,
+  restartRender,
   resumeRender,
   startRender,
 } from "../api/render";
@@ -49,5 +50,6 @@ export function useProjectRender(projectId: string) {
     start: useMutation({ mutationFn: startRender, ...options }),
     cancel: useMutation({ mutationFn: cancelRender, ...options }),
     resume: useMutation({ mutationFn: resumeRender, ...options }),
+    restart: useMutation({ mutationFn: restartRender, ...options }),
   };
 }
