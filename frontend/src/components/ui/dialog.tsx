@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "cn";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -106,21 +107,21 @@ function DialogFooter({
 }) {
   const { t } = useTranslation();
   return (
-    <div
+    <ActionBar
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 rounded-b-xl border-t bg-muted/50 p-4",
         className,
       )}
       {...props}
     >
-      {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
           <Button variant="outline">{t("common.close")}</Button>
         </DialogPrimitive.Close>
       )}
-    </div>
+      {children}
+    </ActionBar>
   );
 }
 

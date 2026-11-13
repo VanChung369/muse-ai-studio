@@ -1,6 +1,6 @@
 # Muse AI Studio — Backend
 
-FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Local Muse account management is also available. Live Muse integration and the task coordinator will be added later.
+FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Local Muse account management is also available. AI script proposals run through the durable task coordinator and the Muse browser session; video rendering is a later step.
 
 ## Requirements
 
@@ -107,3 +107,28 @@ uv run --locked pytest -q
 ```
 
 Tests use isolated temporary databases and cover validation, empty state, draft creation, detail lookup, restart persistence, baseline migration, model consistency, script persistence/replacement, duration and input validation, locked statuses, concurrent revision conflicts, rollback behavior, cascading project deletion, deletion status rules and concurrency, the OpenAPI snapshot, account CRUD and duplicate imports, credential redaction, encryption/restart persistence, and missing-key recovery. They do not write to the development database.
+
+
+## AI Script Generation
+
+`POST /api/projects/{id}/script-generation` creates a durable `plan_script` task. `GET` on the same path retrieves the latest task, including its validated proposal when it succeeds. The task uses the existing in-process coordinator and shared account lock; no Redis or extra engine service is needed. Select an enabled, verified account. Chromium/Chrome must be installed on the host; the executable is auto-detected or set with `MUSE_BROWSER_PATH`. `MUSE_PLANNING_TIMEOUT` defaults to 300 seconds.
+
+The worker reads the Muse session, preserves rotated cookies, then sends the creative brief once in an isolated browser context. The response must be complete JSON with the exact target scene timeline. A proposal is stored as task output and is only applied through the existing script save endpoint after user review. Failures and cancellation preserve the previously saved scenes. Restart recovery uses the coordinator's submitted-request marker to avoid blindly resending a request that may already exist upstream.
+
+`app/planning/` owns prompt construction, validation and task behavior; `app/integrations/muse/chat.py` owns browser interaction. The implementation follows the reference web-session protocol. Current live account compatibility has not been established by the local fixture tests.
+
+### Planner Integration Check
+
+From the repository root, start the local Postman simulation:
+
+```bash
+postman simulation run postman/simulations/muse-planning/muse-planning.sim.yaml --port 4021 --no-history
+```
+
+In another terminal, from `backend/`:
+
+```bash
+MUSE_PLANNING_SIMULATION_URL=http://127.0.0.1:4021/muse uv run --locked pytest tests/test_script_generation_simulation.py -q
+```
+
+This exercises the real HTTP client, Chromium composer, durable task worker, proposal application, invalid reply handling and cancellation against a synthetic provider. It does not call a real Muse account. The ordinary test suite skips this optional check when its simulation URL is absent.

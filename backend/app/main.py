@@ -10,7 +10,9 @@ from app.core.account_vault import AccountVault
 from app.repositories import accounts
 from app.core.config import Settings
 from app.core.account_operations import AccountOperations
+from app.tasks.coordinator import TaskCoordinator
 from app.integrations.muse.client import MuseClient
+from app.planning.tasks import PLANNING_KIND, make_script_handler
 from app.db.session import Database
 from app.models.account import Account
 
@@ -31,15 +33,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             await asyncio.to_thread(database.migrate)
             await asyncio.to_thread(prepare_vault)
+            # After migrations: a failed migration must not accept tasks.
+            await asyncio.to_thread(coordinator.start)
             yield
         finally:
+            # Never block the event loop; worker threads are daemons.
+            await asyncio.to_thread(coordinator.stop)
             await asyncio.to_thread(database.close)
 
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
     app.state.database = database
     app.state.account_vault = vault
     app.state.account_operations = AccountOperations()
+    coordinator = TaskCoordinator(
+        database, app.state.account_operations, max_workers=settings.task_workers
+    )
+    app.state.task_coordinator = coordinator
     app.state.muse_client = MuseClient(settings)
+    coordinator.register(PLANNING_KIND, make_script_handler(app))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

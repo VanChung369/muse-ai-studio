@@ -293,14 +293,16 @@ def run_operation(
                 failure.code if failure else (None if result.ok else result.code)
             ),
         }
-        if action == "keep-alive" and failure is None:
+        if action == "keep-alive" and failure is None and result.ok:
             # Only a keep-alive that reached the workspace counts as one.
             updates["last_keepalive_at"] = now
         # A partial result whose hatch_sess expired (e.g. during keep-alive)
         # cannot be stored: keep the previous credentials, record the failure.
         if result is not None and result.cookies.get("hatch_sess"):
             # Muse can grow the jar past the stored limit; keep the session.
-            stored_cookies, stored_expiries = limit_cookies(result.cookies, result.expiries)
+            stored_cookies, stored_expiries = limit_cookies(
+                result.cookies, result.expiries
+            )
             updates.update(
                 encrypted_cookies=vault.encrypt(stored_cookies),
                 session_fingerprint=vault.fingerprint(stored_cookies["hatch_sess"]),

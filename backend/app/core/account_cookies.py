@@ -15,6 +15,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 SESSION_COOKIE = "hatch_sess"
 MAX_COOKIES = 100
@@ -39,7 +40,9 @@ FETCH_HEADER = re.compile(
 # Cookie values: printable ASCII except ";" (no spaces, controls, or Unicode).
 INVALID_VALUE_CHARACTER = re.compile(r"[^\x21-\x3a\x3c-\x7e]")
 # Response headers: only the first name=value of each Set-Cookie line counts.
-SET_COOKIE_LINE = re.compile(r"^[ \t]*set-cookie[ \t]*:[ \t]*([^;\r\n]+)", re.IGNORECASE | re.MULTILINE)
+SET_COOKIE_LINE = re.compile(
+    r"^[ \t]*set-cookie[ \t]*:[ \t]*(.+?)[ \t]*$", re.IGNORECASE | re.MULTILINE
+)
 # "Copy as PowerShell": New-Object System.Net.Cookie("name", "value", "/", "domain")
 POWERSHELL_COOKIE = re.compile(
     r'System\.Net\.Cookie\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"[^"]*"\s*,\s*"([^"]*)"'
@@ -91,7 +94,11 @@ def parse_cookie_bundle(text: str) -> tuple[dict[str, str], dict[str, int]]:
         # Duplicate names (several domains, paths, or stale exports): prefer a
         # non-empty value, then one that has not expired, then one that
         # applies to muse.ai itself, then the first one seen.
-        rank = (candidate.value == "", expiry is not None and expiry <= now, domain_rank)
+        rank = (
+            candidate.value == "",
+            expiry is not None and expiry <= now,
+            domain_rank,
+        )
         if name in cookies and ranks[name] <= rank:
             continue
         cookies[name], ranks[name] = candidate.value, rank
@@ -106,7 +113,9 @@ def parse_cookie_bundle(text: str) -> tuple[dict[str, str], dict[str, int]]:
     return limit_cookies(cookies, expiries)
 
 
-def limit_cookies(cookies: dict[str, str], expiries: dict[str, int]) -> tuple[dict[str, str], dict[str, int]]:
+def limit_cookies(
+    cookies: dict[str, str], expiries: dict[str, int]
+) -> tuple[dict[str, str], dict[str, int]]:
     """Keep at most MAX_COOKIES (the stored limit), always including the session.
 
     Used for imports and for cookie jars Muse grows during operations.
@@ -114,7 +123,11 @@ def limit_cookies(cookies: dict[str, str], expiries: dict[str, int]) -> tuple[di
     if len(cookies) <= MAX_COOKIES:
         return cookies, expiries
     others = [name for name in cookies if name != SESSION_COOKIE]
-    kept = [SESSION_COOKIE, *others[: MAX_COOKIES - 1]] if SESSION_COOKIE in cookies else others[:MAX_COOKIES]
+    kept = (
+        [SESSION_COOKIE, *others[: MAX_COOKIES - 1]]
+        if SESSION_COOKIE in cookies
+        else others[:MAX_COOKIES]
+    )
     cookies = {name: cookies[name] for name in kept}
     return cookies, {name: value for name, value in expiries.items() if name in cookies}
 
@@ -139,7 +152,7 @@ def _unwrap(text: str) -> str:
 
 def _candidates(text: str) -> list[_Candidate]:
     # Windows "Copy as cURL (cmd)" escapes quotes and specials with ^.
-    if text.lstrip().lower().startswith("curl") and '^"' in text:
+    if re.match(r'\s*curl(?:\.exe)?\s+\^"', text, re.IGNORECASE):
         text = re.sub(r"\^(.)", r"\1", text)
     powershell = POWERSHELL_COOKIE.findall(text)
     if powershell:
@@ -150,8 +163,14 @@ def _candidates(text: str) -> list[_Candidate]:
         except (ValueError, RecursionError):
             pass  # Not JSON after all; try the text formats.
     embedded = _embedded_headers(text)
-    if embedded:
-        return [candidate for header in embedded for candidate in _from_header(header)]
+    set_cookies = [_from_set_cookie(line) for line in SET_COOKIE_LINE.findall(text)]
+    if embedded or set_cookies:
+        # Response Set-Cookie lines come first: they are newer than the
+        # request's Cookie header (e.g. a hatch_sess Muse just rotated), and
+        # the first cookie wins a tie.
+        return [candidate for candidate in set_cookies if candidate is not None] + [
+            candidate for header in embedded for candidate in _from_header(header)
+        ]
     if "\t" in text:
         rows = _from_tab_separated(text)
         if rows:
@@ -164,8 +183,36 @@ def _embedded_headers(text: str) -> list[str]:
         found = [match.group(group) for match in pattern.finditer(text)]
         if found:
             return found
-    # Request headers (cookie:) and/or response headers (set-cookie:).
-    return HEADER_LINE.findall(text) + SET_COOKIE_LINE.findall(text)
+    # Request-header block (cookie:); Set-Cookie lines are read separately.
+    return HEADER_LINE.findall(text)
+
+
+def _from_set_cookie(line: str) -> _Candidate | None:
+    """First name=value of a Set-Cookie line, with Domain and expiry kept."""
+    pair, *attributes = line.split(";")
+    name, separator, value = pair.strip().partition("=")
+    if not separator:
+        return None
+    domain, expiry = None, None
+    for attribute in attributes:
+        key, _, attribute_value = attribute.strip().partition("=")
+        key, attribute_value = key.strip().lower(), attribute_value.strip()
+        if key == "domain":
+            domain = attribute_value
+        elif key == "max-age":
+            try:
+                seconds = int(attribute_value)
+            except ValueError:
+                continue
+            # Max-Age wins over Expires; <= 0 means already expired.
+            expiry = time.time() + seconds if seconds > 0 else 1
+        elif key == "expires" and expiry is None:
+            try:
+                # Clamp so dates at or before the epoch still count as expired.
+                expiry = max(parsedate_to_datetime(attribute_value).timestamp(), 1)
+            except (TypeError, ValueError):
+                pass
+    return _Candidate(name.strip(), value.strip(), domain, expiry)
 
 
 def _from_json(data) -> list[_Candidate]:

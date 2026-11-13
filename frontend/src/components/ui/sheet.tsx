@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "cn";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -97,9 +98,9 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
+    <ActionBar
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+      className={cn("mt-auto p-4", className)}
       {...props}
     />
   );

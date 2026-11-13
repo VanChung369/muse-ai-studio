@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ActionBar } from "@/components/ui/action-bar";
 
 // Matches .ph in design/design-system/muse.css.
 export function PageHeader({
@@ -21,7 +22,7 @@ export function PageHeader({
         </p>
       </div>
       {actions && (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <ActionBar className="ml-auto">{actions}</ActionBar>
       )}
     </div>
   );

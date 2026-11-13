@@ -1,0 +1,7 @@
+simulation: muse-planning
+routing: path
+mocks:
+  - name: Muse planner web session
+    routeKey: muse
+    origin: muse.ai
+    path: postman/mocks/muse-planner

@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     upstream_url: str = "https://muse.ai"
     browser_path: str | None = None
     upstream_timeout: float = 12
+    # Background tasks running at once (each also holds its account).
+    task_workers: int = 2
+    # Chromium instances at once (generation tasks + a quota check).
+    browser_slots: int = 3
+    planning_timeout: int = 300
 
     @field_validator("upstream_url")
     @classmethod

@@ -52,3 +52,18 @@ export const PROJECT_COVER_CLASSES = {
     "bg-[radial-gradient(ellipse_at_60%_30%,#69505b_0%,#3d3447_55%,#24212d_100%)]",
   landscape: "bg-[linear-gradient(145deg,#625242_0%,#3f4734_50%,#222d26_100%)]",
 } as const;
+
+export const GENERATION_ERROR_CODES = [
+  "account_unavailable",
+  "generation_active",
+  "script_conflict",
+  "invalid_script",
+  "session_invalid",
+  "proxy_error",
+  "browser_unavailable",
+  "browser_busy",
+  "reply_timeout",
+  "composer_unavailable",
+  "workspace_not_running",
+  "account_changed",
+] as const;

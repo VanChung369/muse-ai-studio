@@ -144,12 +144,12 @@ export function ProjectDetailsSheet({
           </div>
         )}
         <SheetFooter className="border-t px-6 py-4">
-          {project && (
-            <DeleteProjectDialog project={project} onDeleted={onDeleted} />
-          )}
           <SheetClose asChild>
             <Button variant="outline">{t("common.close")}</Button>
           </SheetClose>
+          {project && (
+            <DeleteProjectDialog project={project} onDeleted={onDeleted} />
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

@@ -1,6 +1,7 @@
 import { ArrowRight, Clapperboard } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/hooks/use-language";
 import { useNow } from "@/hooks/use-now";
@@ -74,7 +75,7 @@ export function FeaturedProject({
             {t("projects.featured.hint")}
           </p>
         )}
-        <div className="mt-1">
+        <ActionBar className="mt-1">
           <Button onClick={() => onOpen(project.id)}>
             {t(
               project.status === "ready"
@@ -83,7 +84,7 @@ export function FeaturedProject({
             )}
             <ArrowRight aria-hidden="true" />
           </Button>
-        </div>
+        </ActionBar>
       </div>
     </section>
   );

@@ -1,0 +1,136 @@
+"""Isolated Muse composer client, using the reference UI selectors (see LICENSE)."""
+
+import json
+import shutil
+import time
+from pathlib import Path
+
+from playwright.sync_api import Error as BrowserError, sync_playwright
+
+from app.integrations.muse.client import MuseError
+from app.integrations.muse.proxy import HTTPProxyRelay, ProxyConfigError
+
+POLL_CHAT_JS = "(function(){var els=[...document.querySelectorAll('*')].filter(function(e){var s=getComputedStyle(e);return (s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+100;});els.sort(function(a,b){return b.scrollHeight-a.scrollHeight;});if(els[0])els[0].scrollTop=els[0].scrollHeight;var scope=document.querySelector('main,[class*=\"chat-scroll\"],[class*=\"hatch-chat-scroll\"]')||document.body;var bs=[].slice.call(scope.querySelectorAll('div[class*=\"hatch-chat-groupable-bubble\"]')).filter(function(b){return /hatch-agent-bubble-bg/.test(b.className||'');});var nonEmpty=bs.filter(function(b){return ((b.innerText||'').trim().length)>0;});var txt=nonEmpty.length?(nonEmpty[nonEmpty.length-1].innerText||'').trim():'';var stop=!!(document.querySelector('[data-testid=\"hatch-composer-stop-button\"]')||document.querySelector('button[aria-label*=\"Stop\" i]')||document.querySelector('button[aria-label*=\"停止\"]'));return JSON.stringify({cnt:nonEmpty.length,total:bs.length,txt:txt,stop:stop});})()"
+
+
+def generate_script_text(
+    client,
+    cookies,
+    expiries,
+    proxy,
+    prompt,
+    *,
+    on_session,
+    before_send,
+    check_cancelled,
+    timeout=300
+):
+    """Send once in a new browser context. Never resend on timeout."""
+    result = client.session(cookies, expiries, proxy, wake=True)
+    on_session(result)
+    if not result.ok:
+        raise MuseError(result.code, partial=result)
+    check_cancelled()
+    if not client.browser_lock.acquire(blocking=False):
+        raise MuseError("browser_busy", 409, partial=result)
+    relay = None
+    try:
+        with sync_playwright() as playwright:
+            candidates = [
+                client.settings.browser_path,
+                shutil.which("chromium"),
+                shutil.which("google-chrome"),
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                playwright.chromium.executable_path,
+            ]
+            executable = next(
+                (path for path in candidates if path and Path(path).is_file()), None
+            )
+            if executable is None:
+                raise MuseError("browser_unavailable", 503, partial=result)
+            if proxy:
+                relay = HTTPProxyRelay(proxy)
+            browser = playwright.chromium.launch(
+                executable_path=executable, headless=True
+            )
+            try:
+                context = browser.new_context(
+                    proxy=relay.browser_proxy() if relay else None
+                )
+                context.add_cookies(
+                    [
+                        {"name": name, "value": value, "url": client.base + "/"}
+                        for name, value in result.cookies.items()
+                    ]
+                )
+                page = context.new_page()
+                page.goto(
+                    client.base + "/thread/new",
+                    wait_until="domcontentloaded",
+                    timeout=30000,
+                )
+                composer = page.locator("textarea:visible").first
+                composer.wait_for(state="visible", timeout=30000)
+                composer.fill(prompt)
+                deadline = time.monotonic() + 15
+                point = None
+                while time.monotonic() < deadline:
+                    check_cancelled()
+                    point = page.evaluate("""() => {
+                        const textarea = document.querySelector('textarea');
+                        if (!textarea) return null;
+                        const visible = node => node.getClientRects().length > 0;
+                        for (let parent = textarea.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+                            const button = [...parent.querySelectorAll('button')].find(button => visible(button) && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && (
+                                /^(hatch-composer-send-button|composer-send-button|send-button)$/.test(button.getAttribute('data-testid') || '') ||
+                                /^(send(?: message)?|发送(?:消息)?|發送(?:訊息)?|傳送(?:訊息)?|送出)$/i.test((button.getAttribute('aria-label') || button.innerText || '').trim())
+                            ));
+                            if (button) { const box=button.getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; }
+                            if (parent.matches('form,main,[role=main]')) break;
+                        }
+                        return null;
+                    }""")
+                    if point:
+                        break
+                    page.wait_for_timeout(200)
+                if not point:
+                    raise MuseError("composer_unavailable", partial=result)
+                baseline = json.loads(page.evaluate(POLL_CHAT_JS))
+                check_cancelled()
+                before_send(
+                    result
+                )  # Record submission BEFORE the click; refreshed cookies are already saved.
+                page.mouse.click(point["x"], point["y"])
+                deadline, first_deadline = (
+                    time.monotonic() + timeout,
+                    time.monotonic() + 45,
+                )
+                previous, stable, busy = "", 0, False
+                while time.monotonic() < deadline:
+                    check_cancelled()
+                    state = json.loads(page.evaluate(POLL_CHAT_JS))
+                    busy = busy or state["stop"]
+                    text = state["txt"]
+                    if text and (
+                        state["cnt"] > baseline["cnt"] or text != baseline["txt"]
+                    ):
+                        if text == previous and not state["stop"]:
+                            stable += 1
+                            if stable >= 5:
+                                return text
+                        else:
+                            previous, stable = text, 0
+                    elif not busy and time.monotonic() > first_deadline:
+                        raise MuseError("reply_timeout", 504, partial=result)
+                    page.wait_for_timeout(200)
+                raise MuseError("reply_timeout", 504, partial=result)
+            finally:
+                browser.close()
+    except ProxyConfigError:
+        raise MuseError("proxy_error", 422, partial=result) from None
+    except BrowserError:
+        raise MuseError("generation_browser_error", partial=result) from None
+    finally:
+        if relay:
+            relay.close()
+        client.browser_lock.release()

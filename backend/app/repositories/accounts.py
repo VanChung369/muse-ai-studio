@@ -10,6 +10,7 @@ from app.core.account_vault import AccountVault
 from app.core.account_cookies import account_expiry
 from app.integrations.muse.proxy import public_proxy
 from app.models.account import Account
+from app.models.task import Task
 from app.schemas.account import AccountPatch, AccountResponse, AccountQuota, ProxyPublic
 
 
@@ -88,6 +89,24 @@ def patch_account(
 
 def delete_account(session: Session, account_id: str) -> bool:
     try:
+        # Queued tasks pinned to this account would otherwise lose it (FK SET
+        # NULL) and silently run on another one. Fail them so the user decides
+        # ("retry with another account"). Running tasks hold the account lock,
+        # so deletion is refused while one runs.
+        now = datetime.now(UTC).replace(tzinfo=None)
+        session.execute(
+            update(Task)
+            .where(Task.account_id == account_id, Task.status == "queued")
+            .values(
+                status="failed",
+                finished_at=now,
+                updated_at=now,
+                retryable=True,
+                error_code="account_deleted",
+                suggested_action="switch_account",
+                error_message="The account for this task was deleted.",
+            )
+        )
         result = session.execute(delete(Account).where(Account.id == account_id))
         session.commit()
         return result.rowcount == 1

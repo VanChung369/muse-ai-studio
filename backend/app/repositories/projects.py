@@ -8,8 +8,15 @@ from sqlalchemy import ColumnElement, and_, case, func, or_, select, delete, upd
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.text import normalize_search_text
+from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
 from app.models import Project, Scene
-from app.schemas.project import ProjectCreate, ProjectFilter, ProjectSort, ProjectScriptUpdate
+from app.models.task import Task
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectFilter,
+    ProjectSort,
+    ProjectScriptUpdate,
+)
 
 FINISHED_STATUSES = ("completed", "cancelled")
 
@@ -48,7 +55,11 @@ def _order_by(sort: ProjectSort):
     if sort == "name":
         return (Project.name_key.asc(), Project.id.asc())
     if sort == "duration":
-        return (Project.duration_seconds.desc(), Project.updated_at.desc(), Project.id.asc())
+        return (
+            Project.duration_seconds.desc(),
+            Project.updated_at.desc(),
+            Project.id.asc(),
+        )
     return (Project.updated_at.desc(), Project.id.asc())
 
 
@@ -61,7 +72,9 @@ def _cursor_values(project: Project, sort: ProjectSort) -> list:
 
 
 def _encode_cursor(project: Project, sort: ProjectSort) -> str:
-    payload = json.dumps({"sort": sort, "after": _cursor_values(project, sort)}, separators=(",", ":"))
+    payload = json.dumps(
+        {"sort": sort, "after": _cursor_values(project, sort)}, separators=(",", ":")
+    )
     return base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
 
 
@@ -74,21 +87,42 @@ def _after_condition(cursor: str, sort: ProjectSort) -> ColumnElement[bool]:
         after = payload["after"]
         if sort == "name":
             name_key, project_id = str(after[0]), str(after[1])
-            return or_(Project.name_key > name_key, and_(Project.name_key == name_key, Project.id > project_id))
+            return or_(
+                Project.name_key > name_key,
+                and_(Project.name_key == name_key, Project.id > project_id),
+            )
         if sort == "duration":
-            duration, updated, project_id = int(after[0]), datetime.fromisoformat(after[1]), str(after[2])
+            duration, updated, project_id = (
+                int(after[0]),
+                datetime.fromisoformat(after[1]),
+                str(after[2]),
+            )
             return or_(
                 Project.duration_seconds < duration,
                 and_(
                     Project.duration_seconds == duration,
-                    or_(Project.updated_at < updated, and_(Project.updated_at == updated, Project.id > project_id)),
+                    or_(
+                        Project.updated_at < updated,
+                        and_(Project.updated_at == updated, Project.id > project_id),
+                    ),
                 ),
             )
         updated, project_id = datetime.fromisoformat(after[0]), str(after[1])
-        return or_(Project.updated_at < updated, and_(Project.updated_at == updated, Project.id > project_id))
+        return or_(
+            Project.updated_at < updated,
+            and_(Project.updated_at == updated, Project.id > project_id),
+        )
     except InvalidCursorError:
         raise
-    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as error:
+    except (
+        binascii.Error,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+    ) as error:
         raise InvalidCursorError from error
 
 
@@ -101,12 +135,25 @@ def list_projects(
     limit: int = 24,
     cursor: str | None = None,
 ) -> ProjectPage:
-    filters = [condition for condition in (_status_condition(status), _search_condition(q)) if condition is not None]
-    total = session.scalar(select(func.count()).select_from(Project).where(*filters)) or 0
+    filters = [
+        condition
+        for condition in (_status_condition(status), _search_condition(q))
+        if condition is not None
+    ]
+    total = (
+        session.scalar(select(func.count()).select_from(Project).where(*filters)) or 0
+    )
 
     page_filters = [*filters, _after_condition(cursor, sort)] if cursor else filters
     # Fetch one extra row to know whether another page exists.
-    rows = list(session.scalars(select(Project).where(*page_filters).order_by(*_order_by(sort)).limit(limit + 1)))
+    rows = list(
+        session.scalars(
+            select(Project)
+            .where(*page_filters)
+            .order_by(*_order_by(sort))
+            .limit(limit + 1)
+        )
+    )
     has_more = len(rows) > limit
     items = rows[:limit]
     next_cursor = _encode_cursor(items[-1], sort) if has_more else None
@@ -117,12 +164,24 @@ def count_projects_by_filter(session: Session) -> dict[str, int]:
     row = session.execute(
         select(
             func.count(),
-            func.coalesce(func.sum(case((Project.status.not_in(FINISHED_STATUSES), 1), else_=0)), 0),
-            func.coalesce(func.sum(case((Project.status == "completed", 1), else_=0)), 0),
-            func.coalesce(func.sum(case((Project.status == "cancelled", 1), else_=0)), 0),
+            func.coalesce(
+                func.sum(case((Project.status.not_in(FINISHED_STATUSES), 1), else_=0)),
+                0,
+            ),
+            func.coalesce(
+                func.sum(case((Project.status == "completed", 1), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Project.status == "cancelled", 1), else_=0)), 0
+            ),
         ).select_from(Project)
     ).one()
-    return {"all": row[0], "in_progress": row[1], "completed": row[2], "cancelled": row[3]}
+    return {
+        "all": row[0],
+        "in_progress": row[1],
+        "completed": row[2],
+        "cancelled": row[3],
+    }
 
 
 def get_featured_project(session: Session) -> Project | None:
@@ -133,7 +192,9 @@ def get_featured_project(session: Session) -> Project | None:
     ready = session.scalars(query.where(Project.status == "ready")).first()
     if ready is not None:
         return ready
-    return session.scalars(query.where(Project.status.not_in(FINISHED_STATUSES))).first()
+    return session.scalars(
+        query.where(Project.status.not_in(FINISHED_STATUSES))
+    ).first()
 
 
 def get_project(session: Session, project_id: str) -> Project | None:
@@ -159,7 +220,9 @@ class ScriptUpdateError(ValueError):
         self.status_code = status_code
 
 
-def save_script(session: Session, project_id: str, values: ProjectScriptUpdate) -> Project:
+def save_script(
+    session: Session, project_id: str, values: ProjectScriptUpdate
+) -> Project:
     duration = sum(scene.duration_seconds for scene in values.scenes)
     try:
         # Write before reading: SQLite WAL cannot promote an old read snapshot
@@ -189,15 +252,30 @@ def save_script(session: Session, project_id: str, values: ProjectScriptUpdate) 
             if project is None:
                 raise ScriptUpdateError("project_not_found", 404, "Project not found.")
             if project.status not in ("draft", "ready"):
-                raise ScriptUpdateError("script_locked", 409, "This project's script cannot be edited in its current status.")
+                raise ScriptUpdateError(
+                    "script_locked",
+                    409,
+                    "This project's script cannot be edited in its current status.",
+                )
             # Report a stale revision before input problems: the client's
             # copy (including the target duration) may itself be outdated,
             # and only a conflict tells it to reload.
             if project.script_revision != values.expected_revision:
-                raise ScriptUpdateError("script_conflict", 409, "The script has changed. Reload the project before saving again.")
-            raise ScriptUpdateError("script_duration_mismatch", 422, "Scene durations must add up to the project's target duration.")
+                raise ScriptUpdateError(
+                    "script_conflict",
+                    409,
+                    "The script has changed. Reload the project before saving again.",
+                )
+            raise ScriptUpdateError(
+                "script_duration_mismatch",
+                422,
+                "Scene durations must add up to the project's target duration.",
+            )
         session.execute(delete(Scene).where(Scene.project_id == project_id))
-        session.add_all(Scene(project_id=project_id, **scene.model_dump()) for scene in values.scenes)
+        session.add_all(
+            Scene(project_id=project_id, **scene.model_dump())
+            for scene in values.scenes
+        )
         session.commit()
         session.expire_all()
         return get_project(session, project_id)
@@ -222,6 +300,14 @@ def delete_project(session: Session, project_id: str) -> None:
             .where(
                 Project.id == project_id,
                 Project.status.not_in(("planning", "rendering", "cancelling")),
+                ~select(Task.id)
+                .where(
+                    Task.project_id == Project.id,
+                    # Any active generation task (shared constants, not literals).
+                    Task.kind == PLAN_SCRIPT,
+                    Task.status.in_(ACTIVE_STATUSES),
+                )
+                .exists(),
             )
             .execution_options(synchronize_session=False)
         )
@@ -229,7 +315,11 @@ def delete_project(session: Session, project_id: str) -> None:
             session.rollback()
             if get_project(session, project_id) is None:
                 raise ProjectDeleteError("project_not_found", 404, "Project not found.")
-            raise ProjectDeleteError("project_busy", 409, "Stop the running operation before deleting this project.")
+            raise ProjectDeleteError(
+                "project_busy",
+                409,
+                "Stop the running operation before deleting this project.",
+            )
         session.commit()
     except Exception:
         session.rollback()

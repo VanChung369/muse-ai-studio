@@ -1,15 +1,18 @@
-import { Clapperboard, Pencil, Plus } from "lucide-react";
+import { Clapperboard, Pencil, Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { isScriptEditable } from "../lib/project-script";
 import type { Project } from "../types";
+import { GenerateScriptDialog } from "./generate-script-dialog";
 import { ProjectScriptEditor } from "./project-script-editor";
 
 export function ProjectScriptSection({ project }: { project: Project }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const hasScript = project.scenes.length > 0;
   const canEdit = isScriptEditable(project.status);
 
@@ -20,14 +23,20 @@ export function ProjectScriptSection({ project }: { project: Project }) {
           {t("projects.details.script")}
         </h3>
         {canEdit && (
-          <Button variant="outline" onClick={() => setEditing(true)}>
-            {hasScript ? (
-              <Pencil aria-hidden="true" />
-            ) : (
-              <Plus aria-hidden="true" />
-            )}
-            {t(hasScript ? "projects.script.edit" : "projects.script.create")}
-          </Button>
+          <ActionBar className="ml-auto">
+            <Button variant="outline" onClick={() => setGenerating(true)}>
+              <Sparkles aria-hidden="true" />
+              {t("projects.generation.open")}
+            </Button>
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              {hasScript ? (
+                <Pencil aria-hidden="true" />
+              ) : (
+                <Plus aria-hidden="true" />
+              )}
+              {t(hasScript ? "projects.script.edit" : "projects.script.create")}
+            </Button>
+          </ActionBar>
         )}
       </div>
       {project.characterBible && (
@@ -93,6 +102,12 @@ export function ProjectScriptSection({ project }: { project: Project }) {
         <p className="text-xs leading-5 text-faint">
           {t("projects.script.locked")}
         </p>
+      )}
+      {generating && (
+        <GenerateScriptDialog
+          project={project}
+          onClose={() => setGenerating(false)}
+        />
       )}
       {editing && (
         <ProjectScriptEditor

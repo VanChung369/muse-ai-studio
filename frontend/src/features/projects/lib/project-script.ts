@@ -32,3 +32,13 @@ export function getScriptDraft(project: Project): ProjectScriptDraft {
       : createSceneOutline(project.durationSeconds),
   };
 }
+
+export function isScriptProposalApplied(project: Project, proposal: ProjectScriptDraft | undefined): boolean {
+  return proposal !== undefined && project.scriptRevision > proposal.expectedRevision &&
+    project.characterBible === proposal.characterBible && project.visualStyle === proposal.visualStyle &&
+    project.scenes.length === proposal.scenes.length && project.scenes.every((scene, index) => {
+      const candidate = proposal.scenes[index];
+      return scene.title === candidate.title && scene.prompt === candidate.prompt &&
+        scene.durationSeconds === candidate.durationSeconds && scene.narration === candidate.narration;
+    });
+}

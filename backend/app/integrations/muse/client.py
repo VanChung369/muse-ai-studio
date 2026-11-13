@@ -65,7 +65,9 @@ class MuseClient:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.base = settings.upstream_url
-        self.browser_lock = threading.Lock()
+        # Bounded Chromium slots: long generations must not lock out quota
+        # checks. Same acquire(blocking=False)/release API as a Lock.
+        self.browser_lock = threading.BoundedSemaphore(max(1, settings.browser_slots))
 
     def _request(self, session, method, path, cookies, options, **kwargs):
         try:
@@ -207,7 +209,9 @@ class MuseClient:
                 # The session refresh above still counts. Log the cause (never
                 # page text or cookies): a CSP block once hid behind this code.
                 first_line = str(error).splitlines()[0][:200] if str(error) else ""
-                logger.warning("Quota reader failed: %s: %s", type(error).__name__, first_line)
+                logger.warning(
+                    "Quota reader failed: %s: %s", type(error).__name__, first_line
+                )
                 raise MuseError("quota_unavailable", partial=result) from None
             result.code = "quota_updated"
             return result

@@ -3,6 +3,7 @@ import { useId } from "react";
 import { Controller } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -254,22 +255,24 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                   </li>
                 ))}
               </ol>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={fields.length >= 30}
-                onClick={() =>
-                  append({
-                    title: "",
-                    prompt: "",
-                    narration: "",
-                    durationSeconds: 10,
-                  })
-                }
-              >
-                <Plus aria-hidden="true" />
-                {t("projects.script.add")}
-              </Button>
+              <ActionBar>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={fields.length >= 30}
+                  onClick={() =>
+                    append({
+                      title: "",
+                      prompt: "",
+                      narration: "",
+                      durationSeconds: 10,
+                    })
+                  }
+                >
+                  <Plus aria-hidden="true" />
+                  {t("projects.script.add")}
+                </Button>
+              </ActionBar>
               {errors.scenes?.root && (
                 <p role="alert" className="text-xs text-destructive">
                   {t("projects.script.errors.scenes")}
@@ -306,7 +309,7 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                   {t("projects.script.errors.conflict")}
                 </p>
                 {editor.newerVersionLoaded && (
-                  <div className="flex flex-wrap gap-2">
+                  <ActionBar>
                     <Button
                       type="button"
                       variant="outline"
@@ -321,7 +324,7 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                     >
                       {t("projects.script.overwrite")}
                     </Button>
-                  </div>
+                  </ActionBar>
                 )}
               </div>
             ) : (
@@ -339,7 +342,7 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                 <p className="text-sm">
                   {t("projects.script.discardQuestion")}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <ActionBar>
                   <Button
                     type="button"
                     variant="outline"
@@ -354,7 +357,7 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                   >
                     {t("projects.script.discard")}
                   </Button>
-                </div>
+                </ActionBar>
               </div>
             )}
           </div>

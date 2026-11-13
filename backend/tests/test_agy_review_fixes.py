@@ -35,7 +35,9 @@ def client(settings):
 
 
 def create_account(client, cookie_text=f"hatch_sess={SECRET}"):
-    return client.post("/api/accounts", json={"label": "A", "cookieText": cookie_text}).json()
+    return client.post(
+        "/api/accounts", json={"label": "A", "cookieText": cookie_text}
+    ).json()
 
 
 class Provider:
@@ -52,7 +54,9 @@ class Provider:
 @pytest.mark.parametrize("code", ["invalid_response", "workspace_unavailable"])
 def test_unconfirmed_partial_keeps_cookies_but_not_validity(client, code):
     account = create_account(client)
-    partial = SessionResult({"hatch_sess": SECRET, "rotated": "1"}, {}, None, verified=False)
+    partial = SessionResult(
+        {"hatch_sess": SECRET, "rotated": "1"}, {}, None, verified=False
+    )
     client.app.state.muse_client = Provider(error=MuseError(code, partial=partial))
     response = client.post(f"/api/accounts/{account['id']}/test")
     assert response.status_code == 502
@@ -86,21 +90,44 @@ def test_vault_waits_for_a_key_still_being_written(tmp_path):
     vault = AccountVault(path)
     vault.prepare()
     writer.join()
-    assert vault.decrypt(Fernet(key).encrypt(b'{"hatch_sess": "x"}').decode()) == {"hatch_sess": "x"}
+    assert vault.decrypt(Fernet(key).encrypt(b'{"hatch_sess": "x"}').decode()) == {
+        "hatch_sess": "x"
+    }
 
 
 # 4. Lenient parsing: empty/expired duplicates lose; more paste formats work.
-@pytest.mark.parametrize("text", [
-    json.dumps([{"name": "hatch_sess", "value": "", "domain": ".muse.ai"},
-                {"name": "hatch_sess", "value": SECRET, "domain": "app.muse.ai"}]),
-    json.dumps([{"name": "hatch_sess", "value": "old", "domain": ".muse.ai", "expirationDate": 1000},
-                {"name": "hatch_sess", "value": SECRET, "domain": "www.muse.ai", "expirationDate": 2000000000}]),
-    f"  #HttpOnly_.muse.ai\tTRUE\t/\tTRUE\t2000000000\thatch_sess\t{SECRET}",
-    f"HTTP/2 200\nset-cookie: hatch_sess={SECRET}; Path=/; HttpOnly\nset-cookie: _ga=1; Max-Age=10",
-    f'curl ^"https://muse.ai/api/session^" ^\n  -H ^"accept: */*^" ^\n  -b ^"hatch_sess={SECRET}; _ga=x^"',
-    f'$s.Cookies.Add((New-Object System.Net.Cookie("hatch_sess", "{SECRET}", "/", "muse.ai")))',
-    f'Invoke-WebRequest -Uri "https://muse.ai/" -Headers @{{"cookie"="hatch_sess={SECRET}; a=b"}}',
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        json.dumps(
+            [
+                {"name": "hatch_sess", "value": "", "domain": ".muse.ai"},
+                {"name": "hatch_sess", "value": SECRET, "domain": "app.muse.ai"},
+            ]
+        ),
+        json.dumps(
+            [
+                {
+                    "name": "hatch_sess",
+                    "value": "old",
+                    "domain": ".muse.ai",
+                    "expirationDate": 1000,
+                },
+                {
+                    "name": "hatch_sess",
+                    "value": SECRET,
+                    "domain": "www.muse.ai",
+                    "expirationDate": 2000000000,
+                },
+            ]
+        ),
+        f"  #HttpOnly_.muse.ai\tTRUE\t/\tTRUE\t2000000000\thatch_sess\t{SECRET}",
+        f"HTTP/2 200\nset-cookie: hatch_sess={SECRET}; Path=/; HttpOnly\nset-cookie: _ga=1; Max-Age=10",
+        f'curl ^"https://muse.ai/api/session^" ^\n  -H ^"accept: */*^" ^\n  -b ^"hatch_sess={SECRET}; _ga=x^"',
+        f'$s.Cookies.Add((New-Object System.Net.Cookie("hatch_sess", "{SECRET}", "/", "muse.ai")))',
+        f'Invoke-WebRequest -Uri "https://muse.ai/" -Headers @{{"cookie"="hatch_sess={SECRET}; a=b"}}',
+    ],
+)
 def test_parser_accepts_more_pastes(text):
     cookies, _ = parse_cookie_bundle(text)
     assert cookies["hatch_sess"] == SECRET
@@ -108,7 +135,9 @@ def test_parser_accepts_more_pastes(text):
 
 def test_parser_still_requires_a_session():
     with pytest.raises(CookieImportError) as raised:
-        parse_cookie_bundle(json.dumps([{"name": "hatch_sess", "value": "", "domain": ".muse.ai"}]))
+        parse_cookie_bundle(
+            json.dumps([{"name": "hatch_sess", "value": "", "domain": ".muse.ai"}])
+        )
     assert raised.value.code == "missing_session"
 
 
@@ -127,7 +156,9 @@ class FakeUpstreamHandler(socketserver.BaseRequestHandler):
                 return
             data += chunk
         self.server.seen.append(data)
-        self.request.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+        self.request.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+        )
 
 
 @pytest.fixture
@@ -155,13 +186,26 @@ def relay_request(port, authorization=None, half_close=False):
 
 
 def test_relay_rejects_unauthenticated_local_clients(upstream):
-    relay = HTTPProxyRelay({"server": f"http://127.0.0.1:{upstream.server_address[1]}", "username": "u", "password": "p"})
+    relay = HTTPProxyRelay(
+        {
+            "server": f"http://127.0.0.1:{upstream.server_address[1]}",
+            "username": "u",
+            "password": "p",
+        }
+    )
     try:
         port = relay.server.server_address[1]
         assert relay_request(port).startswith(b"HTTP/1.1 407")
-        assert relay_request(port, "Basic " + base64.b64encode(b"wrong:creds").decode()).startswith(b"HTTP/1.1 407")
+        assert relay_request(
+            port, "Basic " + base64.b64encode(b"wrong:creds").decode()
+        ).startswith(b"HTTP/1.1 407")
         assert upstream.seen == []  # Nothing reached the paid proxy.
-        token = "Basic " + base64.b64encode(f"{relay.client_username}:{relay.client_password}".encode()).decode()
+        token = (
+            "Basic "
+            + base64.b64encode(
+                f"{relay.client_username}:{relay.client_password}".encode()
+            ).decode()
+        )
         response = relay_request(port, token, half_close=True)
         assert response.endswith(b"ok")  # Response arrives despite the half-close.
         forwarded = upstream.seen[0]
@@ -192,25 +236,59 @@ def test_click_until_survives_navigation_errors():
         def wait_for_timeout(self, _ms):
             pass
 
-    assert MuseClient._click_until(Page(), "target", lambda: "ready" if Page.clicks else None, timeout=5) == "ready"
+    assert (
+        MuseClient._click_until(
+            Page(), "target", lambda: "ready" if Page.clicks else None, timeout=5
+        )
+        == "ready"
+    )
 
 
 # 7a/b/c. Proxy password survives user@host; SOCKS limits at save; failed keep-alive time.
 def test_proxy_url_without_password_keeps_the_saved_one(client):
     account = create_account(client)
     path = f"/api/accounts/{account['id']}/proxy"
-    client.put(path, json={"proxy": {"server": "http://proxy.example.com:8080", "username": "alice", "password": "pw"}})
-    response = client.put(path, json={"proxy": {"server": "http://alice@proxy.example.com:8080"}})
-    assert response.status_code == 200 and response.json()["proxy"]["hasPassword"] is True
-    cleared = client.put(path, json={"proxy": {"server": "http://proxy.example.com:8080", "username": "alice", "password": ""}})
+    client.put(
+        path,
+        json={
+            "proxy": {
+                "server": "http://proxy.example.com:8080",
+                "username": "alice",
+                "password": "pw",
+            }
+        },
+    )
+    response = client.put(
+        path, json={"proxy": {"server": "http://alice@proxy.example.com:8080"}}
+    )
+    assert (
+        response.status_code == 200 and response.json()["proxy"]["hasPassword"] is True
+    )
+    cleared = client.put(
+        path,
+        json={
+            "proxy": {
+                "server": "http://proxy.example.com:8080",
+                "username": "alice",
+                "password": "",
+            }
+        },
+    )
     assert cleared.json()["proxy"]["hasPassword"] is False
 
 
 def test_socks_credentials_over_255_bytes_are_rejected_when_saved(client):
     account = create_account(client)
-    response = client.put(f"/api/accounts/{account['id']}/proxy", json={
-        "proxy": {"server": "socks5://proxy.example.com:1080", "username": "u", "password": "x" * 256},
-    })
+    response = client.put(
+        f"/api/accounts/{account['id']}/proxy",
+        json={
+            "proxy": {
+                "server": "socks5://proxy.example.com:1080",
+                "username": "u",
+                "password": "x" * 256,
+            },
+        },
+    )
     assert response.status_code == 422
 
 
@@ -227,13 +305,23 @@ def test_busy_browser_still_returns_refreshed_session(settings, monkeypatch):
     muse = MuseClient(settings)
     refreshed = SessionResult({"hatch_sess": "rotated"}, {}, "RUNNING")
     monkeypatch.setattr(muse, "session", lambda *args, **kwargs: refreshed)
-    muse.browser_lock.acquire()
+    slots = 0
+    while muse.browser_lock.acquire(blocking=False):  # Take every Chromium slot.
+        slots += 1
     try:
         with pytest.raises(MuseError) as raised:
             muse.quota({"hatch_sess": "old"}, {})
     finally:
-        muse.browser_lock.release()
+        for _ in range(slots):
+            muse.browser_lock.release()
+    assert slots == settings.browser_slots
     assert raised.value.code == "browser_busy" and raised.value.partial is refreshed
+
+
+def test_set_cookie_beats_the_stale_request_cookie():
+    # DevTools request + response headers: the response rotated hatch_sess.
+    text = "cookie: hatch_sess=OLD; _ga=1\nset-cookie: hatch_sess=NEW; Domain=muse.ai; Path=/"
+    assert parse_cookie_bundle(text)[0] == {"hatch_sess": "NEW", "_ga": "1"}
 
 
 def test_startup_names_an_account_the_key_cannot_decrypt(settings):
@@ -242,8 +330,52 @@ def test_startup_names_an_account_the_key_cannot_decrypt(settings):
         other = create_account(client, f"hatch_sess={SECRET}-2")
         with client.app.state.database.sessions() as session:
             row = session.get(Account, other["id"])
-            row.encrypted_cookies = Fernet(Fernet.generate_key()).encrypt(b'{"hatch_sess":"x"}').decode()
+            row.encrypted_cookies = (
+                Fernet(Fernet.generate_key()).encrypt(b'{"hatch_sess":"x"}').decode()
+            )
             session.commit()
     with pytest.raises(RuntimeError, match="cannot be decrypted|does not match"):
         with TestClient(create_app(settings)):
             pass
+
+
+# agy verification follow-ups.
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (
+            "set-cookie: hatch_sess=expired-token; Expires=Thu, 01 Jan 1970 00:00:00 GMT\nset-cookie: hatch_sess=live-token; Path=/",
+            "live-token",
+        ),
+        (
+            "set-cookie: hatch_sess=other; Domain=.other.com\nset-cookie: hatch_sess=live-token; Path=/",
+            "live-token",
+        ),
+        (
+            "set-cookie: hatch_sess=gone; Max-Age=0\nset-cookie: hatch_sess=live-token; Max-Age=3600",
+            "live-token",
+        ),
+        # A Unix cURL with ^" in its body must not lose carets from cookie values.
+        (
+            "curl 'https://muse.ai/' -d '{\"x\":\"^\"}' -b 'hatch_sess=live^token'",
+            "live^token",
+        ),
+    ],
+)
+def test_set_cookie_attributes_and_caret_scope(text, expected):
+    assert parse_cookie_bundle(text)[0]["hatch_sess"] == expected
+
+
+def test_keepalive_without_running_workspace_records_no_keepalive(client):
+    account = create_account(client)
+    not_running = SessionResult(
+        {"hatch_sess": SECRET}, {}, "STOPPED", code="workspace_not_running", ok=False
+    )
+    client.app.state.muse_client = Provider(result=not_running)
+    response = client.post(f"/api/accounts/{account['id']}/keep-alive")
+    assert response.status_code == 200 and response.json()["ok"] is False
+    stored = client.get(f"/api/accounts/{account['id']}").json()
+    assert (
+        stored["lastKeepaliveAt"] is None
+        and stored["lastError"] == "workspace_not_running"
+    )

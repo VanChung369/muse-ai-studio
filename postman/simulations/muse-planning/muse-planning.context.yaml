@@ -1,0 +1,23 @@
+purpose:
+  stands_in_for: Muse session renewal, VM wake and the browser message composer
+  unblocks: Durable script generation and proposal review without live account credentials
+assumptions:
+  - id: provider-composer
+    status: unknown
+    claim: The live composer and assistant bubble selectors match the reference implementation.
+    reason: Selectors come from the existing ai-meeting engine, not a published provider contract.
+    verification: HTTP/session/wake and Chromium composer exercised through the local Postman fixture; live Muse generation has not been exercised.
+    source: backend/app/integrations/muse/chat.py
+    updated_at: "2026-11-13"
+  - id: script-integrity
+    status: supported
+    claim: A submitted task produces one validated proposal and does not overwrite the saved script until applied.
+    reason: Generated text must satisfy the project script schema and exact timeline.
+    verification: test_script_generation_simulation.py passed with one recorded send, proposal persistence, explicit application, invalid-reply rejection and cancellation; frontend browser QA also passed reload recovery and application.
+    source: backend/app/planning and tests/test_script_generation.py
+    updated_at: "2026-11-13"
+fingerprints:
+  - id: local-planner-fixture
+    date: "2026-11-13"
+    commit: null
+    cli: "1.82.0"

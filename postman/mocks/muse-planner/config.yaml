@@ -1,0 +1,10 @@
+version: 1
+name: Muse script planner fixture
+slug: muse-planner
+protocol: http
+port: 4500
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

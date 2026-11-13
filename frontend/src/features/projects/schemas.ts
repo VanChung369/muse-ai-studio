@@ -70,3 +70,28 @@ export const projectSchema = projectSummaryShape
     ),
   })
   .refine(sceneProgressIsValid);
+
+export const scriptGenerationRequestSchema = z.object({
+  accountId: z.string().min(1),
+  idea: z.string().trim().min(1).max(12000),
+});
+
+export const scriptGenerationTaskSchema = z.object({
+  id: z.string(),
+  status: z.enum([
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "interrupted",
+  ]),
+  cancelRequested: z.boolean(),
+  submitted: z.boolean(),
+  error: z
+    .object({ code: z.string(), message: z.string().nullable() })
+    .nullable(),
+  result: z
+    .object({ projectId: z.string(), script: projectScriptDraftSchema })
+    .nullable(),
+});

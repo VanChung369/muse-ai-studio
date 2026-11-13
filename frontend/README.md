@@ -62,7 +62,7 @@ The project list uses the real local API. The global shell does not report simul
 - Search, status, sorting, and the selected project use the `q`, `status`, `sort`, and `project` query parameters, so the view can be refreshed or shared.
 - Project cards and the featured project open a detail sheet with metadata, the story idea, and available scene prompts via `GET /api/projects/{id}`. Loading, connection failures, and missing projects have separate states with retry controls.
 - **New project** uses React Hook Form and Zod, then saves with `POST /api/projects`. SQLite persists drafts across page reloads and backend restarts. A failed save preserves the form input. Submitting disables dismissal and duplicate submits; writes are never retried automatically.
-- The script editor supports manual scene planning. Automatic script generation, video rendering, Muse connectivity, and video playback are not implemented yet.
+- The script editor supports manual scene planning and AI-generated script proposals. Video rendering and playback are not implemented yet.
 - The trash button on each card, or **Delete project** in the detail sheet, opens a confirmation naming the project. Confirming deletes its saved script and scenes. Running projects must be stopped first. Failed requests keep the dialog open for retry; successful deletion clears the selection and refreshes counts and pagination from the first page.
 - Project names, ideas, and scene prompts are user content; switching interface language does not translate that content.
 
@@ -102,13 +102,26 @@ Open `/accounts` from the shared navigation.
 
 - Import one account at a time with a label and session cookies. Supported formats are a Cookie header, a flat JSON cookie object, or a browser cookie JSON array. Include a nonempty `hatch_sess` cookie.
 - Search labels without case or accents, filter enabled/disabled accounts, rename a label, enable/disable an account, or delete its stored session with confirmation. Deleting an account leaves video projects unchanged.
-- Imported sessions remain **Not verified**. Enabling an account saves a preference and does not establish session health or eligibility for generation. Live session checks, quota synchronization, proxies, browser-extension import, and automatic script generation are future steps.
+- New imports begin **Not verified**. Use **Test** to verify a session before selecting it for AI script generation. Enabling an account is an independent preference; the generator requires both an enabled account and a verified session.
 - Cookie input exists only in the import form and request; it is cleared on close or success. It is never saved to browser storage, a TanStack query, or mutation variables. Failed imports keep input for correction or retry while the form remains open.
 - Account responses contain public metadata only. No cookie reveal or export action is exposed.
 
 `src/features/accounts/` keeps API parsing, list helpers, hooks, and UI components separate. API paths live in `src/constants/api.ts`; interface text lives in both locale files.
 
+## AI Script Generation
+
+1. Import a Muse session under **Muse accounts**, enable it, and use **Test** to verify it.
+2. Open a project and choose **Generate with AI**. Enter its idea and select the verified account.
+3. Start generation. The task runs in the background; close and reopen the dialog or reload the page to see its latest state.
+4. Review the generated character description, visual style, and scene prompts. **Apply this script** saves the proposal using the original script revision. It never overwrites a newer manual edit.
+
+The saved script remains intact until a proposal is applied. Stopping a task preserves the saved script; it cannot retract a message already submitted to Muse. A new generation request may consume additional quota. Interrupted or timed-out requests are not resent automatically.
+
+Script generation hooks, API parsing and UI live within `src/features/projects/`. The interface uses English and Vietnamese locale resources. Live provider compatibility depends on the Muse browser UI; local integration checks use the committed Postman planner fixture without real account credentials.
+
 ## Code Conventions
+
+- Use `ActionBar` from `src/components/ui/action-bar.tsx` for page and form actions. Align groups to the right, place secondary actions before the primary action, and preserve that order on narrow screens. Dialog and sheet footers follow the same rule.
 
 - Write documentation, comments, and identifiers in English. Keep user-facing copy in the English and Vietnamese locale files rather than in components or navigation configuration.
 - Use `ROUTES` from `src/constants/routes.ts` instead of repeating route strings in components or navigation configuration.
