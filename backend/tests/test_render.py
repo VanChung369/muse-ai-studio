@@ -11,6 +11,7 @@ from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import GeneratedVideo
 from app.main import create_app
 from app.models import Account
+from app.rendering.ffmpeg import Clip, MediaInfo, MergeError
 from app.rendering.tasks import derive_status
 
 
@@ -92,8 +93,29 @@ def ffmpeg(monkeypatch):
         ]
         output.write_bytes(b"|".join(parts) + (b" (muted)" if mute else b""))
 
+    def compose(binary, segments, output, check_cancelled, **options):
+        # What the film is built from, readable in the "merged" bytes.
+        parts = [
+            (segment.path.read_bytes().decode() if segment.path.suffix == ".mp4" else segment.path.suffix[1:])
+            + f"[{segment.start:g}-{'end' if segment.end is None else format(segment.end, 'g')}"
+            + f" x{segment.speed:g}{' still' if segment.still else ''}]"
+            for segment in segments
+        ]
+        extras = (
+            f" volume={options.get('volume', 1.0):g}"
+            f" music={[(track.offset, track.volume, track.loop) for track in options.get('soundtracks', ())]}"
+            f" captions={[caption.text for caption in options.get('captions', ())]}"
+            f" frame={options.get('frame')}"
+        )
+        output.write_bytes(("|".join(parts) + extras + (" (muted)" if options.get("mute") else "")).encode())
+
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
     monkeypatch.setattr("app.rendering.tasks.merge", merge)
+    monkeypatch.setattr("app.rendering.tasks.compose", compose)
+    monkeypatch.setattr(
+        "app.rendering.tasks.probe",
+        lambda binary, path: Clip(path, 10.0, 1280, 720, True),
+    )
     monkeypatch.setattr(
         "app.rendering.tasks.last_frame",
         lambda binary, clip: b"frame-of-" + clip.read_bytes(),
@@ -952,3 +974,312 @@ def test_clip_routes_report_missing_media(client):
 )
 def test_project_status_follows_the_chain(rows, expected):
     assert derive_status(rows) == expected
+
+
+@pytest.fixture
+def media_tools(monkeypatch):
+    """Stand in for FFmpeg where uploads are read and timelines are checked."""
+
+    def inspect(binary, path):
+        if path.read_bytes() == b"junk":
+            raise MergeError
+        return {
+            ".mp4": MediaInfo(4.0, 640, 360, True),
+            ".png": MediaInfo(None, 800, 600, False),
+            ".mp3": MediaInfo(20.0, None, None, True),
+        }[path.suffix]
+
+    monkeypatch.setattr("app.api.routes.media.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr("app.api.routes.media.inspect", inspect)
+    monkeypatch.setattr("app.api.routes.media.thumbnail", lambda binary, clip, target: False)
+    monkeypatch.setattr("app.api.routes.timeline.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr("app.api.routes.timeline._captions_supported", lambda binary: True)
+    # Scene clips are 10 and 5 seconds long, as the script says.
+    monkeypatch.setattr(
+        "app.api.routes.timeline.probe",
+        lambda binary, path: Clip(path, 10.0 if "01" in path.name else 5.0, 1280, 720, True),
+    )
+
+
+def upload(client, project_id, name, mime, content=b"bytes"):
+    return client.post(
+        f"/api/projects/{project_id}/media",
+        params={"name": name},
+        content=content,
+        headers={"Content-Type": mime},
+    )
+
+
+def test_media_files_are_uploaded_listed_and_deleted(client, media_tools, settings):
+    project = add_project(client)
+    pid = project["id"]
+    folder = settings.data_dir / "projects" / pid / "media"
+
+    assert upload(client, pid, "notes.txt", "text/plain").status_code == 415
+    assert upload(client, "missing", "a.png", "image/png").status_code == 404
+    assert upload(client, pid, "empty.png", "image/png", b"").json()["detail"]["code"] == "empty_file"
+    # Bytes that are not what their type says are refused and not kept.
+    junk = upload(client, pid, "broken.mp4", "video/mp4", b"junk")
+    assert junk.status_code == 422 and junk.json()["detail"]["code"] == "unreadable_file"
+    assert list(folder.iterdir()) == []
+
+    video = upload(client, pid, "..\\clips\\b roll.mp4", "video/mp4").json()
+    assert (video["kind"], video["name"], video["seconds"], video["width"]) == ("video", "b roll.mp4", 4.0, 640)
+    picture = upload(client, pid, "logo.png", "image/png").json()
+    assert (picture["kind"], picture["seconds"], picture["height"]) == ("image", None, 600)
+    song = upload(client, pid, "song.mp3", "audio/mpeg; charset=binary").json()
+    assert (song["kind"], song["seconds"], song["width"], song["thumbnailUrl"]) == ("audio", 20.0, None, None)
+    assert song["source"] == "upload" and song["size"] == 5
+
+    listed = client.get(f"/api/projects/{pid}/media").json()
+    assert [item["name"] for item in listed] == ["b roll.mp4", "logo.png", "song.mp3"]
+    served = client.get(video["url"])
+    assert served.content == b"bytes" and served.headers["x-content-type-options"] == "nosniff"
+    # No still could be made: a picture is its own still, a video has none.
+    assert client.get(picture["thumbnailUrl"]).content == b"bytes"
+    assert client.get(video["thumbnailUrl"]).status_code == 404
+
+    assert client.delete(song["url"]).status_code == 204
+    assert client.delete(song["url"]).status_code == 404
+    assert len(list(folder.iterdir())) == 2
+    assert client.delete(f"/api/projects/{pid}").status_code == 204
+    assert not folder.exists()
+
+
+def test_timeline_takes_added_media_speed_soundtrack_and_captions(
+    client, muse, ffmpeg, media_tools
+):
+    add_account(client)
+    project = add_project(client)
+    pid = project["id"]
+    timeline = f"/api/projects/{pid}/timeline"
+    video = upload(client, pid, "b roll.mp4", "video/mp4", b"broll").json()
+    picture = upload(client, pid, "logo.png", "image/png").json()
+    song = upload(client, pid, "song.mp3", "audio/mpeg").json()
+    client.post(f"/api/projects/{pid}/render")
+    wait_status(client, pid, "completed")
+
+    scene1 = {"scene": 1, "start": 0, "end": 10, "enabled": True}
+    scene2 = {"scene": 2, "start": 0, "end": 5, "enabled": True}
+    for invalid in (
+        {"items": [scene1, scene2, {"mediaId": song["id"], "start": 0, "end": 2}]},  # Audio as picture.
+        {"items": [scene1, scene2, {"mediaId": "nope", "start": 0, "end": 2}]},
+        {"items": [scene1, scene2, {"mediaId": video["id"], "start": 0, "end": 9}]},  # Past its end.
+        {"items": [scene1, scene2, {"mediaId": picture["id"], "start": 0, "end": 31}]},
+        {"items": [{**scene1, "speed": 5}, scene2]},
+        {"items": [{**scene1, "mediaId": video["id"]}, scene2]},  # Two sources.
+        {"items": [scene1, scene2], "audio": [{"mediaId": video["id"], "end": 2}]},  # Video as audio.
+        {"items": [scene1, scene2], "audio": [{"mediaId": song["id"], "end": 25}]},
+        {"items": [scene1, scene2], "volume": 3},
+        {"items": [scene1, scene2], "captions": [{"start": 2, "end": 2.1, "text": "Too short"}]},
+    ):
+        assert client.put(timeline, json=invalid).status_code == 422, invalid
+
+    saved = client.put(
+        timeline,
+        json={
+            "items": [
+                {"mediaId": picture["id"], "key": "intro", "start": 0, "end": 2},
+                {**scene1, "speed": 2},
+                {"mediaId": video["id"], "key": "cutaway", "start": 1, "end": 3, "speed": 0.5},
+                scene2,
+                {"mediaId": picture["id"], "key": "outro", "start": 0, "end": 1.5, "enabled": False},
+            ],
+            "audio": [{"mediaId": song["id"], "offset": 1, "start": 0, "end": 20, "volume": 0.5, "loop": True}],
+            "volume": 0.8,
+            "captions": [
+                {"start": 3, "end": 5, "text": " Second line \n\n"},
+                {"start": 0, "end": 2, "text": "Chào buổi sáng"},
+                {"start": 6, "end": 7, "text": "   "},
+            ],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    # 2 s of picture, 10 s at double speed, 2 s at half speed, 5 s.
+    assert body["totalSeconds"] == 2 + 5 + 4 + 5
+    assert [(i["key"], i["kind"], i["speed"], i["enabled"]) for i in body["items"]] == [
+        ("intro", "image", 1, True),
+        ("scene-1", "scene", 2, True),
+        ("cutaway", "video", 0.5, True),
+        ("scene-2", "scene", 1, True),
+        ("outro", "image", 1, False),
+    ]
+    assert body["items"][2]["videoUrl"] == video["url"] and body["items"][0]["videoUrl"] is None
+    assert [(a["mediaId"], a["offset"], a["end"], a["volume"], a["loop"]) for a in body["audio"]] == [
+        (song["id"], 1, 20, 0.5, True)
+    ]
+    assert body["volume"] == 0.8 and body["burnCaptions"] and body["canBurnCaptions"]
+    assert [c["text"] for c in body["captions"]] == ["Chào buổi sáng", "Second line"]
+    done = wait_status(client, pid, "completed")
+    assert client.get(done["videoUrl"]).content.decode() == (
+        "png[0-2 x1 still]|clip-1[0-end x2]|broll[1-3 x0.5]|clip-2[0-end x1]"
+        " volume=0.8 music=[(1.0, 0.5, True)] captions=['Chào buổi sáng', 'Second line']"
+        " frame=(1280, 720)"
+    )
+
+    # A file placed in the film cannot be deleted from under it.
+    for used in (video, picture, song):
+        refused = client.delete(used["url"])
+        assert refused.status_code == 409 and refused.json()["detail"]["code"] == "media_in_use"
+
+    # Captions kept only as a file to download are not drawn; a plain edit
+    # goes back to simply joining the scenes.
+    client.put(timeline, json={"items": [scene1, scene2], "captions": [{"start": 0, "end": 2, "text": "Kept"}], "burnCaptions": False})
+    done = wait_status(client, pid, "completed")
+    assert client.get(done["videoUrl"]).content == b"clip-1|clip-2"
+    assert client.get(timeline).json()["captions"] == [{"start": 0, "end": 2, "text": "Kept"}]
+    assert client.delete(video["url"]).status_code == 204
+    assert len(muse.prompts) == 2  # Nothing was ever rendered again.
+
+
+def test_captions_are_refused_when_ffmpeg_cannot_draw_them(client, muse, ffmpeg, media_tools, monkeypatch):
+    monkeypatch.setattr("app.api.routes.timeline._captions_supported", lambda binary: False)
+    add_account(client)
+    project = add_project(client)
+    timeline = f"/api/projects/{project['id']}/timeline"
+    client.post(f"/api/projects/{project['id']}/render")
+    wait_status(client, project["id"], "completed")
+    items = [{"scene": 1, "start": 0, "end": 10}, {"scene": 2, "start": 0, "end": 5}]
+    caption = [{"start": 0, "end": 2, "text": "Hello"}]
+    refused = client.put(timeline, json={"items": items, "captions": caption})
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "captions_unavailable"
+    assert not client.get(timeline).json()["canBurnCaptions"]
+    # They can still be kept for download.
+    assert client.put(timeline, json={"items": items, "captions": caption, "burnCaptions": False}).status_code == 200
+
+
+def test_muse_makes_music_that_arrives_as_an_audio_file(client, muse, media_tools, monkeypatch, settings):
+    monkeypatch.setattr("app.rendering.music.generate_video", muse)
+    monkeypatch.setattr("app.rendering.music.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr(
+        "app.rendering.music.extract_audio",
+        lambda binary, source, target: target.write_bytes(b"sound-of-" + source.read_bytes()),
+    )
+    monkeypatch.setattr("app.rendering.music.inspect", lambda binary, path: MediaInfo(10.0, None, None, True))
+    project = add_project(client)
+    pid = project["id"]
+    music = f"/api/projects/{pid}/media/music"
+    ask = {"description": "  Slow acoustic guitar, warm.  "}
+
+    assert client.post("/api/projects/missing/media/music", json=ask).status_code == 404
+    assert client.post(music, json={"description": " "}).status_code == 422
+    assert client.get(music).json() is None
+    # No account with a verified session yet.
+    refused = client.post(music, json=ask)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "account_unavailable"
+    add_account(client)
+
+    muse.gate = threading.Event()
+    started = client.post(music, json=ask)
+    assert started.status_code == 202 and started.json()["kind"] == "generate_music"
+    assert muse.entered.wait(5)
+    # One piece at a time per project.
+    again = client.post(music, json=ask)
+    assert again.status_code == 409 and again.json()["detail"]["code"] == "generation_active"
+    muse.gate.set()
+    deadline = time.monotonic() + 5
+    while client.get(music).json()["status"] != "succeeded":
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+
+    # A clip was asked for in a conversation of its own, for its soundtrack.
+    assert "Slow acoustic guitar, warm" in muse.prompts[0] and "Music only" in muse.prompts[0]
+    assert muse.threads == [None]
+    (made,) = client.get(f"/api/projects/{pid}/media").json()
+    assert (made["kind"], made["source"], made["seconds"], made["mime"]) == ("audio", "muse", 10.0, "audio/mp4")
+    assert made["name"] == "Muse - Slow acoustic guitar, warm..m4a"
+    assert client.get(made["url"]).content == b"sound-of-clip-1"
+    # Only the audio is kept.
+    folder = settings.data_dir / "projects" / pid / "media"
+    assert [path.suffix for path in folder.iterdir()] == [".m4a"]
+
+
+def test_music_without_a_soundtrack_fails_and_leaves_nothing(client, muse, media_tools, monkeypatch, settings):
+    def silent(binary, source, target):
+        raise MergeError
+
+    monkeypatch.setattr("app.rendering.music.generate_video", muse)
+    monkeypatch.setattr("app.rendering.music.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr("app.rendering.music.extract_audio", silent)
+    add_account(client)
+    project = add_project(client)
+    music = f"/api/projects/{project['id']}/media/music"
+    assert client.post(music, json={"description": "Piano"}).status_code == 202
+    deadline = time.monotonic() + 5
+    while (task := client.get(music).json())["status"] != "failed":
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+    assert task["error"]["code"] == "music_missing"
+    assert client.get(f"/api/projects/{project['id']}/media").json() == []
+    folder = settings.data_dir / "projects" / project["id"] / "media"
+    assert list(folder.iterdir()) == []
+
+
+def test_caption_style_is_saved_and_used_and_audio_gets_a_waveform(
+    client, muse, ffmpeg, media_tools, monkeypatch, settings
+):
+    drawn = []
+
+    def waveform(binary, source, target):
+        drawn.append(source.name)
+        target.write_bytes(b"png")
+        return True
+
+    monkeypatch.setattr("app.api.routes.media.waveform", waveform)
+    styles = []
+    compose = __import__("app.rendering.tasks", fromlist=["compose"]).compose
+    monkeypatch.setattr(
+        "app.rendering.tasks.compose",
+        lambda *args, **options: (styles.append(options["caption_style"]), compose(*args, **options)),
+    )
+    add_account(client)
+    project = add_project(client)
+    pid = project["id"]
+    timeline = f"/api/projects/{pid}/timeline"
+    song = upload(client, pid, "song.mp3", "audio/mpeg").json()
+    picture = upload(client, pid, "logo.png", "image/png").json()
+    client.post(f"/api/projects/{pid}/render")
+    wait_status(client, pid, "completed")
+
+    # Drawn the first time it is asked for, then kept; only audio has one.
+    assert song["waveformUrl"] and picture["waveformUrl"] is None
+    assert client.get(song["waveformUrl"]).content == b"png"
+    assert client.get(song["waveformUrl"]).headers["content-type"] == "image/png"
+    assert len(drawn) == 1
+    assert client.get(picture["url"] + "/waveform").status_code == 404
+
+    start = client.get(timeline).json()
+    assert start["captionStyle"] == {
+        "size": "medium", "color": "#FFFFFF", "outline": "#000000",
+        "position": "bottom", "bold": False, "box": False,
+    }
+    items = [{"scene": 1, "start": 0, "end": 10}, {"scene": 2, "start": 0, "end": 5}]
+    caption = [{"start": 0, "end": 2, "text": "Hello"}]
+    for invalid in ({"size": "huge"}, {"color": "yellow"}, {"position": "left"}, {"font": "Arial"}):
+        refused = client.put(timeline, json={"items": items, "captions": caption, "captionStyle": invalid})
+        assert refused.status_code == 422, invalid
+
+    style = {"size": "large", "color": "#ffe000", "position": "top", "bold": True}
+    saved = client.put(
+        timeline,
+        json={"items": items, "captions": caption, "captionStyle": style,
+              "audio": [{"mediaId": song["id"], "end": 20}]},
+    )
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert body["captionStyle"] == {
+        "size": "large", "color": "#FFE000", "outline": "#000000",
+        "position": "top", "bold": True, "box": False,
+    }
+    assert body["audio"][0]["waveformUrl"] == song["waveformUrl"]
+    wait_status(client, pid, "completed")
+    (used,) = styles
+    assert (used.size, used.color, used.position, used.bold, used.box) == (0.08, "#FFE000", "top", True, False)
+
+    # Deleting the audio also deletes its drawing.
+    client.put(timeline, json={"items": items})
+    wait_status(client, pid, "completed")
+    assert client.delete(song["url"]).status_code == 204
+    folder = settings.data_dir / "projects" / pid / "media"
+    assert [path.suffix for path in folder.iterdir()] == [".png"]

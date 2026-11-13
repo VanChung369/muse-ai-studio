@@ -1,24 +1,27 @@
 import type { Project, TimelineItem } from "../types";
 
 export type FilmSegment = {
-  scene: number;
+  key: string;
+  // Null for a video or picture the user added.
+  scene: number | null;
   title: string;
-  // Where the scene starts in the film, and how long it plays.
+  // Where the piece starts in the film, and how long it plays.
   offset: number;
   length: number;
 };
 
-/** The film as the timeline lays it out: kept scenes in play order. */
+/** The film as the timeline lays it out: kept pieces in play order. */
 export function filmSegments(items: TimelineItem[]): FilmSegment[] {
   let offset = 0;
   return items
     .filter((item) => item.enabled)
     .map((item) => {
       const segment = {
+        key: item.key,
         scene: item.scene,
         title: item.title,
         offset,
-        length: item.end - item.start,
+        length: (item.end - item.start) / item.speed,
       };
       offset += segment.length;
       return segment;
@@ -27,8 +30,7 @@ export function filmSegments(items: TimelineItem[]): FilmSegment[] {
 
 export function segmentAt(segments: FilmSegment[], time: number) {
   return (
-    segments.findLast((segment) => time >= segment.offset - 0.01) ??
-    segments[0]
+    segments.findLast((segment) => time >= segment.offset - 0.01) ?? segments[0]
   );
 }
 
@@ -70,7 +72,8 @@ export function scriptMarkdown(
       `## ${labels.scene(scene.number)} · ${scene.title} (${scene.durationSeconds}s)`,
       scene.prompt,
     );
-    if (scene.narration) parts.push(`> ${labels.narration}: ${scene.narration}`);
+    if (scene.narration)
+      parts.push(`> ${labels.narration}: ${scene.narration}`);
   }
   return parts.join("\n\n") + "\n";
 }

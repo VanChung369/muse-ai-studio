@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.core.text import normalize_search_text
 from app.db.base import Base
+from app.models.media import Media
 from app.models.reference import Reference
 from app.models.scene import Scene
 
@@ -89,7 +90,14 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    # A film without sound: asked of Muse and enforced when merging.
+    # Videos, pictures and audio added to the film from outside its script.
+    media: Mapped[list[Media]] = relationship(
+        order_by=Media.created_at,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    # Scenes without their own sound: asked of Muse and enforced when
+    # merging. Audio the user adds to the film still plays.
     mute: Mapped[bool] = mapped_column(default=False)
     continuity: Mapped[str] = mapped_column(String(16), default="reference")
     # The Muse conversation this film is rendered in, the account that
@@ -97,8 +105,9 @@ class Project(Base):
     muse_thread_path: Mapped[str | None] = mapped_column(String(120))
     muse_thread_account_id: Mapped[str | None] = mapped_column(String(36))
     muse_thread_scenes: Mapped[int] = mapped_column(default=0)
-    # The edit applied when merging (app/rendering/timeline.py): scene
-    # order, trims and left-out scenes. Null = every scene, whole, in order.
+    # The edit applied when merging (app/rendering/timeline.py): order,
+    # trims, speed, added media, the soundtrack and captions. Null = every
+    # scene, whole, in order.
     timeline_json: Mapped[str | None] = mapped_column(Text)
     # Scenes with a rendered clip; the render handlers keep it in sync.
     completed_scenes: Mapped[int] = mapped_column(default=0)

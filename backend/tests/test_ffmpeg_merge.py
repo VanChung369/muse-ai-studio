@@ -163,3 +163,234 @@ def test_missing_binary_is_a_merge_error(tmp_path):
 
 def test_configured_path_must_exist(tmp_path):
     assert find_ffmpeg(Settings(ffmpeg_path=str(tmp_path / "missing"))) is None
+
+
+def still(path, color="green", size="640x360"):
+    subprocess.run(
+        [
+            FFMPEG, "-y", "-v", "error", "-f", "lavfi",
+            "-i", f"color=c={color}:s={size}", "-frames:v", "1", str(path),
+        ],  # fmt: skip
+        check=True,
+    )
+    return path
+
+
+def tone(path, seconds, frequency=660):
+    subprocess.run(
+        [
+            FFMPEG, "-y", "-v", "error", "-f", "lavfi",
+            "-i", f"sine=frequency={frequency}:duration={seconds}", str(path),
+        ],  # fmt: skip
+        check=True,
+    )
+    return path
+
+
+def loudness(path, start, seconds):
+    """Mean volume in dB of a stretch of the file's sound."""
+    report = subprocess.run(
+        [
+            FFMPEG, "-hide_banner", "-ss", str(start), "-t", str(seconds),
+            "-i", str(path), "-af", "volumedetect", "-vn", "-f", "null", "-",
+        ],  # fmt: skip
+        capture_output=True,
+        text=True,
+    ).stderr
+    return float(report.split("mean_volume:")[1].split("dB")[0])
+
+
+@needs_ffmpeg
+def test_compose_joins_clips_stills_and_changes_speed(tmp_path):
+    from app.rendering.ffmpeg import Segment, compose
+
+    scene = clip(tmp_path / "scene-01.mp4", 4, "red")
+    output = tmp_path / "final.mp4"
+    compose(
+        FFMPEG,
+        [
+            # Two seconds of the clip at double speed: one second of film.
+            Segment(scene, start=1.0, end=3.0, speed=2.0),
+            Segment(still(tmp_path / "logo.png"), end=1.5, still=True),
+            Segment(still(tmp_path / "photo.jpg", "blue", "300x500"), end=1.0, still=True),
+            Segment(still(tmp_path / "card.webp", "white"), end=0.5, still=True),
+            # One second at half speed: two seconds of film.
+            Segment(scene, start=0.0, end=1.0, speed=0.5),
+        ],
+        output,
+        lambda: None,
+    )
+    made = probe(FFMPEG, output)
+    assert 5.7 < made.seconds < 6.4
+    # The film keeps the first clip's frame; other shapes are fitted into it.
+    assert (made.width, made.height, made.has_audio) == (320, 180, True)
+    assert not list(tmp_path.glob("*.part.mp4"))
+
+
+@needs_ffmpeg
+def test_compose_lays_soundtracks_over_the_film(tmp_path):
+    from app.rendering.ffmpeg import Segment, Soundtrack, compose
+
+    scene = clip(tmp_path / "scene-01.mp4", 6, "red")
+    music = tone(tmp_path / "music.mp3", 1)
+    output = tmp_path / "final.mp4"
+    # Muted scenes, music from second 3 on, repeated to the film's end.
+    compose(
+        FFMPEG,
+        [Segment(scene)],
+        output,
+        lambda: None,
+        mute=True,
+        soundtracks=[Soundtrack(music, offset=3.0, loop=True)],
+    )
+    made = probe(FFMPEG, output)
+    assert 5.7 < made.seconds < 6.4 and made.has_audio
+    assert loudness(output, 0.5, 2) < -60  # Nothing before the music starts.
+    assert loudness(output, 3.2, 1) > -40
+
+    # Without a soundtrack a muted film has no audio track at all.
+    compose(FFMPEG, [Segment(scene, speed=2.0)], output, lambda: None, mute=True)
+    made = probe(FFMPEG, output)
+    assert 2.7 < made.seconds < 3.4 and not made.has_audio
+
+    # A track that is not audio is refused rather than skipped.
+    with pytest.raises(MergeError):
+        compose(
+            FFMPEG, [Segment(scene)], output, lambda: None,
+            soundtracks=[Soundtrack(still(tmp_path / "x.png"))],
+        )  # fmt: skip
+
+
+@needs_ffmpeg
+def test_compose_draws_captions(tmp_path):
+    from app.rendering.ffmpeg import Caption, Segment, can_caption, caption_text, compose
+
+    captions = [
+        Caption(2.0, 3.5, "Sương sớm trên đồi Cầu Đất"),
+        Caption(0.0, 1.5, "Dòng một\n\n{\an8}dòng hai"),
+    ]
+    assert caption_text(captions) == (
+        "1\n00:00:00,000 --> 00:00:01,500\nDòng một\n(\an8)dòng hai\n\n"
+        "2\n00:00:02,000 --> 00:00:03,500\nSương sớm trên đồi Cầu Đất\n"
+    )
+    if not can_caption(FFMPEG):
+        pytest.skip("This FFmpeg has no caption renderer.")
+    scene = clip(tmp_path / "scene-01.mp4", 4, "black")
+    plain, drawn = tmp_path / "plain.mp4", tmp_path / "drawn.mp4"
+    compose(FFMPEG, [Segment(scene)], plain, lambda: None)
+    compose(FFMPEG, [Segment(scene)], drawn, lambda: None, captions=captions)
+    assert 3.7 < probe(FFMPEG, drawn).seconds < 4.4
+
+    def frame(path):
+        return subprocess.run(
+            [
+                FFMPEG, "-v", "error", "-ss", "2.5", "-i", str(path),
+                "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-",
+            ],  # fmt: skip
+            capture_output=True,
+        ).stdout
+
+    # White letters on a black picture: only the captioned film has any.
+    assert max(frame(plain)) < 60 < max(frame(drawn))
+
+
+@needs_ffmpeg
+def test_inspect_reads_each_kind_of_media(tmp_path):
+    from app.rendering.ffmpeg import inspect
+
+    video = inspect(FFMPEG, clip(tmp_path / "a.mp4", 2, "red"))
+    assert (video.width, video.height, video.has_audio) == (320, 180, True)
+    assert 1.7 < video.seconds < 2.4
+    picture = inspect(FFMPEG, still(tmp_path / "a.png"))
+    assert (picture.width, picture.height, picture.has_audio) == (640, 360, False)
+    audio = inspect(FFMPEG, tone(tmp_path / "a.wav", 3))
+    assert audio.width is None and audio.has_audio and 2.7 < audio.seconds < 3.4
+    (tmp_path / "notes.txt").write_text("not media")
+    with pytest.raises(MergeError):
+        inspect(FFMPEG, tmp_path / "notes.txt")
+
+
+@needs_ffmpeg
+def test_extract_audio_keeps_only_the_sound(tmp_path):
+    from app.rendering.ffmpeg import extract_audio, inspect
+
+    source = clip(tmp_path / "music-clip.mp4", 3, "black")
+    target = tmp_path / "music.m4a"
+    extract_audio(FFMPEG, source, target)
+    sound = inspect(FFMPEG, target)
+    assert sound.width is None and sound.has_audio and 2.7 < sound.seconds < 3.4
+    assert not list(tmp_path.glob("*.part.*"))
+    # A clip without a soundtrack has nothing to keep.
+    silent = tmp_path / "silent.mp4"
+    subprocess.run(
+        [FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=320x180:d=1", str(silent)],
+        check=True,
+    )
+    with pytest.raises(MergeError):
+        extract_audio(FFMPEG, silent, tmp_path / "none.m4a")
+    assert not (tmp_path / "none.m4a").exists()
+
+
+@needs_ffmpeg
+def test_captions_follow_their_style(tmp_path):
+    from app.rendering.ffmpeg import (
+        Caption,
+        CaptionStyle,
+        Segment,
+        can_caption,
+        caption_script,
+        compose,
+    )
+
+    style = CaptionStyle(size=0.1, color="#FFE000", position="top", bold=True)
+    script = caption_script(
+        [Caption(1.0, 2.5, "Dòng {một}\nC:" + chr(92) + "hai")], style, 320, 180
+    )
+    # Size in the film's pixels, yellow letters (blue, green, red), top centre.
+    assert "PlayResY: 180" in script and "Style: Default,Arial,18,&H0000E0FF," in script
+    assert ",8,16,16,11,1\n" in script
+    # A line break is written as backslash-N; other backslashes are replaced.
+    line = "Dialogue: 0,0:00:01.00,0:00:02.50,Default,,0,0,0,,Dòng (một)"
+    assert line + chr(92) + "NC:/hai\n" in script
+    if not can_caption(FFMPEG):
+        pytest.skip("This FFmpeg has no caption renderer.")
+
+    scene = clip(tmp_path / "scene-01.mp4", 3, "black")
+    output = tmp_path / "final.mp4"
+    compose(
+        FFMPEG, [Segment(scene)], output, lambda: None,
+        captions=[Caption(0.0, 3.0, "MMMMMMMM")], caption_style=style,
+    )  # fmt: skip
+    frame = subprocess.run(
+        [
+            FFMPEG, "-v", "error", "-ss", "1", "-i", str(output),
+            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+        ],  # fmt: skip
+        capture_output=True,
+    ).stdout
+    rows = [frame[row * 320 * 3 : (row + 1) * 320 * 3] for row in range(180)]
+    top, bottom = b"".join(rows[:60]), b"".join(rows[120:])
+    # Letters in the top third only, and yellow: red and green without blue.
+    assert max(top) > 180 and max(bottom) < 60
+    brightest = max(range(0, len(top), 3), key=lambda at: top[at] + top[at + 1])
+    assert top[brightest] > 180 and top[brightest + 1] > 150 and top[brightest + 2] < 110
+
+    # A box behind the words darkens nothing on black but still draws them.
+    compose(
+        FFMPEG, [Segment(scene)], output, lambda: None,
+        captions=[Caption(0.0, 3.0, "MMMM")], caption_style=CaptionStyle(box=True),
+    )  # fmt: skip
+    assert 2.7 < probe(FFMPEG, output).seconds < 3.4
+
+
+@needs_ffmpeg
+def test_waveform_draws_the_sound_of_a_file(tmp_path):
+    from app.rendering.ffmpeg import inspect, waveform
+
+    drawing = tmp_path / "song.wave.png"
+    assert waveform(FFMPEG, tone(tmp_path / "song.mp3", 2), drawing)
+    picture = inspect(FFMPEG, drawing)
+    assert (picture.width, picture.height) == (1600, 96)
+    # A picture has no sound to draw.
+    assert not waveform(FFMPEG, still(tmp_path / "logo.png"), tmp_path / "none.png")
+    assert not (tmp_path / "none.png").exists()

@@ -474,7 +474,7 @@
         "id": "Bahasa Indonesia"
       },
       "mute": "Tắt tiếng video",
-      "muteHint": "Yêu cầu Muse tạo cảnh không âm thanh và video ghép sẽ không có tiếng. Với dự án đã xong, đổi mục này chỉ ghép lại video, không render lại.",
+      "muteHint": "Yêu cầu Muse tạo cảnh không âm thanh và tiếng gốc của các clip bị bỏ khỏi video ghép; âm thanh bạn thêm ở timeline vẫn phát. Với dự án đã xong, đổi mục này chỉ ghép lại video, không render lại.",
       "muted": "Tắt tiếng",
       "busy": "Dự án đang render. Hãy chờ xong hoặc hủy render rồi mới chỉnh được.",
       "planning": "Kịch bản đang được tạo. Ý tưởng sửa lại được khi tạo xong; tùy chọn render chỉnh được ngay."
@@ -482,27 +482,89 @@
     "timeline": {
       "title": "Dòng thời gian",
       "total": "Độ dài phim: {{time}}",
-      "hint": "Kéo clip để đổi chỗ, kéo hai mép clip để cắt, hoặc chọn một clip để nhập giây chính xác hay bỏ khỏi phim. Áp dụng chỉ ghép lại phim từ các cảnh đã có, không render lại.",
+      "hint": "Kéo clip để đổi chỗ, kéo hai mép để cắt; đoạn âm thanh và phụ đề cũng kéo được như vậy. Chọn một mục rồi nhấn Delete để gỡ. Kéo video, ảnh, âm thanh của bạn từ mục Tư liệu vào. Khi áp dụng, phim được ghép lại từ những gì đã có; không render lại.",
       "locked": "Dòng thời gian chỉnh được khi phim đã hoàn tất.",
       "merging": "Đang ghép lại phim…",
       "apply": "Áp dụng và ghép lại",
       "applying": "Đang lưu…",
       "reset": "Hoàn tác thay đổi",
-      "cut": "Cắt và sắp xếp cảnh này",
+      "cut": "Cắt, tốc độ và vị trí",
       "start": "Bắt đầu (giây)",
       "end": "Kết thúc (giây)",
       "clipLength": "Clip dài {{seconds}} giây.",
-      "include": "Dùng cảnh này trong phim",
+      "include": "Dùng đoạn này trong phim",
       "earlier": "Lên trước",
       "later": "Ra sau",
       "excluded": "Không dùng",
       "errors": {
         "timeline_locked": "Phim đang được ghép hoặc chưa hoàn tất. Thử lại khi đã xong.",
         "ffmpeg_unavailable": "Máy chủ chưa cài FFmpeg nên không ghép lại được phim.",
-        "invalid_timeline": "Các đoạn cắt không khớp với video đã render. Hoàn tác thay đổi rồi thử lại.",
+        "invalid_timeline": "Chỉnh sửa này không khớp với các clip và tệp. Hãy hoàn tác rồi thử lại.",
         "project_not_found": "Dự án này không còn tồn tại.",
-        "unknown": "Không lưu được dòng thời gian. Vui lòng thử lại."
-      }
+        "unknown": "Không lưu được dòng thời gian. Vui lòng thử lại.",
+        "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề. Hãy tắt “In phụ đề vào video” rồi thử lại."
+      },
+      "shown": "Hiển thị (giây)",
+      "speed": "Tốc độ",
+      "pictureLength": "Ảnh hiển thị tối đa 30 giây.",
+      "playsFor": "Ở tốc độ này đoạn phát trong {{seconds}} giây (cả clip: {{full}} giây).",
+      "remove": "Gỡ khỏi phim",
+      "inspectorHint": "Chọn một clip, một đoạn âm thanh hoặc một phụ đề để chỉnh.",
+      "sceneVolume": "Tiếng gốc của các clip",
+      "sceneVolumeMuted": "Dự án đang dùng cảnh không tiếng nên không có tiếng gốc. Đổi ở Ý tưởng › Tùy chọn render.",
+      "audio": {
+        "title": "Đoạn âm thanh",
+        "offset": "Bắt đầu lúc (giây)",
+        "start": "Từ (giây)",
+        "end": "Đến (giây)",
+        "length": "Tệp dài {{seconds}} giây. Âm thanh dừng khi phim kết thúc.",
+        "volume": "Âm lượng",
+        "loop": "Lặp lại đến hết phim",
+        "loopHint": "Dùng cho nhạc ngắn, ví dụ bản do Muse tạo.",
+        "empty": "Chưa có âm thanh. Kéo một tệp âm thanh từ mục Tư liệu bên dưới vào đây."
+      },
+      "captions": {
+        "title": "Phụ đề",
+        "add": "Thêm phụ đề",
+        "fromNarration": "Tạo từ lời dẫn",
+        "download": "Tải tệp .srt",
+        "empty": "Chưa có phụ đề. Thêm mới, hoặc tạo từ lời dẫn của các cảnh.",
+        "emptyLane": "Chưa có phụ đề.",
+        "start": "Bắt đầu (giây)",
+        "end": "Kết thúc (giây)",
+        "text": "Nội dung",
+        "placeholder": "Lời thoại…",
+        "remove": "Xóa phụ đề",
+        "burn": "In phụ đề vào video",
+        "burnHint": "Tắt thì phụ đề chỉ còn là tệp để tải về.",
+        "cannotBurn": "FFmpeg trên máy chủ này không in được phụ đề. Vẫn tải được dưới dạng tệp.",
+        "style": {
+          "title": "Kiểu chữ phụ đề",
+          "sample": "Phụ đề mẫu",
+          "size": "Cỡ chữ",
+          "sizes": {
+            "small": "Nhỏ",
+            "medium": "Vừa",
+            "large": "Lớn",
+            "xlarge": "Rất lớn"
+          },
+          "position": "Vị trí",
+          "positions": {
+            "bottom": "Dưới",
+            "middle": "Giữa",
+            "top": "Trên"
+          },
+          "color": "Màu chữ",
+          "outline": "Màu viền",
+          "bold": "Chữ đậm",
+          "box": "Nền tối sau chữ"
+        },
+        "count_one": "{{count}} phụ đề",
+        "count_other": "{{count}} phụ đề"
+      },
+      "filmSpeed": "Tốc độ cả phim",
+      "filmSpeedMixed": "Các clip đang có tốc độ khác nhau.",
+      "removeSelected": "Gỡ mục đang chọn"
     },
     "output": {
       "open": "Thành phẩm",
@@ -534,14 +596,14 @@
       "prompts": "Prompt từng cảnh",
       "exportNote": "Kịch bản và prompt được tạo ngay trên trình duyệt từ dữ liệu dự án.",
       "edit": "Muốn chỉnh sửa?",
-      "editNote": "Thứ tự, đoạn cắt và cảnh bị bỏ được chỉnh ở dòng thời gian bên dưới, không cần render lại. Muốn đổi nội dung một cảnh thì tạo lại từ cảnh đó trong chi tiết dự án.",
+      "editNote": "Thứ tự, cắt, tốc độ, tư liệu của bạn, âm thanh và phụ đề đều chỉnh ở timeline bên dưới mà không cần render lại. Muốn đổi nội dung một cảnh, hãy tạo lại từ cảnh đó ở bước Render.",
       "openScript": "Mở Kịch bản & cảnh",
       "tracks": {
         "video": "Video",
-        "music": "Nhạc nền",
+        "music": "Âm thanh",
         "subtitles": "Phụ đề"
       },
-      "soon": "Sẽ có"
+      "previewingClip": "Đang xem phần được giữ của clip này."
     },
     "workspace": {
       "open": "Mở dự án",
@@ -589,6 +651,58 @@
         "account": "Tài khoản",
         "processingTime": "Thời gian xử lý",
         "restartNote": "Tạo lại một cảnh sẽ tạo lại cả các cảnh phía sau để phim liền mạch."
+      }
+    },
+    "media": {
+      "title": "Tư liệu của bạn",
+      "hint": "Thêm video, ảnh và âm thanh của riêng bạn, rồi kéo thả vào track Video hoặc Âm thanh (hoặc dùng nút trên từng tệp). Tối đa {{count}} tệp, mỗi tệp {{size}} MB.",
+      "upload": "Tải video, ảnh, âm thanh lên",
+      "uploading": "Đang tải lên…",
+      "kinds": {
+        "video": "Video",
+        "image": "Ảnh",
+        "audio": "Âm thanh"
+      },
+      "addToTimeline": "Thêm vào phim",
+      "addAsMusic": "Thêm vào âm thanh",
+      "inUse": "Đang dùng trong phim",
+      "remove": "Xóa {{name}}",
+      "fromMuse": "Do Muse tạo",
+      "failed_one": "{{count}} tệp không tải lên được.",
+      "failed_other": "{{count}} tệp không tải lên được.",
+      "errors": {
+        "unsupported_file": "Hãy tải video (MP4, WebM, MOV), ảnh (PNG, JPEG, WebP) hoặc âm thanh (MP3, WAV, M4A, OGG).",
+        "file_too_large": "Mỗi tệp tối đa {{size}} MB.",
+        "too_many_files": "Một dự án chứa tối đa {{count}} tệp tư liệu.",
+        "project_busy": "Phim đang được ghép. Hãy chờ ghép xong.",
+        "ffmpeg_unavailable": "Cần FFmpeg để đọc tệp tải lên. Hãy cài FFmpeg trên máy chủ trước.",
+        "empty_file": "Tệp rỗng.",
+        "unreadable_file": "Không đọc được tệp này như video, ảnh hay âm thanh.",
+        "media_in_use": "Tệp đang được dùng trong phim. Hãy gỡ khỏi timeline trước.",
+        "project_not_found": "Dự án này không còn tồn tại.",
+        "unknown": "Yêu cầu thất bại. Vui lòng thử lại."
+      },
+      "drop": "Kéo thả tệp vào đây, hoặc bấm để chọn",
+      "formats": "Video: MP4, WebM, MOV · Ảnh: PNG, JPEG, WebP · Âm thanh: MP3, WAV, M4A, OGG",
+      "inUseHint": "Đang dùng trong phim: hãy gỡ khỏi timeline và bấm Áp dụng trước khi xóa.",
+      "play": "Nghe {{name}}",
+      "pause": "Dừng {{name}}"
+    },
+    "music": {
+      "open": "Nhờ Muse tạo nhạc",
+      "title": "Nhờ Muse tạo nhạc",
+      "description": "Muse tạo một clip 10 giây có nhạc theo mô tả, và chỉ phần tiếng được giữ lại. Bản nhạc xuất hiện trong Tư liệu; bật lặp lại để phủ hết phim.",
+      "prompt": "Nhạc mong muốn",
+      "cost": "Mỗi lần tạo tốn quota Muse như một cảnh và mất vài phút.",
+      "working": "Đang tạo nhạc…",
+      "done": "Đã thêm vào Tư liệu.",
+      "action": "Tạo nhạc",
+      "errors": {
+        "generation_active": "Dự án này đang có một bản nhạc được tạo.",
+        "account_unavailable": "Không có tài khoản nào đang bật và có phiên đã xác minh. Hãy kiểm tra một tài khoản trước.",
+        "too_many_files": "Dự án đã đủ số tệp tư liệu cho phép. Hãy xóa bớt một tệp.",
+        "project_not_found": "Dự án này không còn tồn tại.",
+        "unknown": "Yêu cầu thất bại. Vui lòng thử lại."
       }
     }
   },
@@ -774,7 +888,8 @@
       "plan_script": "Tạo kịch bản",
       "render_scene": "Render cảnh",
       "merge_video": "Ghép video",
-      "other": "Tác vụ"
+      "other": "Tác vụ",
+      "generate_music": "Tạo nhạc"
     },
     "fields": {
       "task": "Tác vụ",
@@ -920,7 +1035,10 @@
       "merge_failed": "FFmpeg không ghép được các cảnh.",
       "reference_upload_failed": "Không đính kèm được khung hình của cảnh trước nên chưa gửi gì tới Muse. Thử lại, hoặc tắt liền mạch trong phần chỉnh dự án.",
       "reference_frame_failed": "Không đọc được khung hình cuối của cảnh trước. Thử lại, hoặc tạo lại từ cảnh đó.",
-      "timeline_empty": "Mọi cảnh đều đang bị bỏ khỏi dòng thời gian. Giữ ít nhất một cảnh rồi ghép lại."
+      "timeline_empty": "Mọi cảnh đều đang bị bỏ khỏi dòng thời gian. Giữ ít nhất một cảnh rồi ghép lại.",
+      "music_missing": "Muse trả về clip không có tiếng nên không có nhạc để giữ. Hãy thử lại, có thể với mô tả đơn giản hơn.",
+      "media_missing": "Một tệp dùng trong phim không còn trên máy chủ. Hãy gỡ nó khỏi timeline rồi áp dụng lại.",
+      "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề vào video."
     },
     "refresh": "Làm mới",
     "autoUpdate": "Tự cập nhật mỗi 5 giây khi tab đang hiển thị. Tiến độ chỉ xuất hiện khi Muse báo về.",

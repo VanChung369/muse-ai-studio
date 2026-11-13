@@ -474,7 +474,7 @@
         "id": "Bahasa Indonesia"
       },
       "mute": "Mute the video",
-      "muteHint": "Muse is asked for silent scenes and the merged video has no sound. On a finished project this merges the video again; nothing is rendered again.",
+      "muteHint": "Muse is asked for silent scenes and the clips' own sound is left out of the merged video; audio you add in the timeline still plays. On a finished project this merges the video again; nothing is rendered again.",
       "muted": "Muted",
       "busy": "This project is rendering. Wait for it to finish, or cancel the render, to change anything.",
       "planning": "The script is being written. The idea can change again when it is done; the render options can change now."
@@ -482,27 +482,89 @@
     "timeline": {
       "title": "Timeline",
       "total": "Film length: {{time}}",
-      "hint": "Drag a clip to move it and drag its edges to trim it, or select a clip to set exact times or leave it out. Applying merges the film again from the clips it already has; nothing is rendered again.",
+      "hint": "Drag a clip to move it and drag its edges to trim it; audio pieces and captions work the same way. Select something and press Delete to take it out. Drag your own videos, pictures and audio in from Your media. Applying merges the film again from what it already has; nothing is rendered again.",
       "locked": "The timeline can be edited once the film is finished.",
       "merging": "Merging the film again…",
       "apply": "Apply and merge again",
       "applying": "Saving…",
       "reset": "Undo changes",
-      "cut": "Trim and place this scene",
+      "cut": "Trim, speed and place",
       "start": "Start (seconds)",
       "end": "End (seconds)",
       "clipLength": "The clip is {{seconds}} seconds long.",
-      "include": "Use this scene in the film",
+      "include": "Use this piece in the film",
       "earlier": "Earlier",
       "later": "Later",
       "excluded": "Left out",
       "errors": {
         "timeline_locked": "The film is being merged or is not finished yet. Try again when it is done.",
         "ffmpeg_unavailable": "FFmpeg is not installed on the server, so the film cannot be merged again.",
-        "invalid_timeline": "These cuts do not fit the rendered clips. Undo the changes and try again.",
+        "invalid_timeline": "This edit does not fit the clips and files. Undo the changes and try again.",
         "project_not_found": "This project no longer exists.",
-        "unknown": "The timeline could not be saved. Please try again."
-      }
+        "unknown": "The timeline could not be saved. Please try again.",
+        "captions_unavailable": "This server's FFmpeg cannot draw captions. Turn off “Draw captions into the video” and try again."
+      },
+      "shown": "Shown for (seconds)",
+      "speed": "Speed",
+      "pictureLength": "A picture can be shown for up to 30 seconds.",
+      "playsFor": "At this speed it plays for {{seconds}} s (the whole clip: {{full}} s).",
+      "remove": "Remove from the film",
+      "inspectorHint": "Select a clip, an audio piece or a caption to change it.",
+      "sceneVolume": "Original sound of the clips",
+      "sceneVolumeMuted": "This project uses silent scenes, so there is no original sound. Change that under Idea › Render options.",
+      "audio": {
+        "title": "Audio piece",
+        "offset": "Starts at (s)",
+        "start": "From (s)",
+        "end": "To (s)",
+        "length": "The file is {{seconds}} seconds long. Audio stops where the film ends.",
+        "volume": "Volume",
+        "loop": "Repeat until the film ends",
+        "loopHint": "For short music, such as a piece made by Muse.",
+        "empty": "No audio yet. Drag an audio file here from Your media below."
+      },
+      "captions": {
+        "title": "Captions",
+        "add": "Add caption",
+        "fromNarration": "Create from narration",
+        "download": "Download .srt",
+        "empty": "No captions yet. Add one, or create them from the scenes' narration.",
+        "emptyLane": "No captions yet.",
+        "start": "Starts (s)",
+        "end": "Ends (s)",
+        "text": "Text",
+        "placeholder": "What is said…",
+        "remove": "Delete caption",
+        "burn": "Draw captions into the video",
+        "burnHint": "Off keeps them only as a file to download.",
+        "cannotBurn": "This server's FFmpeg cannot draw captions. They can still be downloaded as a file.",
+        "style": {
+          "title": "Look of the captions",
+          "sample": "Sample caption",
+          "size": "Size",
+          "sizes": {
+            "small": "Small",
+            "medium": "Medium",
+            "large": "Large",
+            "xlarge": "Extra large"
+          },
+          "position": "Position",
+          "positions": {
+            "bottom": "Bottom",
+            "middle": "Middle",
+            "top": "Top"
+          },
+          "color": "Text colour",
+          "outline": "Outline colour",
+          "bold": "Bold",
+          "box": "Dark box behind the words"
+        },
+        "count_one": "{{count}} caption",
+        "count_other": "{{count}} captions"
+      },
+      "filmSpeed": "Speed of the whole film",
+      "filmSpeedMixed": "Clips have different speeds.",
+      "removeSelected": "Remove selected"
     },
     "output": {
       "open": "Finished video",
@@ -534,14 +596,14 @@
       "prompts": "Scene prompts",
       "exportNote": "The script and prompts are built in the browser from the project.",
       "edit": "Want to change it?",
-      "editNote": "Order, trims and left-out scenes are changed in the timeline below without rendering again. To change what a scene shows, render again from that scene in the project details.",
+      "editNote": "Order, trims, speed, your own media, audio and captions are changed in the timeline below without rendering again. To change what a scene shows, render again from that scene in Render.",
       "openScript": "Open Script & scenes",
       "tracks": {
         "video": "Video",
-        "music": "Music",
+        "music": "Audio",
         "subtitles": "Subtitles"
       },
-      "soon": "Planned"
+      "previewingClip": "Previewing the kept part of this clip."
     },
     "workspace": {
       "open": "Open project",
@@ -589,6 +651,58 @@
         "account": "Account",
         "processingTime": "Processing time",
         "restartNote": "Rendering a scene again also renders every scene after it, so the film stays connected."
+      }
+    },
+    "media": {
+      "title": "Your media",
+      "hint": "Add your own videos, pictures and audio, then drag them onto the Video or Audio track (or use the button on each file). Up to {{count}} files, {{size}} MB each.",
+      "upload": "Upload video, pictures, audio",
+      "uploading": "Uploading…",
+      "kinds": {
+        "video": "Video",
+        "image": "Picture",
+        "audio": "Audio"
+      },
+      "addToTimeline": "Add to film",
+      "addAsMusic": "Add to audio",
+      "inUse": "In the film",
+      "remove": "Delete {{name}}",
+      "fromMuse": "Made by Muse",
+      "failed_one": "{{count}} file could not be uploaded.",
+      "failed_other": "{{count}} files could not be uploaded.",
+      "errors": {
+        "unsupported_file": "Upload a video (MP4, WebM, MOV), a picture (PNG, JPEG, WebP) or audio (MP3, WAV, M4A, OGG).",
+        "file_too_large": "A file can be {{size}} MB at most.",
+        "too_many_files": "A project can hold {{count}} media files.",
+        "project_busy": "The film is being merged. Wait for it to finish first.",
+        "ffmpeg_unavailable": "FFmpeg is needed to read uploaded media. Install it on the server first.",
+        "empty_file": "The file is empty.",
+        "unreadable_file": "This file could not be read as video, picture or audio.",
+        "media_in_use": "This file is used in the film. Remove it from the timeline first.",
+        "project_not_found": "This project no longer exists.",
+        "unknown": "The request failed. Please try again."
+      },
+      "drop": "Drop files here, or click to choose",
+      "formats": "Video: MP4, WebM, MOV · Pictures: PNG, JPEG, WebP · Audio: MP3, WAV, M4A, OGG",
+      "inUseHint": "Used in the film: take it out of the timeline and apply before deleting it.",
+      "play": "Play {{name}}",
+      "pause": "Pause {{name}}"
+    },
+    "music": {
+      "open": "Make music with Muse",
+      "title": "Make music with Muse",
+      "description": "Muse makes a 10-second clip with the music you describe, and only its sound is kept. It arrives in Your media; turn on repeat to cover the whole film.",
+      "prompt": "Music wanted",
+      "cost": "Each request uses Muse quota like one scene, and takes a few minutes.",
+      "working": "Making music…",
+      "done": "Added to Your media.",
+      "action": "Make music",
+      "errors": {
+        "generation_active": "Music is already being made for this project.",
+        "account_unavailable": "No enabled account has a verified session. Test an account first.",
+        "too_many_files": "This project already holds the most media files allowed. Delete one first.",
+        "project_not_found": "This project no longer exists.",
+        "unknown": "The request failed. Please try again."
       }
     }
   },
@@ -774,7 +888,8 @@
       "plan_script": "Script generation",
       "render_scene": "Scene render",
       "merge_video": "Video merge",
-      "other": "Task"
+      "other": "Task",
+      "generate_music": "Music generation"
     },
     "fields": {
       "task": "Task",
@@ -920,7 +1035,10 @@
       "merge_failed": "FFmpeg could not merge the scenes.",
       "reference_upload_failed": "The frame of the previous scene could not be attached, so nothing was sent to Muse. Retry, or turn continuity off in the project settings.",
       "reference_frame_failed": "The last frame of the previous scene could not be read. Retry, or render again from that scene.",
-      "timeline_empty": "Every scene is left out of the timeline. Keep at least one scene, then merge again."
+      "timeline_empty": "Every scene is left out of the timeline. Keep at least one scene, then merge again.",
+      "music_missing": "Muse returned a clip without sound, so there is no music to keep. Try again, perhaps with a simpler description.",
+      "media_missing": "A file used in the film is missing from the server. Remove it from the timeline and apply again.",
+      "captions_unavailable": "This server's FFmpeg cannot draw captions into the video."
     },
     "refresh": "Refresh",
     "autoUpdate": "Updates every 5 seconds while this tab is visible. Progress is shown only when reported by Muse.",

@@ -65,12 +65,16 @@ export const TASK_ERROR_CODES = [
   "reference_upload_failed",
   "reference_frame_failed",
   "timeline_empty",
+  "music_missing",
+  "media_missing",
+  "captions_unavailable",
 ] as const;
 
 export const TASK_KINDS = [
   "plan_script",
   "render_scene",
   "merge_video",
+  "generate_music",
 ] as const;
 
 export const TASK_STATUS_CLASSES = {

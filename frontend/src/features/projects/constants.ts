@@ -93,6 +93,7 @@ export const TIMELINE_ERROR_CODES = [
   "timeline_locked",
   "ffmpeg_unavailable",
   "invalid_timeline",
+  "captions_unavailable",
   "project_not_found",
 ] as const;
 

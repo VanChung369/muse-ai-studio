@@ -53,6 +53,11 @@ def reference_files(settings: Settings, project_id: str, names) -> list[Path]:
     return [folder / name for name in names if (folder / name).is_file()]
 
 
+def media_dir(settings: Settings, project_id: str) -> Path:
+    """Videos, pictures and audio the user added to the film."""
+    return settings.data_dir / "projects" / project_id / "media"
+
+
 def remove_project(settings: Settings, project_id: str) -> None:
     shutil.rmtree(project_dir(settings, project_id), ignore_errors=True)
     shutil.rmtree(
