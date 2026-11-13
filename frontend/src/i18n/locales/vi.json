@@ -95,5 +95,103 @@
       "description": "Tùy chỉnh không gian làm việc của Muse AI Studio.",
       "headline": "Không gian làm việc theo cách của bạn."
     }
+  },
+  "common": {
+    "close": "Đóng",
+    "cancel": "Hủy",
+    "loading": "Đang tải…"
+  },
+  "projects": {
+    "demoBadge": "DỮ LIỆU DEMO",
+    "demoDescription": "Dự án mẫu được lưu trong trình duyệt này.",
+    "newProject": "Dự án mới",
+    "allProjects": "Tất cả dự án",
+    "filterLabel": "Lọc theo trạng thái dự án",
+    "searchLabel": "Tìm dự án",
+    "searchPlaceholder": "Tìm theo tên dự án",
+    "sortLabel": "Sắp xếp dự án",
+    "filters": {
+      "all": "Tất cả",
+      "inProgress": "Đang làm",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy"
+    },
+    "sorts": {
+      "updated": "Mới cập nhật",
+      "name": "Tên A–Z",
+      "duration": "Dài nhất trước"
+    },
+    "status": {
+      "draft": "Bản nháp",
+      "planning": "Đang lập kịch bản",
+      "ready": "Chờ duyệt",
+      "rendering": "Đang render",
+      "cancelling": "Đang hủy",
+      "cancelled": "Đã hủy",
+      "failed": "Lỗi",
+      "completed": "Hoàn tất"
+    },
+    "featured": {
+      "eyebrow": "Tiếp tục làm",
+      "hint": "Kịch bản đã sẵn sàng. Đọc lại từng cảnh trước khi bắt đầu render.",
+      "review": "Tiếp tục duyệt kịch bản",
+      "view": "Xem dự án"
+    },
+    "sceneCount_one": "{{count}} cảnh",
+    "sceneCount_other": "{{count}} cảnh",
+    "updated": "Cập nhật {{time}}",
+    "openProject": "Mở {{name}}",
+    "renderProgress": "Đã hoàn tất {{completed}}/{{count}} cảnh",
+    "error": "Dừng ở cảnh {{scene}} · {{reason}}",
+    "cancelledAt": "Dừng ở cảnh {{scene}}/{{count}} · Có thể tiếp tục",
+    "errors": {
+      "sessionExpired": "Phiên đăng nhập hết hạn",
+      "quotaExhausted": "Tài khoản hết quota",
+      "proxyError": "Không kết nối được proxy",
+      "unknown": "Tạo nội dung thất bại"
+    },
+    "empty": {
+      "title": "Câu chuyện đầu tiên bắt đầu từ đây",
+      "description": "Tạo dự án để lưu ý tưởng và bắt đầu xây dựng bộ phim.",
+      "noResults": "Không có dự án phù hợp",
+      "noResultsDescription": "Thử từ khóa khác hoặc bỏ bộ lọc trạng thái.",
+      "clear": "Xóa bộ lọc"
+    },
+    "details": {
+      "title": "Chi tiết dự án",
+      "description": "Thông tin dự án và bản xem trước kịch bản.",
+      "missingTitle": "Không tìm thấy dự án",
+      "missingDescription": "Dự án này không còn trong trình duyệt hiện tại.",
+      "idea": "Ý tưởng câu chuyện",
+      "duration": "Thời lượng",
+      "ratio": "Tỉ lệ khung hình",
+      "scenes": "Số cảnh",
+      "updated": "Cập nhật lần cuối",
+      "script": "Kịch bản & cảnh",
+      "scene": "Cảnh {{number}}",
+      "noScript": "Dự án này chưa có kịch bản.",
+      "noIdea": "Chưa có ý tưởng câu chuyện.",
+      "previewNote": "Dự án mẫu. Bản xem trước này chưa có video để phát."
+    },
+    "form": {
+      "title": "Dự án mới",
+      "description": "Lưu ý tưởng thành bản nháp trước khi lập kịch bản từng cảnh.",
+      "name": "Tên dự án",
+      "namePlaceholder": "Ví dụ: Một buổi sáng ở Đà Lạt",
+      "idea": "Ý tưởng câu chuyện",
+      "optional": "Không bắt buộc",
+      "ideaPlaceholder": "Mô tả câu chuyện bạn muốn kể…",
+      "duration": "Thời lượng mục tiêu (giây)",
+      "durationHint": "10–300 giây, theo bước 5 giây.",
+      "ratio": "Tỉ lệ khung hình",
+      "submit": "Tạo bản nháp",
+      "saved": "Đã lưu bản nháp “{{name}}”.",
+      "errors": {
+        "name": "Nhập tên dự án từ 1 đến 100 ký tự.",
+        "idea": "Ý tưởng câu chuyện không quá 12.000 ký tự.",
+        "durationSeconds": "Chọn 10–300 giây, theo bước 5 giây.",
+        "aspectRatio": "Chọn tỉ lệ khung hình được hỗ trợ."
+      }
+    }
   }
 }

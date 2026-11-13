@@ -1,6 +1,6 @@
 import { Activity, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Tooltip } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -15,6 +15,7 @@ import { Brand } from "@/components/layout/brand";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { NavigationSearch } from "@/components/layout/navigation-search";
+import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { MEDIA_QUERIES } from "@/constants/breakpoints";
 import { ROUTES } from "@/constants/routes";
@@ -126,7 +127,9 @@ export function AppLayout() {
             tabIndex={-1}
             className="min-h-0 flex-1 overflow-y-auto outline-none"
           >
-            <Outlet />
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
           </main>
 
           <MobileTabBar

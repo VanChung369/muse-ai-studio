@@ -1,6 +1,6 @@
 # Muse AI Studio — Frontend
 
-React, TypeScript, and Vite frontend for Muse AI Studio. The first implementation step provides a shared application shell matching the design: dark theme, amber accent, bundled typography, English and Vietnamese translations, responsive navigation, page routing, and a navigation search dialog. Feature pages are placeholders; product workflows and backend integration come next.
+React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list with browser-local demo data. Other feature pages remain placeholders; backend integration comes next.
 
 ## Development
 
@@ -53,7 +53,33 @@ npx shadcn@latest add button
 - Theme tokens in `src/index.css` mirror `design/design-system/muse.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
 - `src/components/ui/button.tsx` uses the design button sizes (36px default, 44px on phones) and variants, including `danger` for solid destructive actions in dialogs.
 
-The shell currently makes no API requests and shows no simulated task or account counts.
+The frontend currently makes no API requests. The project list explicitly labels its sample data; the global shell does not report simulated task or account counts.
+
+## Video Studio Project List
+
+- `/projects` loads the project-list feature on demand, with six fictional sample projects.
+- Search is case- and accent-insensitive. Status filters show counts across the full collection, and sorting supports recent updates, name, and longest duration first.
+- Search, status, sorting, and the selected project use the `q`, `status`, `sort`, and `project` query parameters, so the view can be refreshed or shared.
+- Project cards and the featured project open a detail sheet with metadata, the story idea, and available sample scene prompts. Missing project IDs have a dedicated state.
+- **New project** creates a local demo draft using React Hook Form and Zod. Names, duration, and aspect ratio are validated. Drafts persist across reloads under `STORAGE_KEYS.DEMO_PROJECTS` and can be inspected through the detail sheet.
+- The demo does not generate scripts, render videos, contact Muse, or consume quota. There is no video playback for these sample projects.
+- Project names, ideas, and scene prompts are example user content; switching interface language does not translate that content.
+
+Feature structure:
+
+```text
+src/features/projects/
+  components/            Cards, filters, featured project, draft dialog, detail sheet
+  data/demo-projects.ts  Fictional sample data
+  hooks/use-project-list.ts
+  lib/project-list.ts    Filtering, sorting, validation, and draft creation helpers
+  constants.ts          Statuses, filter/sort options, query keys, and cover styles
+  schemas.ts            Zod schemas for drafts and persisted demo projects
+  types.ts              Shared project types
+src/pages/projects-page.tsx
+```
+
+Runtime demo persistence is intentionally separate from the planned backend API. This boundary can be replaced with server queries and mutations without moving business logic into page markup.
 
 ## Code Conventions
 

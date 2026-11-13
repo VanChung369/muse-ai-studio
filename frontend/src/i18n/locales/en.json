@@ -95,5 +95,103 @@
       "description": "Customize your Muse AI Studio workspace.",
       "headline": "Make this workspace your own."
     }
+  },
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "loading": "Loading…"
+  },
+  "projects": {
+    "demoBadge": "DEMO DATA",
+    "demoDescription": "Sample projects stored in this browser.",
+    "newProject": "New project",
+    "allProjects": "All projects",
+    "filterLabel": "Filter by project status",
+    "searchLabel": "Search projects",
+    "searchPlaceholder": "Search by project name",
+    "sortLabel": "Sort projects",
+    "filters": {
+      "all": "All",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "sorts": {
+      "updated": "Recently updated",
+      "name": "Name A–Z",
+      "duration": "Longest first"
+    },
+    "status": {
+      "draft": "Draft",
+      "planning": "Planning",
+      "ready": "Awaiting review",
+      "rendering": "Rendering",
+      "cancelling": "Cancelling",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "completed": "Completed"
+    },
+    "featured": {
+      "eyebrow": "Continue working",
+      "hint": "Your script is ready. Review each scene before starting a render.",
+      "review": "Continue reviewing",
+      "view": "View project"
+    },
+    "sceneCount_one": "{{count}} scene",
+    "sceneCount_other": "{{count}} scenes",
+    "updated": "Updated {{time}}",
+    "openProject": "Open {{name}}",
+    "renderProgress": "{{completed}} of {{count}} scenes completed",
+    "error": "Stopped at scene {{scene}} · {{reason}}",
+    "cancelledAt": "Stopped at scene {{scene}}/{{count}} · Can be resumed",
+    "errors": {
+      "sessionExpired": "Login session expired",
+      "quotaExhausted": "Account quota exhausted",
+      "proxyError": "Proxy connection failed",
+      "unknown": "Generation failed"
+    },
+    "empty": {
+      "title": "Your first story starts here",
+      "description": "Create a project to save your idea and begin shaping a film.",
+      "noResults": "No matching projects",
+      "noResultsDescription": "Try another keyword or clear the status filter.",
+      "clear": "Clear filters"
+    },
+    "details": {
+      "title": "Project details",
+      "description": "Project overview and script preview.",
+      "missingTitle": "Project not found",
+      "missingDescription": "This project is no longer available in this browser.",
+      "idea": "Story idea",
+      "duration": "Duration",
+      "ratio": "Aspect ratio",
+      "scenes": "Scenes",
+      "updated": "Last updated",
+      "script": "Script & scenes",
+      "scene": "Scene {{number}}",
+      "noScript": "This project has no script yet.",
+      "noIdea": "No story idea has been added.",
+      "previewNote": "Sample project. Video playback is not available in this preview."
+    },
+    "form": {
+      "title": "New project",
+      "description": "Save an idea as a draft before planning your scenes.",
+      "name": "Project name",
+      "namePlaceholder": "e.g. A morning in Đà Lạt",
+      "idea": "Story idea",
+      "optional": "Optional",
+      "ideaPlaceholder": "Describe the story you want to tell…",
+      "duration": "Target duration (seconds)",
+      "durationHint": "10–300 seconds, in increments of 5.",
+      "ratio": "Aspect ratio",
+      "submit": "Create draft",
+      "saved": "Draft “{{name}}” saved.",
+      "errors": {
+        "name": "Enter a project name between 1 and 100 characters.",
+        "idea": "Keep the story idea under 12,000 characters.",
+        "durationSeconds": "Use 10–300 seconds in increments of 5.",
+        "aspectRatio": "Choose a supported aspect ratio."
+      }
+    }
   }
 }
