@@ -1,0 +1,254 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-13T04:15:49Z"
+ },
+ "title": "MUSE2API — Thiết kế lại trải nghiệm",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 2500,
+   "title": "00 · Vấn đề UX & định hướng",
+   "expand": "fill"
+  },
+  "Sitemap.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 2700,
+   "title": "01 · Sitemap & luồng chính",
+   "expand": "fill"
+  },
+  "DesignSystem.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 5000,
+   "title": "02 · Design system",
+   "expand": "fill"
+  },
+  "Projects.dc.html": {
+   "x": 0,
+   "y": 5420,
+   "w": 1440,
+   "h": 1040,
+   "title": "10 · Video Studio — Danh sách dự án",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "NewProject.dc.html": {
+   "x": 1520,
+   "y": 5420,
+   "w": 1440,
+   "h": 1240,
+   "title": "11 · Tạo dự án",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Studio.dc.html": {
+   "x": 3040,
+   "y": 5420,
+   "w": 1440,
+   "h": 960,
+   "title": "12 · Duyệt kịch bản & cảnh",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Render.dc.html": {
+   "x": 4560,
+   "y": 5420,
+   "w": 1440,
+   "h": 960,
+   "title": "13 · Render & khôi phục lỗi",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Output.dc.html": {
+   "x": 6080,
+   "y": 5420,
+   "w": 1440,
+   "h": 1000,
+   "title": "14 · Thành phẩm",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Dashboard.dc.html": {
+   "x": 0,
+   "y": 7080,
+   "w": 1440,
+   "h": 1100,
+   "title": "20 · Tổng quan",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "QuickCreate.dc.html": {
+   "x": 1520,
+   "y": 7080,
+   "w": 1440,
+   "h": 960,
+   "title": "21 · Tạo nhanh ảnh / video ngắn",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Library.dc.html": {
+   "x": 3040,
+   "y": 7080,
+   "w": 1440,
+   "h": 1000,
+   "title": "22 · Thư viện media",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Tasks.dc.html": {
+   "x": 4560,
+   "y": 7080,
+   "w": 1440,
+   "h": 960,
+   "title": "23 · Tác vụ",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Accounts.dc.html": {
+   "x": 0,
+   "y": 8600,
+   "w": 1440,
+   "h": 960,
+   "title": "30 · Tài khoản Muse",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "ImportAccounts.dc.html": {
+   "x": 1520,
+   "y": 8600,
+   "w": 1440,
+   "h": 1040,
+   "title": "31 · Import tài khoản",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Api.dc.html": {
+   "x": 3040,
+   "y": 8600,
+   "w": 1440,
+   "h": 1400,
+   "title": "32 · Kết nối, khóa API & tài liệu",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Playground.dc.html": {
+   "x": 4560,
+   "y": 8600,
+   "w": 1440,
+   "h": 960,
+   "title": "33 · API Playground",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "Settings.dc.html": {
+   "x": 6080,
+   "y": 8600,
+   "w": 1440,
+   "h": 960,
+   "title": "34 · Cài đặt",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "States.dc.html": {
+   "x": 0,
+   "y": 10420,
+   "w": 1440,
+   "h": 2700,
+   "title": "40 · Trạng thái: loading, empty, lỗi, thành công, xác nhận"
+  },
+  "Responsive.dc.html": {
+   "x": 1520,
+   "y": 10420,
+   "w": 1840,
+   "h": 1400,
+   "title": "41 · Tablet & mobile"
+  },
+  "Handoff.dc.html": {
+   "x": 3440,
+   "y": 10420,
+   "w": 1440,
+   "h": 3300,
+   "title": "42 · Ghi chú bàn giao frontend",
+   "expand": "fill"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Sitemap.dc.html",
+  "DesignSystem.dc.html",
+  "Projects.dc.html",
+  "NewProject.dc.html",
+  "Studio.dc.html",
+  "Render.dc.html",
+  "Output.dc.html",
+  "Dashboard.dc.html",
+  "QuickCreate.dc.html",
+  "Library.dc.html",
+  "Tasks.dc.html",
+  "Accounts.dc.html",
+  "ImportAccounts.dc.html",
+  "Api.dc.html",
+  "Playground.dc.html",
+  "Settings.dc.html",
+  "States.dc.html",
+  "Responsive.dc.html",
+  "Handoff.dc.html"
+ ],
+ "notes": {
+  "row0": {
+   "x": 0,
+   "y": -300,
+   "text": "Nền tảng: vấn đề, kiến trúc thông tin, design system",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "row1": {
+   "x": 0,
+   "y": 5120,
+   "text": "Long Video Studio: Dự án → Kịch bản → Render → Thành phẩm",
+   "kind": "title1",
+   "maxW": 7520
+  },
+  "row2": {
+   "x": 0,
+   "y": 6780,
+   "text": "Workspace sáng tạo",
+   "kind": "title1",
+   "maxW": 6000
+  },
+  "row3": {
+   "x": 0,
+   "y": 8300,
+   "text": "Quản trị & tích hợp",
+   "kind": "title1",
+   "maxW": 7520
+  },
+  "row4": {
+   "x": 0,
+   "y": 10120,
+   "text": "Trạng thái, responsive & bàn giao frontend",
+   "kind": "title1",
+   "maxW": 4880
+  },
+  "howto": {
+   "x": -560,
+   "y": 5420,
+   "w": 440,
+   "text": "Chạy prototype: bấm Play trên board 10 · Danh sách dự án, rồi Tiếp tục duyệt hoặc Dự án mới. Mọi mục sidebar đều điều hướng giữa các board. Ở board 13 · Render, bấm Thử lại cảnh 5 để xem mô phỏng tiến độ; Hủy render để xem trạng thái đã hủy. Toàn bộ số liệu là dữ liệu demo.",
+   "size": "m",
+   "fill": "orange"
+  }
+ },
+ "designSystems": []
+}

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Design system</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+</helmet>
+<div style="min-height: 100vh; background: var(--bg); color: var(--tx); font-family: var(--f)">
+<div class="doc">
+
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 860px">
+<span class="eyebrow">02 · Design system "Studio Dark"</span>
+<h1>Nền tối charcoal, một màu nhấn, nội dung làm điểm sáng</h1>
+<p style="font-size: 16px; line-height: 26px">Token đặt tên theo vai trò, không theo màu. Toàn bộ artboard trong canvas dùng chung một bộ CSS này, đội frontend có thể map 1:1 sang CSS variables hoặc Tailwind theme.</p>
+</div>
+
+<section class="sec">
+<div><span class="eyebrow">Màu · bề mặt</span><h2 style="margin-top: 6px">5 lớp bề mặt, phân biệt vừa đủ</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 12px">
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: #111214; border-bottom: 1px solid var(--line)"></div><div class="panel-b t-sm"><b style="font-weight: 600">bg</b> <span class="mono faint">#111214</span><p class="faint t-cap" style="margin-top: 4px">Nền ứng dụng, vùng nội dung</p></div></div>
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: #17181B; border-bottom: 1px solid var(--line)"></div><div class="panel-b t-sm"><b style="font-weight: 600">s1</b> <span class="mono faint">#17181B</span><p class="faint t-cap" style="margin-top: 4px">Sidebar, panel, input</p></div></div>
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: #1E1F23; border-bottom: 1px solid var(--line)"></div><div class="panel-b t-sm"><b style="font-weight: 600">s2</b> <span class="mono faint">#1E1F23</span><p class="faint t-cap" style="margin-top: 4px">Hover, nút phụ, dialog</p></div></div>
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: #26272C; border-bottom: 1px solid var(--line)"></div><div class="panel-b t-sm"><b style="font-weight: 600">s3</b> <span class="mono faint">#26272C</span><p class="faint t-cap" style="margin-top: 4px">Mục đang chọn, toast, tag</p></div></div>
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: #2F3036; border-bottom: 1px solid var(--line)"></div><div class="panel-b t-sm"><b style="font-weight: 600">s4</b> <span class="mono faint">#2F3036</span><p class="faint t-cap" style="margin-top: 4px">Track thanh tiến độ, nhấn</p></div></div>
+<div class="panel" style="overflow: hidden"><div style="height: 72px; background: var(--bg); display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line)"><div style="height: 1px; background: #2A2C31"></div><div style="height: 1px; background: #383A40"></div></div><div class="panel-b t-sm"><b style="font-weight: 600">line / line-2</b><p class="faint t-cap mono" style="margin-top: 4px">#2A2C31 · #383A40</p></div></div>
+</div>
+</section>
+
+<section class="sec" style="margin-top: 0; border-top: 0; padding-top: 0">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 20px">
+<div class="panel">
+<div class="panel-h"><h3>Chữ (tương phản trên bg / s2)</h3></div>
+<div class="rows">
+<div class="row"><span style="width: 28px; height: 28px; border-radius: 6px; background: #EEEEF0"></span><div class="grow"><b style="font-weight: 600">tx</b> <span class="mono faint t-sm">#EEEEF0</span><p class="t-cap faint">Tiêu đề, nội dung chính</p></div><span class="tag mono">16 : 1</span></div>
+<div class="row"><span style="width: 28px; height: 28px; border-radius: 6px; background: #B0B2B8"></span><div class="grow"><b style="font-weight: 600">tx-2</b> <span class="mono faint t-sm">#B0B2B8</span><p class="t-cap faint">Mô tả, nhãn, điều hướng</p></div><span class="tag mono">8.8 : 1</span></div>
+<div class="row"><span style="width: 28px; height: 28px; border-radius: 6px; background: #8C8F96"></span><div class="grow"><b style="font-weight: 600">tx-3</b> <span class="mono faint t-sm">#8C8F96</span><p class="t-cap faint">Metadata. Không dùng trên s4</p></div><span class="tag mono">5.1 : 1</span></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-h"><h3>Màu nhấn duy nhất</h3><span class="t-cap faint">"Bước tiếp theo của bạn"</span></div>
+<div class="panel-b" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; gap: 8px"><div style="flex: 2; height: 56px; border-radius: 8px; background: #F2B84B; display: flex; align-items: flex-end; padding: 8px; color: #1B1406; font: 600 12px/1 var(--mono)">acc #F2B84B</div><div style="flex: 1; height: 56px; border-radius: 8px; background: #F6C76A; display: flex; align-items: flex-end; padding: 8px; color: #1B1406; font: 500 11px/1 var(--mono)">hover</div><div style="flex: 1; height: 56px; border-radius: 8px; background: #DDA43A; display: flex; align-items: flex-end; padding: 8px; color: #1B1406; font: 500 11px/1 var(--mono)">press</div><div style="flex: 1; height: 56px; border-radius: 8px; background: var(--acc-soft); box-shadow: inset 0 0 0 1px var(--acc-line); display: flex; align-items: flex-end; padding: 8px; color: var(--acc); font: 500 11px/1 var(--mono)">soft</div></div>
+<p class="t-sm">Chỉ dùng cho: nút chính (tối đa 1 mỗi vùng), trạng thái "Chờ duyệt", focus ring, mục đang chọn. Chữ trên nền nhấn dùng <span class="mono">acc-ink #1B1406</span> (10.2 : 1). Không gradient, không glow.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Màu · trạng thái</span><h2 style="margin-top: 6px">Trạng thái luôn có màu + icon + chữ</h2><p style="margin-top: 6px">Không phân biệt chỉ bằng màu. Đỏ/xanh lá còn khác nhau về độ sáng và hình icon.</p></div>
+<div class="panel tbl-wrap">
+<table class="tbl spec">
+<thead><tr><th>Trạng thái</th><th>Token</th><th>Dùng cho</th><th>Hành động đi kèm</th></tr></thead>
+<tbody>
+<tr><td>%%sb:wait:Đang chờ%%</td><td class="mono">s3 / tx-2</td><td>Cảnh hoặc tác vụ đã xếp hàng, chưa bắt đầu</td><td>Không bắt buộc. Có thể hủy</td></tr>
+<tr><td>%%sb:run:Đang xử lý%%</td><td class="mono">run #6CA8F5</td><td>Đang gọi Muse, đang ghép video. Kèm thời gian đã chạy</td><td>Hủy</td></tr>
+<tr><td>%%sb:ok:Hoàn tất%%</td><td class="mono">ok #4CC38A</td><td>Cảnh, tác vụ, dự án đã có kết quả</td><td>Xem, tải</td></tr>
+<tr><td>%%sb:err:Lỗi%%</td><td class="mono">err #F07171</td><td>Luôn hiện lý do từ backend bằng ngôn ngữ thường</td><td>Thử lại, sửa, đổi tài khoản</td></tr>
+<tr><td>%%sb:cancel:Đã hủy%%</td><td class="mono">viền nét đứt</td><td>Người dùng chủ động dừng</td><td>Tiếp tục từ cảnh N</td></tr>
+<tr><td>%%sb:next:Chờ duyệt%%</td><td class="mono">acc soft</td><td>Hệ thống chờ người dùng (kịch bản mới tạo xong)</td><td>Mở để duyệt</td></tr>
+<tr><td>%%sb:warn:Cần xử lý%%</td><td class="mono">warn #EE8F45</td><td>Tài khoản sắp hết quota, phiên sắp hết hạn, proxy lỗi</td><td>Đăng nhập lại, kiểm tra proxy</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Typography</span><h2 style="margin-top: 6px">Be Vietnam Pro + JetBrains Mono</h2><p style="margin-top: 6px">Be Vietnam Pro được thiết kế cho tiếng Việt: dấu thanh không chạm dòng trên, đọc tốt ở cỡ 12–14px. JetBrains Mono cho mã, khóa API, thời lượng.</p></div>
+<div class="panel">
+<div class="rows">
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Display 32/40</span><span class="t-display grow">Hành trình cà phê Đà Lạt</span><span class="faint t-cap">600 · tiêu đề board, empty state lớn</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">H1 24/32</span><span class="t-h1 grow">Video Studio</span><span class="faint t-cap">600 · tiêu đề trang</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">H2 18/26</span><span class="t-h2 grow">Cần chú ý</span><span class="faint t-cap">600 · tiêu đề khối</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">H3 15/22</span><span class="t-h3 grow">Cảnh 5 · Rang thủ công</span><span class="faint t-cap">600 · tiêu đề panel, dialog</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Body 14/22</span><span class="t-body grow">Chú Tư đảo hạt trong chảo gang, hạt chuyển dần sang màu nâu sẫm.</span><span class="faint t-cap">400 · nội dung</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Small 13/20</span><span class="t-sm grow muted">Cập nhật 12 phút trước · 8 cảnh · 16:9</span><span class="faint t-cap">400 · metadata</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Caption 12/16</span><span class="t-cap grow muted">Ảnh JPG hoặc PNG, tối đa 4 ảnh</span><span class="faint t-cap">400 · gợi ý dưới trường</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Eyebrow 11/16</span><span class="eyebrow grow">Quản trị &amp; tích hợp</span><span class="faint t-cap">600 · in hoa, giãn 0.07em</span></div>
+<div class="row" style="gap: 24px"><span class="tag mono" style="width: 120px">Mono 13</span><span class="mono grow" style="font-size: 13px">sk-m2a-••••••••3f9a · 00:42</span><span class="faint t-cap">400 · mã, khóa, thời lượng</span></div>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Spacing, bo góc, layout</span><h2 style="margin-top: 6px">Lưới 4px, ba mức bo góc, hai bố cục khung</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 20px">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px">
+<h3>Khoảng cách</h3>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">4</span><span style="width: 4px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">icon ↔ chữ trong badge</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">8</span><span style="width: 8px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">giữa các nút, chip</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">12</span><span style="width: 12px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">hàng trong danh sách</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">16</span><span style="width: 16px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">padding panel, giữa các trường</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">24</span><span style="width: 24px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">giữa các khối trong trang</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">32</span><span style="width: 32px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">lề trang desktop</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span class="mono faint t-cap" style="width: 28px">56</span><span style="width: 56px; height: 12px; background: var(--acc); border-radius: 2px"></span><span class="t-cap faint">tách nhóm lớn, empty state</span></div>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 14px">
+<h3>Bo góc &amp; độ nổi</h3>
+<div style="display: flex; gap: 12px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 40px; border-radius: 6px; background: var(--s3)"></span><span class="mono t-cap faint">6 · badge</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 40px; border-radius: 8px; background: var(--s3)"></span><span class="mono t-cap faint">8 · nút, input</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 40px; border-radius: 12px; background: var(--s3)"></span><span class="mono t-cap faint">12 · panel</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; align-items: center"><span style="width: 56px; height: 40px; border-radius: 14px; background: var(--s3); box-shadow: 0 12px 32px rgba(0,0,0,.55)"></span><span class="mono t-cap faint">14 · dialog</span></div>
+</div>
+<p class="t-sm">Mặt phẳng tách bằng viền 1px. Bóng đổ chỉ dành cho lớp nổi: menu, toast, drawer, dialog.</p>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 12px">
+<h3>Khung ứng dụng</h3>
+<div style="display: flex; height: 120px; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; font: 500 11px/1.3 var(--mono); color: var(--tx-2)">
+<div style="width: 22%; background: var(--s1); border-right: 1px solid var(--line-2); padding: 8px">Sidebar 232<br>(rail 64)</div>
+<div style="flex: 1; display: flex; flex-direction: column"><div style="height: 26px; border-bottom: 1px solid var(--line-2); padding: 6px 8px">Topbar 56</div><div style="flex: 1; padding: 8px">Nội dung · max 1360 · lề 32</div></div>
+</div>
+<div style="display: flex; height: 88px; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; font: 500 11px/1.3 var(--mono); color: var(--tx-2)">
+<div style="width: 7%; background: var(--s1); border-right: 1px solid var(--line-2)"></div>
+<div style="width: 22%; border-right: 1px solid var(--line-2); padding: 8px">Cảnh 300</div>
+<div style="flex: 1; padding: 8px">Preview · co giãn</div>
+<div style="width: 28%; background: var(--s1); border-left: 1px solid var(--line-2); padding: 8px">Thuộc tính 380</div>
+</div>
+<p class="t-cap faint">Breakpoint: ≥1180 ba khung · 820–1179 thuộc tính xuống dưới · &lt;820 một cột, sidebar thành thanh ngang.</p>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Components</span><h2 style="margin-top: 6px">Nút, trường nhập, lựa chọn</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 20px">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 16px">
+<h3>Button</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><button class="btn btn-primary" type="button">%%plus%%Dự án mới</button><button class="btn" type="button">Lưu nháp</button><button class="btn btn-ghost" type="button">Bỏ qua</button><button class="btn btn-danger" type="button">%%stop%%Hủy render</button><button class="btn btn-danger-solid" type="button">Xóa vĩnh viễn</button></div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center"><button class="btn btn-primary btn-lg" type="button">Tạo kịch bản</button><button class="btn btn-sm" type="button">%%download%%Tải</button><button class="btn btn-icon" type="button" aria-label="Thêm tùy chọn">%%more%%</button><button class="btn btn-primary" type="button" disabled>Đang gửi…</button></div>
+<p class="t-sm">Cao 36 (desktop) / 44 (cảm ứng). Mỗi vùng tối đa một nút chính. Nút phá hủy dạng viền; dạng đặc chỉ trong hộp xác nhận.</p>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 14px">
+<h3>Trường nhập</h3>
+<div class="field"><label class="label" for="ds-a">Tên dự án</label><input class="input" id="ds-a" value="Hành trình cà phê Đà Lạt"></div>
+<div class="field"><label class="label" for="ds-b">Ý tưởng <span class="faint t-cap">bắt buộc</span></label><textarea class="textarea is-err" id="ds-b" style="min-height: 64px">Video cà phê</textarea><span class="hint err">Mô tả thêm một chút (tối thiểu 20 ký tự) để kịch bản đủ cảnh.</span></div>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 16px">
+<h3>Lựa chọn</h3>
+<div class="seg" role="group" aria-label="Tỉ lệ khung hình"><button type="button" aria-pressed="true">%%r169%%16:9</button><button type="button" aria-pressed="false">%%r916%%9:16</button><button type="button" aria-pressed="false">%%r11%%1:1</button></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button class="chip" type="button" aria-pressed="true">Tất cả <span class="n">128</span></button><button class="chip" type="button" aria-pressed="false">%%image%%Ảnh <span class="n">84</span></button><button class="chip" type="button" aria-pressed="false">%%video%%Video <span class="n">44</span></button></div>
+<div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap"><span class="check"><button class="toggle" type="button" role="switch" aria-checked="true" aria-label="Tự động chọn tài khoản"></button><span class="t-sm">Tự động chọn tài khoản</span></span><label class="check t-sm"><input type="checkbox" checked>Đã chọn</label></div>
+<button class="drop" type="button">%%upload|lg%%<span><b style="font-weight: 500; color: var(--tx)">Kéo thả ảnh tham chiếu</b><br><span class="t-cap faint">hoặc bấm để chọn · JPG, PNG</span></span></button>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Components</span><h2 style="margin-top: 6px">Tiến độ, cảnh, media</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 20px">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 16px">
+<h3>Tiến độ</h3>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between" class="t-sm"><span>Thanh xác định (khi backend trả %)</span><span class="num faint">64%</span></div><div class="bar"><i style="width: 64%"></i></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between" class="t-sm"><span>Vô định + thời gian đã chạy (mặc định)</span><span class="num faint mono">01:12</span></div><div class="bar indet"><i></i></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; justify-content: space-between" class="t-sm"><span>Thanh cảnh: mỗi đoạn = 1 cảnh, đoạn cuối = ghép</span><span class="num faint">4/8 cảnh</span></div><div class="segbar"><i class="ok"></i><i class="ok"></i><i class="ok"></i><i class="ok"></i><i class="err"></i><i></i><i></i><i></i><i class="merge"></i></div></div>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px">
+<h3>Mục cảnh</h3>
+<button class="scene" type="button" aria-current="false"><span class="idx">03</span><span class="thumb p3" style="width: 72px; aspect-ratio: 16 / 9"><span class="dur">0:08</span></span><span><span class="ttl ellipsis" style="display: block">Quả chín đỏ</span><span class="meta">%%sb:ok:Hoàn tất%%</span></span></button>
+<button class="scene" type="button" aria-current="true"><span class="idx">05</span><span class="thumb p5" style="width: 72px; aspect-ratio: 16 / 9"><span class="dur">0:08</span></span><span><span class="ttl ellipsis" style="display: block">Rang thủ công</span><span class="meta">%%sb:err:Lỗi%%</span></span></button>
+<p class="t-cap faint">Viền màu nhấn = cảnh đang mở. Số thứ tự dạng mono để căn thẳng.</p>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 12px">
+<h3>Thumbnail media</h3>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<span class="thumb p1" style="aspect-ratio: 16 / 9"><span class="kind">%%video%%</span><span class="hz"></span><span class="dur">1:04</span></span>
+<span class="thumb p6" style="aspect-ratio: 16 / 9"><span class="kind">%%image%%</span><span class="hz"></span></span>
+<span class="thumb empty" style="aspect-ratio: 16 / 9; display: grid; place-items: center; color: var(--tx-3)">%%image|lg%%</span>
+</div>
+<p class="t-cap faint">Thumbnail trên canvas là khối màu giữ chỗ cho ảnh thật. Icon loại ở góc trái, thời lượng ở góc phải.</p>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Components</span><h2 style="margin-top: 6px">Thông báo, điều hướng, lớp nổi</h2></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr)); gap: 20px">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px">
+<h3>Callout</h3>
+<div class="note info">%%info%%<div>Sửa cảnh này sẽ áp dụng cho lần render tiếp theo.</div></div>
+<div class="note warn">%%alert%%<div><b>Tài khoản sắp hết quota.</b> studio.hcm@example.com còn 4.</div></div>
+<div class="note err">%%alertc%%<div><b>Render dừng ở cảnh 5.</b> Cảnh 1–4 được giữ nguyên.</div></div>
+<div class="note ok">%%check%%<div>Đã ghép 8 cảnh thành video 1:04.</div></div>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 18px">
+<h3>Stepper dự án &amp; tabs</h3>
+<nav class="steps" aria-label="Các bước dự án"><span class="step done"><span class="n">%%check|sm%%</span>Ý tưởng</span><span class="step-sep"></span><span class="step" aria-current="step"><span class="n">2</span>Kịch bản &amp; cảnh</span><span class="step-sep"></span><span class="step"><span class="n">3</span>Render</span><span class="step-sep"></span><span class="step"><span class="n">4</span>Thành phẩm</span></nav>
+<div class="tabs" role="tablist"><button class="tab" role="tab" type="button" aria-selected="true">Kết nối &amp; khóa</button><button class="tab" role="tab" type="button" aria-selected="false">Tài liệu</button></div>
+<div class="copy"><span>http://192.168.1.20:8080/v1</span><button class="btn btn-sm" type="button">%%copy%%Sao chép</button></div>
+</div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 14px; background: var(--bg)">
+<h3>Toast, menu, dialog</h3>
+<div class="toast">%%check|lg%%<div class="grow"><b>Đã tạo kịch bản 8 cảnh</b><div class="faint">Hành trình cà phê Đà Lạt</div></div><button class="btn btn-sm btn-ghost" type="button">Mở</button></div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start">
+<div class="menu" role="menu"><button type="button" role="menuitem">%%eye%%Xem chi tiết</button><button type="button" role="menuitem">%%login%%Đăng nhập lại</button><hr><button type="button" role="menuitem" class="danger">%%trash%%Xóa tài khoản</button></div>
+<div class="t-cap faint" style="flex: 1; min-width: 140px">Dialog xác nhận có 3 phần: tiêu đề nói hậu quả, nội dung liệt kê cụ thể những gì bị ảnh hưởng, nút hành động lặp lại động từ ("Xóa 3 media", không phải "OK"). Xem board 40.</div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Icon</span><h2 style="margin-top: 6px">Nét 1.75px, khung 24, bo tròn đầu nét</h2><p style="margin-top: 6px">Một bộ icon nét duy nhất (có thể thay bằng Lucide khi triển khai, cùng ngôn ngữ hình). Không dùng emoji trong giao diện.</p></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px">
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%home|lg%%<span class="t-cap faint">Tổng quan</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%film|lg%%<span class="t-cap faint">Video Studio</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%spark|lg%%<span class="t-cap faint">Tạo nhanh</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%image|lg%%<span class="t-cap faint">Ảnh / Thư viện</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%video|lg%%<span class="t-cap faint">Video</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%activity|lg%%<span class="t-cap faint">Tác vụ</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%users|lg%%<span class="t-cap faint">Tài khoản</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%key|lg%%<span class="t-cap faint">Khóa API</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%terminal|lg%%<span class="t-cap faint">Playground</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%book|lg%%<span class="t-cap faint">Tài liệu</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%globe|lg%%<span class="t-cap faint">Proxy</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%login|lg%%<span class="t-cap faint">Phiên đăng nhập</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%retry|lg%%<span class="t-cap faint">Thử lại</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%merge|lg%%<span class="t-cap faint">Ghép video</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%puzzle|lg%%<span class="t-cap faint">Extension</span></div>
+<div class="panel" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px">%%download|lg%%<span class="t-cap faint">Tải xuống</span></div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">Ngôn ngữ giao diện</span><h2 style="margin-top: 6px">Thuật ngữ thống nhất</h2></div>
+<div class="panel tbl-wrap">
+<table class="tbl spec">
+<thead><tr><th>Dùng</th><th>Không dùng</th><th>Ghi chú</th></tr></thead>
+<tbody>
+<tr><td>Dự án</td><td>Job, project, phiên làm việc</td><td>Một video dài từ một ý tưởng</td></tr>
+<tr><td>Cảnh</td><td>Scene, đoạn, clip</td><td>Đơn vị được render riêng, đánh số 1…N</td></tr>
+<tr><td>Kịch bản · Prompt cảnh</td><td>Script, câu lệnh</td><td>Kịch bản là nội dung kể; prompt là mô tả gửi cho Muse</td></tr>
+<tr><td>Mô tả chung</td><td>Global prompt, context</td><td>Nhân vật + phong cách + âm nhạc, áp cho mọi cảnh</td></tr>
+<tr><td>Render · Ghép video</td><td>Generate, build, merge</td><td>Giữ "render" vì người làm video quen dùng</td></tr>
+<tr><td>Tác vụ</td><td>Task, job, tiến trình</td><td>Mỗi lần gọi Muse là một tác vụ</td></tr>
+<tr><td>Tài khoản Muse · Phiên đăng nhập · Quota</td><td>Cookie, session, token</td><td>Chi tiết kỹ thuật chỉ hiện trong drawer</td></tr>
+<tr><td>Khóa API · Base URL</td><td>API key, endpoint gốc</td><td>Khóa API của MUSE2API, khác tài khoản Muse</td></tr>
+</tbody>
+</table>
+</div>
+<p class="t-sm">Giọng văn: câu ngắn, nói điều gì đã xảy ra và nên làm gì tiếp. Lỗi không đổ lỗi cho người dùng, không dùng mã lỗi làm tiêu đề (mã lỗi để trong "Chi tiết kỹ thuật").</p>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":5000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

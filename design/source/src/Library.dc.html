@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Thư viện media</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:16px}
+.mi{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mi .open{display:block;padding:0;border:0;background:none;cursor:pointer;border-radius:8px}
+.mi .thumb{aspect-ratio:4/3;display:block}
+.mi[data-sel="true"] .thumb{box-shadow:0 0 0 2px var(--acc)}
+.mi .ck{position:absolute;left:8px;top:8px;z-index:3;width:24px;height:24px;border-radius:6px;border:1.5px solid rgba(255,255,255,.75);background:rgba(0,0,0,.45);display:grid;place-items:center;color:var(--acc-ink);cursor:pointer;padding:0}
+.mi[data-sel="true"] .ck{background:var(--acc);border-color:var(--acc)}
+.mi .thumb .kind{left:auto;right:6px}
+.bulk{position:sticky;bottom:16px;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 10px 16px;background:var(--s3);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.45);margin-top:20px}
+</style>
+</helmet>
+<div class="app" style="position: relative">
+<!--@SIDE:library-->
+<main class="main">
+<!--@TOP-->
+<div class="page">
+<div class="ph"><div><h1>Thư viện</h1><p>Mọi ảnh và video đã tạo, từ Video Studio và Tạo nhanh.</p></div></div>
+
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px">
+<div style="display: flex; gap: 8px; flex-wrap: wrap" role="group" aria-label="Lọc theo loại"><sc-for list="{{ kinds }}" as="k" hint-placeholder-count="3"><button class="chip" type="button" aria-pressed="{{ k.p }}" onClick="{{ k.pick }}">{{ k.l }} <span class="n">{{ k.n }}</span></button></sc-for></div>
+<label class="sr" for="lsrc">Nguồn</label>
+<select class="select" id="lsrc" style="width: auto" onChange="{{ onSrc }}"><option value="all">Mọi nguồn</option><option value="studio">Video Studio</option><option value="quick">Tạo nhanh</option></select>
+<div style="margin-left: auto; position: relative; width: 260px; max-width: 100%"><span style="position: absolute; left: 10px; top: 11px; color: var(--tx-3); display: flex">%%search%%</span><label class="sr" for="lq">Tìm media</label><input class="input" id="lq" placeholder="Tìm theo tên hoặc dự án" style="padding-left: 34px"></div>
+</div>
+
+<div class="mgrid">
+<sc-for list="{{ items }}" as="m" hint-placeholder-count="12">
+<div class="mi" data-sel="{{ m.sel }}">
+<button class="ck" type="button" role="checkbox" aria-checked="{{ m.sel }}" aria-label="Chọn {{ m.t }}" onClick="{{ m.toggle }}"><sc-if value="{{ m.isSel }}" hint-placeholder-val="{{ false }}">%%check|sm%%</sc-if></button>
+<button class="open" type="button" onClick="{{ m.open }}" aria-label="Xem {{ m.t }}"><span class="thumb {{ m.pc }}"><span class="hz"></span><span class="kind"><sc-if value="{{ m.isVid }}" hint-placeholder-val="{{ true }}">%%video%%</sc-if><sc-if value="{{ m.isImg }}" hint-placeholder-val="{{ false }}">%%image%%</sc-if></span><sc-if value="{{ m.isVid }}" hint-placeholder-val="{{ true }}"><span class="dur">{{ m.d }}</span></sc-if></span></button>
+<span class="t-sm ellipsis">{{ m.t }}</span>
+<span class="t-cap faint ellipsis">{{ m.src }} · {{ m.date }}</span>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+<div class="bulk" role="region" aria-label="Thao tác hàng loạt"><b style="font-weight: 600" class="num">Đã chọn {{ selCount }}</b><span class="grow"></span><button class="btn btn-sm" type="button">%%download|sm%%Tải xuống</button><button class="btn btn-sm btn-danger" type="button" onClick="{{ askDel }}">%%trash|sm%%Xóa</button><button class="btn btn-sm btn-ghost" type="button" onClick="{{ clearSel }}">Bỏ chọn</button></div>
+</sc-if>
+</div>
+</main>
+
+<sc-if value="{{ viewing }}" hint-placeholder-val="{{ false }}">
+<div class="scrim" style="display: flex; align-items: center; justify-content: center; padding: 32px">
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="lv-h" style="width: min(920px, 100%)">
+<div style="display: flex; flex-wrap: wrap">
+<div style="flex: 999 1 480px; padding: 16px"><div class="player" style="aspect-ratio: 16 / 9"><span class="thumb {{ v.pc }}" style="position: absolute; inset: 0; border-radius: 0"><span class="hz"></span></span><sc-if value="{{ v.isVid }}" hint-placeholder-val="{{ true }}"><button class="play-btn" type="button" aria-label="Phát">%%play|lg%%</button></sc-if></div></div>
+<div style="flex: 1 1 260px; padding: 20px; display: flex; flex-direction: column; gap: 14px; border-left: 1px solid var(--line)">
+<div style="display: flex; justify-content: space-between; gap: 8px"><h2 id="lv-h" class="t-h3">{{ v.t }}</h2><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Đóng" onClick="{{ close }}">%%x%%</button></div>
+<div class="t-sm" style="display: grid; grid-template-columns: auto 1fr; gap: 6px 14px"><span class="muted">Loại</span><span>{{ v.kindL }}</span><span class="muted">Nguồn</span><span>{{ v.src }}</span><span class="muted">Ngày tạo</span><span>{{ v.date }}</span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: auto"><button class="btn btn-primary" type="button">%%download%%Tải xuống</button><a class="btn" href="Projects.dc.html">%%film%%Mở dự án</a><button class="btn btn-danger" type="button" onClick="{{ delOne }}">%%trash%%Xóa</button></div>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ confirming }}" hint-placeholder-val="{{ false }}">
+<div class="scrim" style="display: grid; place-items: center; padding: 24px">
+<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ld-h">
+<div class="dialog-h"><span class="d-ic err">%%trash%%</span><div><h2 id="ld-h">Xóa {{ delCount }} media?</h2></div></div>
+<div class="dialog-b"><p>Tệp sẽ bị xóa khỏi máy chủ MUSE2API và không khôi phục được. Dự án vẫn giữ kịch bản và prompt, có thể render lại khi cần.</p></div>
+<div class="dialog-f"><button class="btn" type="button" onClick="{{ cancelDel }}">Giữ lại</button><button class="btn btn-danger-solid" type="button" onClick="{{ doDel }}">Xóa {{ delCount }} media</button></div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = Object.assign({ k: 'all', src: 'all', sel: { 4: true, 5: true, 6: true }, view: 0, del: false, gone: {} }, this.state);
+    var raw = [
+      [1, 'v', 'Teaser khai trương studio', 'p4', '0:24', 'studio', '11/11/2026'],
+      [2, 'v', 'Phố cổ Hội An · cảnh 2', 'p10', '0:08', 'studio', 'Hôm nay 14:21'],
+      [3, 'v', 'Phố cổ Hội An · cảnh 1', 'p8', '0:08', 'studio', 'Hôm nay 14:18'],
+      [4, 'i', 'Ly cà phê sữa đá · 1', 'p2', '', 'quick', 'Hôm nay 13:40'],
+      [5, 'i', 'Ly cà phê sữa đá · 2', 'p5', '', 'quick', 'Hôm nay 13:40'],
+      [6, 'i', 'Ly cà phê sữa đá · 3', 'p9', '', 'quick', 'Hôm nay 13:40'],
+      [7, 'i', 'Ly cà phê sữa đá · 4', 'p4', '', 'quick', 'Hôm nay 13:40'],
+      [8, 'v', 'Trà ô long Cầu Đất · cảnh 2', 'p6', '0:08', 'studio', 'Hôm qua 21:31'],
+      [9, 'v', 'Trà ô long Cầu Đất · cảnh 1', 'p10', '0:08', 'studio', 'Hôm qua 21:28'],
+      [10, 'v', 'Chú mèo phi hành gia', 'p7', '0:40', 'studio', '08/11/2026'],
+      [11, 'i', 'Logo M2 trên giấy kraft', 'p2', '', 'quick', '07/11/2026'],
+      [12, 'v', 'Mùa lúa Mù Cang Chải · cảnh 4', 'p9', '0:08', 'studio', '02/11/2026'],
+      [13, 'v', 'Mùa lúa Mù Cang Chải · cảnh 3', 'p6', '0:08', 'studio', '02/11/2026'],
+      [14, 'i', 'Ruộng bậc thang mùa nước đổ', 'p6', '', 'quick', '01/11/2026'],
+      [15, 'v', 'Teaser khai trương · cảnh 3', 'p3', '0:08', 'studio', '11/11/2026'],
+      [16, 'i', 'Đèn lồng Hội An', 'p7', '', 'quick', '31/10/2026']
+    ].filter(function (r) { return !st.gone[r[0]]; });
+    var srcL = { studio: 'Video Studio', quick: 'Tạo nhanh' };
+    var mk = function (r) { return { id: r[0], isVid: r[1] === 'v', isImg: r[1] === 'i', kindL: r[1] === 'v' ? 'Video' : 'Ảnh', t: r[2], pc: r[3], d: r[4], src: srcL[r[5]], date: r[6] }; };
+    var items = raw.filter(function (r) { return (st.k === 'all' || r[1] === st.k) && (st.src === 'all' || r[5] === st.src); }).map(function (r) {
+      var m = mk(r), s = !!st.sel[r[0]];
+      return Object.assign(m, { sel: s ? 'true' : 'false', isSel: s,
+        toggle: function () { var x = Object.assign({}, st.sel); if (x[r[0]]) delete x[r[0]]; else x[r[0]] = true; self.setState({ sel: x }); },
+        open: function () { self.setState({ view: r[0] }); } });
+    });
+    var kinds = [['all', 'Tất cả'], ['i', 'Ảnh'], ['v', 'Video']].map(function (k) {
+      return { l: k[1], n: k[0] === 'all' ? raw.length : raw.filter(function (r) { return r[1] === k[0]; }).length, p: st.k === k[0] ? 'true' : 'false', pick: function () { self.setState({ k: k[0] }); } };
+    });
+    var selIds = Object.keys(st.sel);
+    var vr = raw.filter(function (r) { return r[0] === st.view; })[0];
+    return {
+      kinds: kinds, items: items, onSrc: function (e) { self.setState({ src: e.target.value }); },
+      hasSel: selIds.length > 0, selCount: selIds.length, clearSel: function () { self.setState({ sel: {} }); },
+      askDel: function () { self.setState({ del: true, delOnly: 0 }); },
+      viewing: !!vr, v: vr ? mk(vr) : mk(raw[0] || [0, 'i', '', 'p1', '', 'quick', '']), close: function () { self.setState({ view: 0 }); },
+      delOne: function () { self.setState({ del: true, delOnly: st.view, view: 0 }); },
+      confirming: st.del, delCount: st.delOnly ? 1 : selIds.length,
+      cancelDel: function () { self.setState({ del: false }); },
+      doDel: function () { var g = Object.assign({}, st.gone); if (st.delOnly) g[st.delOnly] = true; else selIds.forEach(function (i) { g[i] = true; }); self.setState({ gone: g, sel: st.delOnly ? st.sel : {}, del: false, delOnly: 0 }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

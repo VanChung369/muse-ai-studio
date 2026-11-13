@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – API Playground</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.pg{flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr) minmax(0,1fr)}
+.pg>section{min-height:0;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.pg>section+section{border-left:1px solid var(--line)}
+@media (max-width:1180px){.pg{grid-template-columns:1fr 1fr}.pg>section:first-child{grid-column:1/-1;border-bottom:1px solid var(--line)}}
+@media (max-width:820px){.pg{grid-template-columns:1fr}.pg>section+section{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</helmet>
+<div class="app ws">
+<!--@SIDE:playground-->
+<main class="main">
+<div class="proj-bar" style="padding: 10px 24px">
+<div class="proj-title"><h1 style="font-size: 18px">API Playground</h1><span class="t-cap faint">Gửi yêu cầu thật tới MUSE2API bằng một khóa của bạn</span></div>
+<div style="margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span class="demo-tag">DỮ LIỆU DEMO</span><button class="btn" type="button">%%copy%%Sao chép dưới dạng cURL</button><button class="btn btn-primary" type="button" onClick="{{ send }}" aria-disabled="{{ busyA }}">%%send|sm%%Gửi yêu cầu</button></div>
+</div>
+<div class="pg">
+<section aria-label="Tham số">
+<div class="field"><label class="label" for="pk">Khóa API</label><select class="select" id="pk"><option>Thử nghiệm · …c044</option><option>Script cá nhân · …8b21</option></select></div>
+<div class="field"><label class="label" for="pe">Endpoint</label><select class="select mono" id="pe" style="font-size: 13px" onChange="{{ onEp }}"><option value="img">POST /v1/images/generations</option><option value="chat">POST /v1/chat/completions</option><option value="models">GET /v1/models</option></select></div>
+<sc-if value="{{ notModels }}" hint-placeholder-val="{{ true }}">
+<div class="field"><label class="label" for="pm">Model</label><select class="select mono" id="pm" style="font-size: 13px"><option>muse-image</option><option>muse-video</option></select></div>
+<div class="field"><label class="label" for="pp">{{ promptLabel }}</label><textarea class="textarea" id="pp" style="min-height: 110px" value="{{ prompt }}" onChange="{{ onPrompt }}"></textarea></div>
+<sc-if value="{{ isImg }}" hint-placeholder-val="{{ true }}"><div class="field"><span class="label" id="pn">Số ảnh (n)</span><div class="seg" role="group" aria-labelledby="pn"><sc-for list="{{ ns }}" as="x" hint-placeholder-count="3"><button type="button" aria-pressed="{{ x.p }}" onClick="{{ x.pick }}">{{ x.l }}</button></sc-for></div></div></sc-if>
+</sc-if>
+<p class="t-cap faint">Yêu cầu từ Playground chạy như mọi tác vụ khác: dùng quota tài khoản Muse và hiện trong Tác vụ.</p>
+</section>
+
+<section aria-label="Yêu cầu">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 class="t-h3">Yêu cầu</h2><span class="tag mono">application/json</span></div>
+<pre class="code" style="flex: 1; min-height: 240px">{{ reqText }}</pre>
+</section>
+
+<section aria-label="Phản hồi" aria-live="polite">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap"><h2 class="t-h3">Phản hồi</h2>
+<sc-if value="{{ hasRes }}" hint-placeholder-val="{{ true }}"><span style="display: flex; gap: 8px; align-items: center">%%sb:ok:200 OK%%<span class="t-cap faint mono">{{ resMeta }}</span></span></sc-if>
+<sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}">%%sb:run:Đang chờ Muse%%</sc-if>
+</div>
+<sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 10px"><div class="bar indet"><i></i></div><p class="t-sm muted">Đã gửi. Thời gian phụ thuộc Muse, thường vài giây với ảnh.</p></div></sc-if>
+<sc-if value="{{ hasRes }}" hint-placeholder-val="{{ true }}">
+<div class="tabs" role="tablist"><button class="tab" role="tab" type="button" aria-selected="{{ tPrev }}" onClick="{{ showPrev }}">Xem trước</button><button class="tab" role="tab" type="button" aria-selected="{{ tJson }}" onClick="{{ showJson }}">JSON</button></div>
+<sc-if value="{{ isPrev }}" hint-placeholder-val="{{ true }}"><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px"><sc-for list="{{ outs }}" as="o" hint-placeholder-count="2"><span class="thumb {{ o.pc }}" style="aspect-ratio: 1 / 1"><span class="hz"></span></span></sc-for></div></sc-if>
+<sc-if value="{{ isJson }}" hint-placeholder-val="{{ false }}"><pre class="code">{{ resText }}</pre></sc-if>
+</sc-if>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  componentWillUnmount() { clearTimeout(this._t); }
+  renderVals() {
+    var self = this;
+    var st = Object.assign({ ep: 'img', n: 2, prompt: 'Đèn lồng Hội An phản chiếu trên mặt sông, đêm rằm, màu ấm', busy: false, res: true, tab: 'prev', run: 1 }, this.state);
+    var req;
+    if (st.ep === 'img') req = { model: 'muse-image', prompt: st.prompt, n: st.n };
+    else if (st.ep === 'chat') req = { model: 'muse-image', messages: [{ role: 'user', content: st.prompt }] };
+    else req = null;
+    var reqText = req ? JSON.stringify(req, null, 2) : '// GET /v1/models không có body';
+    var pcs = ['p7', 'p8', 'p10', 'p3'];
+    var outs = st.ep === 'img' ? pcs.slice(0, st.n).map(function (p) { return { pc: p }; }) : [{ pc: 'p7' }];
+    var resText = st.ep === 'models' ? JSON.stringify({ object: 'list', data: [{ id: 'muse-image', object: 'model' }, { id: 'muse-video', object: 'model' }] }, null, 2)
+      : JSON.stringify({ created: 1794544900, data: outs.map(function (o, i) { return { url: 'http://192.168.1.20:8080/media/img_1056_' + (i + 1) + '.png' }; }) }, null, 2);
+    return {
+      onEp: function (e) { self.setState({ ep: e.target.value, tab: e.target.value === 'models' ? 'json' : st.tab }); },
+      notModels: st.ep !== 'models', isImg: st.ep === 'img', promptLabel: st.ep === 'chat' ? 'Nội dung tin nhắn' : 'Prompt',
+      prompt: st.prompt, onPrompt: function (e) { self.setState({ prompt: e.target.value }); },
+      ns: [1, 2, 4].map(function (n) { return { l: n, p: st.n === n ? 'true' : 'false', pick: function () { self.setState({ n: n }); } }; }),
+      reqText: reqText, busy: st.busy, busyA: st.busy ? 'true' : 'false', hasRes: st.res && !st.busy,
+      resMeta: (st.ep === 'models' ? '0,1 giây' : '9,8 giây') + ' · T-105' + (5 + st.run),
+      tPrev: st.tab === 'prev' ? 'true' : 'false', tJson: st.tab === 'json' ? 'true' : 'false',
+      isPrev: st.tab === 'prev' && st.ep !== 'models', isJson: st.tab === 'json' || st.ep === 'models',
+      showPrev: function () { self.setState({ tab: 'prev' }); }, showJson: function () { self.setState({ tab: 'json' }); },
+      outs: outs, resText: resText,
+      send: function () { if (st.busy) return; self.setState({ busy: true }); clearTimeout(self._t); self._t = setTimeout(function () { self.setState({ busy: false, res: true, run: (self.state.run || 1) + 1 }); }, 1600); }
+    };
+  }
+}
+</script>
+</body>
+</html>

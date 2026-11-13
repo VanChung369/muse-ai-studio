@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Video Studio – Thành phẩm</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.ogrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
+.oscene{display:flex;flex-direction:column;gap:6px;min-width:0}
+.oscene .pick{display:block;width:100%;padding:0;border:0;background:none;cursor:pointer;border-radius:8px}
+.oscene .pick[aria-current="true"] .thumb{box-shadow:0 0 0 2px var(--acc)}
+.mk{position:absolute;top:-3px;width:2px;height:10px;background:rgba(255,255,255,.5)}
+@media (max-width:1180px){.ogrid{grid-template-columns:1fr}}
+</style>
+</helmet>
+<div class="app ws" style="position: relative">
+<!--@RAIL:projects-->
+<main class="main">
+<div class="proj-bar">
+<a class="btn btn-ghost btn-sm btn-icon" href="Projects.dc.html" aria-label="Về Video Studio">%%arrowl%%</a>
+<div class="proj-title"><h1>Hành trình cà phê Đà Lạt</h1><span class="t-cap faint">Hoàn tất 13/11/2026 14:58</span></div>
+<nav class="steps" aria-label="Các bước dự án" style="margin: 0 auto"><span class="step done"><span class="n">%%check|sm%%</span>Ý tưởng</span><span class="step-sep"></span><a class="step done" href="Studio.dc.html"><span class="n">%%check|sm%%</span>Kịch bản &amp; cảnh</a><span class="step-sep"></span><a class="step done" href="Render.dc.html"><span class="n">%%check|sm%%</span>Render</a><span class="step-sep"></span><span class="step" aria-current="step"><span class="n">4</span>Thành phẩm</span></nav>
+<div style="display: flex; gap: 8px; align-items: center"><span class="demo-tag">DỮ LIỆU DEMO</span><button class="btn btn-primary" type="button">%%download%%Tải video</button></div>
+</div>
+
+<div class="ogrid">
+<section class="pane" style="padding: 24px; display: flex; flex-direction: column; gap: 20px">
+<div class="player" style="aspect-ratio: 16 / 9; width: 100%; max-width: 980px; margin: 0 auto">
+<span class="thumb {{ curPc }}" style="position: absolute; inset: 0; border-radius: 0"><span class="hz"></span></span>
+<span style="position: absolute; left: 16px; top: 14px; z-index: 2" class="tag">Cảnh {{ curN }} · {{ curTitle }}</span>
+<button class="play-btn" type="button" aria-label="{{ playLabel }}" onClick="{{ toggle }}"><sc-if value="{{ playing }}" hint-placeholder-val="{{ false }}">%%pause|lg%%</sc-if><sc-if value="{{ paused }}" hint-placeholder-val="{{ true }}">%%play|lg%%</sc-if></button>
+<div class="controls"><span>{{ tLabel }}</span><span class="scrub"><i style="width: {{ pct }}%"></i><b class="mk" style="left: 12.5%"></b><b class="mk" style="left: 25%"></b><b class="mk" style="left: 37.5%"></b><b class="mk" style="left: 50%"></b><b class="mk" style="left: 62.5%"></b><b class="mk" style="left: 75%"></b><b class="mk" style="left: 87.5%"></b></span><span>1:04</span></div>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 class="t-h2">8 cảnh</h2><span class="t-cap faint">Bấm một cảnh để nhảy tới đoạn đó</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 12px">
+<sc-for list="{{ scenes }}" as="s" hint-placeholder-count="8">
+<div class="oscene"><button class="pick" type="button" aria-current="{{ s.cur }}" onClick="{{ s.seek }}" aria-label="Nhảy tới cảnh {{ s.n }}"><span class="thumb {{ s.pc }}" style="aspect-ratio: 16 / 9; display: block"><span class="hz"></span><span class="lbl-n mono">{{ s.n2 }}</span><span class="dur">0:08</span></span></button>
+<div style="display: flex; align-items: center; gap: 4px"><span class="t-sm ellipsis grow">{{ s.title }}</span><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="Tải cảnh {{ s.n }}">%%download|sm%%</button></div></div>
+</sc-for>
+</div>
+</section>
+
+<aside class="pane pane-r" aria-label="Thông tin và tải xuống">
+<div class="prop">
+<h3 class="t-h3">Thông tin</h3>
+<div class="t-sm" style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px">
+<span class="muted">Thời lượng</span><span class="mono">1:04</span>
+<span class="muted">Tỉ lệ</span><span>16:9</span>
+<span class="muted">Số cảnh</span><span>8 · ghép tuần tự</span>
+<span class="muted">Render</span><span>14:35 → 14:58 · 1 lần thử lại</span>
+<span class="muted">Lưu tại</span><a href="Library.dc.html">Thư viện</a>
+</div>
+</div>
+<div class="prop">
+<h3 class="t-h3">Tải xuống</h3>
+<button class="btn btn-block" type="button" style="justify-content: space-between"><span style="display: flex; gap: 8px; align-items: center">%%video%%Video hoàn chỉnh</span><span class="faint t-cap">MP4</span></button>
+<button class="btn btn-block" type="button" style="justify-content: space-between"><span style="display: flex; gap: 8px; align-items: center">%%layers%%Tất cả cảnh</span><span class="faint t-cap">8 tệp</span></button>
+<h3 class="t-h3" style="margin-top: 6px">Xuất nội dung</h3>
+<button class="btn btn-block" type="button" style="justify-content: space-between"><span style="display: flex; gap: 8px; align-items: center">%%file%%Kịch bản</span><span class="faint t-cap">.md</span></button>
+<button class="btn btn-block" type="button" style="justify-content: space-between"><span style="display: flex; gap: 8px; align-items: center">%%terminal%%Prompt từng cảnh</span><span class="faint t-cap">.json</span></button>
+<p class="t-cap faint">Kịch bản và prompt được tạo ngay trên trình duyệt từ dữ liệu dự án.</p>
+</div>
+<div class="prop">
+<h3 class="t-h3">Muốn chỉnh sửa?</h3>
+<p class="t-sm muted">Sửa cảnh N sẽ tạo lại cảnh N đến cảnh 8. Sửa mô tả chung sẽ tạo lại toàn bộ. Video hiện tại vẫn được giữ trong Thư viện.</p>
+<a class="btn" href="Studio.dc.html" style="align-self: flex-start">%%edit%%Mở Kịch bản &amp; cảnh</a>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  componentWillUnmount() { clearInterval(this._t); }
+  renderVals() {
+    var self = this;
+    var st = Object.assign({ t: 18, playing: false }, this.state);
+    var T = ['Sương sớm Cầu Đất', 'Chú Tư lên đồi', 'Quả chín đỏ', 'Phơi nắng', 'Rang thủ công', 'Xay và pha phin', 'Quán gỗ chiều tà', 'Tách cà phê đầu tiên'];
+    var PC = ['p1', 'p6', 'p3', 'p4', 'p5', 'p2', 'p9', 'p7'];
+    var ci = Math.min(7, Math.floor(st.t / 8));
+    var scenes = T.map(function (t, i) {
+      return { n: i + 1, n2: '0' + (i + 1), title: t, pc: PC[i], cur: i === ci ? 'true' : 'false', seek: function () { self.setState({ t: i * 8 }); } };
+    });
+    var fmt = function (s) { var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; };
+    return {
+      scenes: scenes, curN: ci + 1, curTitle: T[ci], curPc: PC[ci], pct: Math.round(st.t / 64 * 1000) / 10, tLabel: fmt(st.t),
+      playing: st.playing, paused: !st.playing, playLabel: st.playing ? 'Tạm dừng' : 'Phát video',
+      toggle: function () {
+        if (st.playing) { clearInterval(self._t); self.setState({ playing: false }); return; }
+        self.setState({ playing: true, t: st.t >= 64 ? 0 : st.t });
+        clearInterval(self._t);
+        self._t = setInterval(function () {
+          var t = ((self.state && self.state.t) || 0) + 1;
+          if (t >= 64) { clearInterval(self._t); self.setState({ t: 64, playing: false }); } else self.setState({ t: t });
+        }, 250);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

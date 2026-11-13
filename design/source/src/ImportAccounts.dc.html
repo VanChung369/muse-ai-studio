@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Import tài khoản</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.wz{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.wz-main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.wz-side{flex:1 1 300px;min-width:0}
+.opt{display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--s1);text-align:left;color:inherit;font:inherit;cursor:pointer;width:100%}
+.opt:hover{border-color:var(--line-2)}
+.opt[aria-checked="true"]{border-color:var(--acc-line);background:var(--s2)}
+.radio{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-2);flex:none;margin-top:2px;display:grid;place-items:center}
+.opt[aria-checked="true"] .radio{box-shadow:inset 0 0 0 1.5px var(--acc)}
+.opt[aria-checked="true"] .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.num-c{width:24px;height:24px;border-radius:50%;background:var(--s3);display:grid;place-items:center;font:600 12px/1 var(--f);flex:none}
+</style>
+</helmet>
+<div class="app">
+<!--@SIDE:accounts-->
+<main class="main">
+<!--@TOP-->
+<div class="page">
+<div class="crumbs" style="margin-bottom: 8px"><a href="Accounts.dc.html">Tài khoản Muse</a>%%chevr|sm%%<span>Import</span></div>
+<div class="ph"><div><h1>Import tài khoản Muse</h1><p>Thêm nhiều tài khoản một lần. Tài khoản mới chỉ nhận tác vụ sau khi phiên đăng nhập được kiểm tra.</p></div></div>
+
+<nav class="steps" aria-label="Các bước import" style="margin-bottom: 24px"><sc-for list="{{ steps }}" as="s" hint-placeholder-count="4"><span class="step {{ s.cls }}" aria-current="{{ s.cur }}"><span class="n"><sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}">%%check|sm%%</sc-if><sc-if value="{{ s.todo }}" hint-placeholder-val="{{ true }}">{{ s.n }}</sc-if></span>{{ s.l }}</span><sc-if value="{{ s.sep }}" hint-placeholder-val="{{ true }}"><span class="step-sep"></span></sc-if></sc-for></nav>
+
+<div class="wz">
+<div class="wz-main">
+
+<sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
+<div role="radiogroup" aria-label="Cách nhập" style="display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{ methods }}" as="m" hint-placeholder-count="3">
+<button class="opt" type="button" role="radio" aria-checked="{{ m.c }}" onClick="{{ m.pick }}"><span class="radio"></span><span class="grow"><span style="display: flex; gap: 8px; align-items: center"><b style="font-weight: 600">{{ m.t }}</b><sc-if value="{{ m.rec }}" hint-placeholder-val="{{ false }}"><span class="badge b-next">Khuyên dùng</span></sc-if></span><span class="t-sm muted" style="display: block; margin-top: 4px">{{ m.d }}</span></span></button>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: flex-end"><button class="btn btn-primary" type="button" onClick="{{ toStep2 }}">Tiếp tục%%arrowr%%</button></div>
+</sc-if>
+
+<sc-if value="{{ s2paste }}" hint-placeholder-val="{{ true }}">
+<div class="field"><label class="label" for="bulk">Dán danh sách tài khoản<span class="faint t-cap" style="font-weight: 400">mỗi dòng: email|dữ liệu phiên</span></label>
+<textarea class="textarea" id="bulk" style="min-height: 300px; font: 13px/1.75 var(--mono)">an.vo@example.com|sess_9c1e…a1f2
+bao.ngo@example.com|sess_4d7a…b7c3
+chi.dang@example.com|sess_e21b…c9d4
+dung.ho@example.com|sess_7f30…d2e5
+giang.lam@example.com|sess_b84c…e8f6
+minh.tran@example.com|sess_15ad…f1a7
+hieu.phan@example.com sess_c6e2…09b1
+khanh.do@example.com|sess_a9f4…a3b8
+linh.vu@example.com|sess_3b17…b5c9
+nam.trinh@example.com|sess_d05e…c7d1
+oanh.bui@example.com|sess_62c8…d9e2
+phuc.mai@example.com|sess_f7a3…e4f3</textarea>
+<span class="hint">Dữ liệu chỉ lưu trên máy chủ MUSE2API của bạn. <span class="flag assume">Giả định định dạng</span></span></div>
+<div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><button class="btn btn-ghost" type="button" onClick="{{ toStep1 }}">%%arrowl%%Đổi cách nhập</button><button class="btn btn-primary" type="button" onClick="{{ toStep3 }}">Kiểm tra 12 dòng%%arrowr%%</button></div>
+</sc-if>
+
+<sc-if value="{{ s2ext }}" hint-placeholder-val="{{ false }}">
+<div class="panel">
+<div class="row" style="align-items: flex-start; padding: 16px"><span class="num-c">1</span><div class="grow" style="display: flex; flex-direction: column; gap: 8px"><b style="font-weight: 600">Cài extension MUSE2API</b><p class="t-sm muted">Chrome hoặc Edge: mở trang Tiện ích, bật Chế độ nhà phát triển, chọn "Tải tiện ích đã giải nén".</p><button class="btn btn-sm" type="button" style="align-self: flex-start">%%download|sm%%Tải extension (.zip)</button></div></div>
+<div class="row" style="align-items: flex-start; padding: 16px; border-top: 1px solid var(--line)"><span class="num-c">2</span><div class="grow" style="display: flex; flex-direction: column; gap: 8px"><b style="font-weight: 600">Kết nối extension với MUSE2API</b><div class="copy"><span>http://192.168.1.20:8080</span><button class="btn btn-sm btn-ghost" type="button">%%copy|sm%%Sao chép</button></div><div class="copy"><span>m2a_imp_••••••••••••7d21</span><button class="btn btn-sm btn-ghost" type="button">%%copy|sm%%Sao chép mã kết nối</button></div></div></div>
+<div class="row" style="align-items: flex-start; padding: 16px; border-top: 1px solid var(--line)"><span class="num-c">3</span><div class="grow" style="display: flex; flex-direction: column; gap: 8px"><b style="font-weight: 600">Đăng nhập Muse, bấm "Gửi phiên"</b><p class="t-sm muted">Lặp lại với từng tài khoản. Phiên nhận được hiện ngay bên dưới.</p>
+<div class="rows panel t-sm"><div class="row" style="padding: 10px 14px">%%check|sm%%<span class="grow">an.vo@example.com</span><span class="faint">vừa nhận</span></div><div class="row" style="padding: 10px 14px">%%check|sm%%<span class="grow">bao.ngo@example.com</span><span class="faint">1 phút trước</span></div><div class="row" style="padding: 10px 14px; color: var(--tx-3)">%%spin|sm%%<span class="grow">Đang chờ phiên tiếp theo…</span></div></div></div></div>
+</div>
+<div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><button class="btn btn-ghost" type="button" onClick="{{ toStep1 }}">%%arrowl%%Đổi cách nhập</button><button class="btn btn-primary" type="button" onClick="{{ toStep3 }}">Xem 2 phiên đã nhận%%arrowr%%</button></div>
+</sc-if>
+
+<sc-if value="{{ s2file }}" hint-placeholder-val="{{ false }}">
+<button class="drop" type="button" style="height: 200px; flex-direction: column; justify-content: center; text-align: center">%%upload|xl%%<b style="font-weight: 500; color: var(--tx)">Kéo thả tệp vào đây</b><span class="t-cap faint">.txt, .csv hoặc .json · tối đa 2 MB</span></button>
+<div style="display: flex; justify-content: flex-start"><button class="btn btn-ghost" type="button" onClick="{{ toStep1 }}">%%arrowl%%Đổi cách nhập</button></div>
+</sc-if>
+
+<sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">%%sb:ok:10 hợp lệ%%%%sb:warn:1 trùng%%%%sb:err:1 sai định dạng%%</div>
+<div class="panel tbl-wrap"><table class="tbl"><thead><tr><th style="width: 40px"><span class="sr">Chọn</span></th><th>Dòng</th><th>Tài khoản</th><th>Kết quả</th></tr></thead><tbody>
+<sc-for list="{{ parsed }}" as="p" hint-placeholder-count="12"><tr><td><input type="checkbox" checked="{{ p.on }}" disabled="{{ p.bad }}" aria-label="Chọn {{ p.e }}" style="accent-color: var(--acc); width: 16px; height: 16px"></td><td class="mono faint t-sm">{{ p.n }}</td><td class="t-sm">{{ p.e }}</td><td class="t-sm" style="color: {{ p.color }}">{{ p.r }}</td></tr></sc-for>
+</tbody></table></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap"><label class="check t-sm"><input type="checkbox" checked>Kiểm tra phiên đăng nhập ngay sau khi import</label><div style="display: flex; gap: 8px"><button class="btn btn-ghost" type="button" onClick="{{ back2 }}">Sửa dữ liệu</button><button class="btn btn-primary" type="button" onClick="{{ toStep4 }}">Import 10 tài khoản</button></div></div>
+</sc-if>
+
+<sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+<div class="panel" style="padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center">
+<span class="d-ic ok" style="width: 48px; height: 48px">%%check|lg%%</span>
+<h2 class="t-h2">Đã thêm 10 tài khoản</h2>
+<p class="t-sm muted" style="max-width: 440px">Đang kiểm tra phiên đăng nhập và đọc quota. Tài khoản chuyển sang Sẵn sàng khi kiểm tra xong. 2 dòng bị bỏ qua (1 trùng, 1 sai định dạng).</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px"><a class="btn btn-primary" href="Accounts.dc.html">Về Tài khoản Muse</a><button class="btn" type="button" onClick="{{ restart }}">Import thêm</button></div>
+</div>
+</sc-if>
+</div>
+
+<aside class="wz-side panel">
+<div class="panel-h"><h2>Trước khi import</h2></div>
+<div class="panel-b" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; gap: 10px">%%shield%%<p class="t-sm muted">Dữ liệu phiên tương đương mật khẩu. Nó được lưu trên máy chủ của bạn và luôn được che trên giao diện.</p></div>
+<div style="display: flex; gap: 10px">%%globe%%<p class="t-sm muted">Tài khoản mới dùng <b style="color: var(--tx); font-weight: 500">proxy mặc định</b> trong Cài đặt. Đổi riêng từng tài khoản sau khi import.</p></div>
+<div style="display: flex; gap: 10px">%%users%%<p class="t-sm muted">Email đã tồn tại sẽ được bỏ qua, không ghi đè tài khoản cũ.</p></div>
+<hr class="divider">
+<div style="display: flex; flex-direction: column; gap: 6px"><span class="eyebrow">Định dạng dòng</span><pre class="code" style="font-size: 12px; padding: 10px 12px">email|dữ liệu phiên</pre><span class="flag assume" style="align-self: flex-start">Giả định · đối chiếu parser trong source</span></div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var st = Object.assign({ step: 2, m: 'paste' }, this.state);
+    var labels = ['Chọn cách nhập', 'Nhập dữ liệu', 'Kiểm tra', 'Hoàn tất'];
+    var steps = labels.map(function (l, i) { var n = i + 1; return { l: l, n: n, done: n < st.step, todo: n >= st.step, cls: n < st.step ? 'done' : '', cur: n === st.step ? 'step' : 'false', sep: n < 4 }; });
+    var M = [['ext', 'Extension trình duyệt', 'Đăng nhập Muse như bình thường, extension gửi phiên về MUSE2API. Không phải sao chép dữ liệu thủ công.', true],
+      ['paste', 'Dán hàng loạt', 'Mỗi dòng một tài khoản. Phù hợp khi đã có sẵn danh sách.', false],
+      ['file', 'Tải tệp', '.txt, .csv hoặc .json xuất từ công cụ khác.', false]];
+    var methods = M.map(function (m) { return { t: m[1], d: m[2], rec: m[3], c: st.m === m[0] ? 'true' : 'false', pick: function () { self.setState({ m: m[0] }); } }; });
+    var emails = ['an.vo', 'bao.ngo', 'chi.dang', 'dung.ho', 'giang.lam', 'minh.tran', 'hieu.phan', 'khanh.do', 'linh.vu', 'nam.trinh', 'oanh.bui', 'phuc.mai'];
+    var parsed = emails.map(function (e, i) {
+      var dup = e === 'minh.tran', bad = e === 'hieu.phan';
+      return { n: i + 1, e: e + '@example.com', on: !dup && !bad, bad: bad, r: dup ? 'Trùng với acc-02, sẽ bỏ qua' : bad ? 'Thiếu dấu | giữa email và phiên' : 'Hợp lệ', color: dup ? 'var(--warn)' : bad ? 'var(--err)' : 'var(--ok)' };
+    });
+    var go = function (n) { return function () { self.setState({ step: n }); }; };
+    return {
+      steps: steps, methods: methods, parsed: parsed,
+      s1: st.step === 1, s2paste: st.step === 2 && st.m === 'paste', s2ext: st.step === 2 && st.m === 'ext', s2file: st.step === 2 && st.m === 'file', s3: st.step === 3, s4: st.step === 4,
+      toStep1: go(1), toStep2: go(2), toStep3: go(3), back2: go(2), toStep4: go(4), restart: function () { self.setState({ step: 1 }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

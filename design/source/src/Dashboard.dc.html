@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Tổng quan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:20px}
+.g-main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+@media (max-width:1100px){.g-main{grid-template-columns:1fr}}
+.rp{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--tx);min-width:0}
+.rp:hover .t-sm{color:var(--tx)}
+.ic-cell{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex:none}
+.ic-cell.err{background:var(--err-soft);color:var(--err)} .ic-cell.warn{background:var(--warn-soft);color:var(--warn)} .ic-cell.run{background:var(--run-soft);color:var(--run)}
+.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+.legend span{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx-2)}
+.legend b{margin-left:auto;color:var(--tx);font-weight:600}
+</style>
+</helmet>
+<div class="app">
+<!--@SIDE:dashboard-->
+<main class="main">
+<!--@TOP-->
+<div class="page" style="display: flex; flex-direction: column; gap: 20px">
+
+<div class="ph" style="margin-bottom: 4px">
+<div><h1>Tổng quan</h1><p>Thứ Sáu, 13/11/2026</p></div>
+<div class="ph-actions"><a class="btn" href="QuickCreate.dc.html">%%spark%%Tạo nhanh</a><a class="btn" href="NewProject.dc.html">%%plus%%Dự án mới</a></div>
+</div>
+
+<div class="g-main">
+<section class="panel" style="overflow: hidden; border-color: var(--acc-line); display: flex; flex-direction: column" aria-labelledby="d-cont">
+<div style="padding: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; background: var(--bg); border-bottom: 1px solid var(--line)">
+<span class="thumb empty" style="aspect-ratio: 16 / 9; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px; gap: 2px"><span class="mono faint t-cap">01</span><span class="t-cap ellipsis">Sương sớm Cầu Đất</span></span>
+<span class="thumb empty" style="aspect-ratio: 16 / 9; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px; gap: 2px"><span class="mono faint t-cap">02</span><span class="t-cap ellipsis">Chú Tư lên đồi</span></span>
+<span class="thumb empty" style="aspect-ratio: 16 / 9; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px; gap: 2px"><span class="mono faint t-cap">03</span><span class="t-cap ellipsis">Quả chín đỏ</span></span>
+<span class="thumb empty" style="aspect-ratio: 16 / 9; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px; color: var(--tx-3)"><span class="t-cap">+5 cảnh</span></span>
+</div>
+<div style="padding: 20px 22px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><span class="eyebrow">Tiếp tục làm</span>%%sb:next:Chờ duyệt%%</div>
+<h2 class="t-h2" id="d-cont">Hành trình cà phê Đà Lạt</h2>
+<p class="t-sm muted">Kịch bản 8 cảnh đã sẵn sàng · cập nhật 12 phút trước</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px"><a class="btn btn-primary" href="Studio.dc.html">Tiếp tục duyệt kịch bản%%arrowr%%</a><a class="btn btn-ghost" href="Projects.dc.html">Tất cả dự án</a></div>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="d-att">
+<div class="panel-h"><h2 id="d-att">Cần chú ý</h2><span class="cnt warn">4</span></div>
+<div class="rows">
+<div class="row" style="align-items: flex-start"><span class="ic-cell err">%%alertc%%</span><div class="grow"><b style="font-weight: 500; font-size: 13px; display: block">Trà ô long Cầu Đất · cảnh 3 lỗi</b><span class="t-cap muted">Phiên đăng nhập thu.le@example.com đã hết hạn</span></div><a class="btn btn-sm" href="Accounts.dc.html">Đăng nhập lại</a></div>
+<div class="row" style="align-items: flex-start"><span class="ic-cell err">%%alertc%%</span><div class="grow"><b style="font-weight: 500; font-size: 13px; display: block">Video ngắn · Sóng biển Quy Nhơn</b><span class="t-cap muted">Muse báo quá nhiều yêu cầu, thử lại sau ít phút</span></div><a class="btn btn-sm" href="Tasks.dc.html">Thử lại</a></div>
+<div class="row" style="align-items: flex-start"><span class="ic-cell warn">%%globe%%</span><div class="grow"><b style="font-weight: 500; font-size: 13px; display: block">Proxy US-03 không kết nối được</b><span class="t-cap muted">render.backup@example.com đang tạm ngừng nhận tác vụ</span></div><a class="btn btn-sm" href="Accounts.dc.html">Kiểm tra</a></div>
+<div class="row" style="align-items: flex-start"><span class="ic-cell warn">%%alert%%</span><div class="grow"><b style="font-weight: 500; font-size: 13px; display: block">studio.hcm@example.com sắp hết quota</b><span class="t-cap muted">Còn 4/100</span></div><a class="btn btn-sm btn-ghost" href="Accounts.dc.html">Xem</a></div>
+</div>
+</section>
+</div>
+
+<div class="g2">
+<section class="panel" aria-labelledby="d-run">
+<div class="panel-h"><h2 id="d-run">Đang chạy</h2><a class="t-sm" href="Tasks.dc.html" style="text-decoration: none">Tất cả tác vụ</a></div>
+<div class="rows">
+<div class="row"><span class="thumb p8" style="width: 80px; aspect-ratio: 16 / 9"></span><div class="grow" style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; gap: 8px"><b style="font-weight: 500; font-size: 13px" class="ellipsis">Phố cổ Hội An về đêm</b><span class="t-cap muted num">Cảnh 3/6 · đã chạy <span class="mono">1:40</span></span></div><div class="segbar" style="height: 6px"><i class="ok"></i><i class="ok"></i><i class="run"></i><i></i><i></i><i></i><i class="merge"></i></div></div></div>
+<div class="row"><span class="thumb p6" style="width: 80px; aspect-ratio: 16 / 9"><span class="kind">%%image%%</span></span><div class="grow" style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between; gap: 8px"><b style="font-weight: 500; font-size: 13px" class="ellipsis">Poster trà ô long trên bàn gỗ</b><span class="t-cap muted num">4 ảnh · đã chạy <span class="mono">0:25</span></span></div><div class="bar indet"><i></i></div></div></div>
+</div>
+</section>
+
+<section class="panel" aria-labelledby="d-acc">
+<div class="panel-h"><h2 id="d-acc">Tài khoản Muse</h2><a class="t-sm" href="Accounts.dc.html" style="text-decoration: none">Quản lý</a></div>
+<div class="panel-b" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font: 600 28px/1 var(--f)" class="num">4/7</span><span class="t-sm muted">tài khoản đang khả dụng</span></div>
+<div style="display: flex; gap: 3px; height: 10px" aria-hidden="true"><i style="flex: 3; background: var(--ok); border-radius: 2px"></i><i style="flex: 1; background: var(--warn); border-radius: 2px"></i><i style="flex: 2; background: var(--err); border-radius: 2px"></i><i style="flex: 1; background: var(--s4); border-radius: 2px"></i></div>
+<div class="legend">
+<span><i class="dot ok"></i>Sẵn sàng<b>3</b></span>
+<span><i class="dot warn"></i>Sắp hết quota<b>1</b></span>
+<span><i class="dot err"></i>Phiên hết hạn<b>1</b></span>
+<span><i class="dot err"></i>Lỗi proxy<b>1</b></span>
+<span><i class="dot"></i>Tạm tắt<b>1</b></span>
+</div>
+</div>
+</section>
+</div>
+
+<section aria-labelledby="d-rec">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px"><h2 class="t-h2" id="d-rec">Dự án gần đây</h2><a class="t-sm" href="Projects.dc.html" style="text-decoration: none">Xem tất cả</a></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 16px">
+<a class="rp" href="Studio.dc.html"><span class="thumb p1" style="aspect-ratio: 16 / 9"><span class="hz"></span><span class="dur">~1:04</span></span><span class="t-h3 ellipsis" style="font-size: 14px">Hành trình cà phê Đà Lạt</span><span style="display: flex; gap: 8px; align-items: center">%%sb:next:Chờ duyệt%%<span class="t-cap faint">12 phút trước</span></span></a>
+<a class="rp" href="Render.dc.html"><span class="thumb p8" style="aspect-ratio: 16 / 9"><span class="hz"></span><span class="dur">~0:48</span></span><span class="t-h3 ellipsis" style="font-size: 14px">Phố cổ Hội An về đêm</span><span style="display: flex; gap: 8px; align-items: center">%%sb:run:Đang render%%<span class="t-cap faint">3 phút trước</span></span></a>
+<a class="rp" href="Render.dc.html"><span class="thumb p6" style="aspect-ratio: 16 / 9"><span class="hz"></span><span class="dur">~0:32</span></span><span class="t-h3 ellipsis" style="font-size: 14px">Trà ô long Cầu Đất – giới thiệu sản phẩm</span><span style="display: flex; gap: 8px; align-items: center">%%sb:err:Lỗi%%<span class="t-cap faint">hôm qua 21:40</span></span></a>
+<a class="rp" href="Output.dc.html"><span class="thumb p4" style="aspect-ratio: 16 / 9"><span class="hz"></span><span class="dur">0:24</span></span><span class="t-h3 ellipsis" style="font-size: 14px">Teaser khai trương studio</span><span style="display: flex; gap: 8px; align-items: center">%%sb:ok:Hoàn tất%%<span class="t-cap faint">11/11/2026</span></span></a>
+</div>
+</section>
+
+<section aria-labelledby="d-sc">
+<h2 class="t-h2" id="d-sc" style="margin-bottom: 12px">Lối tắt</h2>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a class="btn" href="QuickCreate.dc.html">%%image%%Tạo ảnh</a>
+<a class="btn" href="QuickCreate.dc.html">%%video%%Tạo video ngắn</a>
+<a class="btn" href="ImportAccounts.dc.html">%%upload%%Import tài khoản</a>
+<button class="btn" type="button">%%copy%%Sao chép Base URL API</button>
+<a class="btn" href="Playground.dc.html">%%terminal%%Mở Playground</a>
+</div>
+</section>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

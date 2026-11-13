@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Video Studio – Tạo dự án</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+<style>
+.np{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;width:100%;max-width:1180px;margin:0 auto;padding:32px 32px 64px}
+.np-form{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:28px}
+.np-side{flex:1 1 320px;min-width:0;position:sticky;top:24px}
+.refimg{position:relative;width:132px;aspect-ratio:4/3;border-radius:8px;overflow:visible}
+.refimg .thumb{width:100%;height:100%}
+.refimg .rm{position:absolute;top:-8px;right:-8px;z-index:2;width:26px;height:26px;border-radius:50%;border:1px solid var(--line-2);background:var(--s3);color:var(--tx);display:grid;place-items:center;cursor:pointer;padding:0}
+.refimg .rm:hover{background:var(--err);color:#fff;border-color:var(--err)}
+.refimg .nm{display:block;margin-top:6px;font-size:12px;color:var(--tx-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frames{display:flex;flex-wrap:wrap;gap:4px}
+.frames i{width:22px;height:14px;border-radius:3px;background:var(--s3);box-shadow:inset 0 0 0 1px var(--line-2)}
+</style>
+</helmet>
+<div class="app">
+<!--@RAIL:projects-->
+<main class="main">
+<div class="proj-bar">
+<a class="btn btn-ghost btn-sm" href="Projects.dc.html">%%arrowl%%Video Studio</a>
+<div class="proj-title"><h1>Dự án mới</h1></div>
+<nav class="steps" aria-label="Các bước dự án" style="margin-left: auto"><span class="step" aria-current="step"><span class="n">1</span>Ý tưởng</span><span class="step-sep"></span><span class="step"><span class="n">2</span>Kịch bản &amp; cảnh</span><span class="step-sep"></span><span class="step"><span class="n">3</span>Render</span><span class="step-sep"></span><span class="step"><span class="n">4</span>Thành phẩm</span></nav>
+<span class="demo-tag">DỮ LIỆU DEMO</span>
+</div>
+
+<div class="np">
+<div class="np-form">
+
+<div class="field">
+<label class="label" for="idea" style="font-size: 15px; color: var(--tx); font-weight: 600">Ý tưởng video<span class="faint t-cap num" style="font-weight: 400">{{ ideaLen }} ký tự</span></label>
+<textarea class="textarea {{ ideaErrCls }}" id="idea" style="min-height: 168px; font-size: 16px; line-height: 26px; padding: 14px 16px" placeholder="Kể câu chuyện bạn muốn thấy: ai, ở đâu, chuyện gì xảy ra, cảm xúc ra sao." value="{{ idea }}" onChange="{{ onIdea }}"></textarea>
+<sc-if value="{{ ideaShort }}" hint-placeholder-val="{{ false }}"><span class="hint err">Mô tả thêm một chút (tối thiểu 20 ký tự) để kịch bản đủ ý cho nhiều cảnh.</span></sc-if>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px"><span class="t-cap faint">Thử ý tưởng mẫu:</span>
+<sc-for list="{{ samples }}" as="s" hint-placeholder-count="3"><button class="chip" type="button" onClick="{{ s.use }}">{{ s.label }}</button></sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 20px">
+<div class="field"><span class="label" id="dur-l">Thời lượng mục tiêu</span>
+<div class="seg" role="group" aria-labelledby="dur-l"><sc-for list="{{ durs }}" as="d" hint-placeholder-count="5"><button type="button" aria-pressed="{{ d.pressed }}" onClick="{{ d.pick }}">{{ d.label }}</button></sc-for></div>
+<sc-if value="{{ isCustom }}" hint-placeholder-val="{{ false }}"><div style="display: flex; align-items: center; gap: 8px; margin-top: 6px"><label class="sr" for="cus">Số giây</label><input class="input num" id="cus" type="number" min="8" max="300" step="8" value="{{ custom }}" onChange="{{ onCustom }}" style="width: 110px"><span class="t-sm muted">giây</span></div></sc-if>
+</div>
+<div class="field"><span class="label" id="ratio-l">Tỉ lệ khung hình</span>
+<div class="seg" role="group" aria-labelledby="ratio-l"><sc-for list="{{ ratios }}" as="r" hint-placeholder-count="3"><button type="button" aria-pressed="{{ r.pressed }}" onClick="{{ r.pick }}"><sc-if value="{{ r.is169 }}" hint-placeholder-val="{{ true }}">%%r169%%</sc-if><sc-if value="{{ r.is916 }}" hint-placeholder-val="{{ false }}">%%r916%%</sc-if><sc-if value="{{ r.is11 }}" hint-placeholder-val="{{ false }}">%%r11%%</sc-if>{{ r.label }}</button></sc-for></div>
+<span class="hint">{{ ratioHint }}</span>
+</div>
+</div>
+
+<div class="field">
+<span class="label">Ảnh tham chiếu <span class="faint t-cap" style="font-weight: 400">không bắt buộc · tối đa 4 ảnh</span></span>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; padding-top: 8px">
+<sc-for list="{{ refs }}" as="r" hint-placeholder-count="2">
+<div class="refimg"><span class="thumb {{ r.pc }}"><span class="hz"></span></span><button class="rm" type="button" aria-label="Xóa ảnh {{ r.name }}" onClick="{{ r.remove }}">%%x|sm%%</button><span class="nm">{{ r.name }}</span></div>
+</sc-for>
+<sc-if value="{{ canAdd }}" hint-placeholder-val="{{ true }}"><button class="drop" type="button" onClick="{{ addRef }}" style="width: 220px; height: 99px; flex-direction: column; justify-content: center; text-align: center; gap: 6px">%%upload|lg%%<span class="t-sm">Kéo thả hoặc bấm để thêm</span><span class="t-cap faint">JPG, PNG · tối đa 10 MB</span></button></sc-if>
+</div>
+<span class="hint">Ảnh dùng để giữ nhất quán bối cảnh hoặc nhân vật giữa các cảnh.</span>
+</div>
+
+<div>
+<sc-for list="{{ secs }}" as="s" hint-placeholder-count="4">
+<div class="acc">
+<button class="acc-btn" type="button" aria-expanded="{{ s.exp }}" onClick="{{ s.toggle }}"><span style="display: flex; align-items: center; gap: 10px">
+<sc-if value="{{ s.iStyle }}" hint-placeholder-val="{{ false }}">%%palette%%</sc-if><sc-if value="{{ s.iChar }}" hint-placeholder-val="{{ false }}">%%user%%</sc-if><sc-if value="{{ s.iMusic }}" hint-placeholder-val="{{ false }}">%%music%%</sc-if><sc-if value="{{ s.iAdv }}" hint-placeholder-val="{{ false }}">%%sliders%%</sc-if>{{ s.title }}</span><span class="sum ellipsis" style="max-width: 50%">{{ s.sum }}</span>%%chevd|chev%%</button>
+<sc-if value="{{ s.isOpenStyle }}" hint-placeholder-val="{{ false }}"><div class="acc-body">
+<div class="field"><label class="label" for="sty">Phong cách hình ảnh</label><textarea class="textarea" id="sty" style="min-height: 72px">Điện ảnh, ánh sáng tự nhiên, tông màu ấm, chuyển động máy chậm, độ sâu trường ảnh nông.</textarea></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="t-cap faint" style="align-self: center">Gợi ý:</span><button class="chip" type="button">Điện ảnh</button><button class="chip" type="button">Phim tài liệu</button><button class="chip" type="button">Hoạt hình 3D</button><button class="chip" type="button">Màu phim cũ</button></div>
+</div></sc-if>
+<sc-if value="{{ s.isOpenChar }}" hint-placeholder-val="{{ false }}"><div class="acc-body">
+<div class="note info">%%info%%<div>Mô tả nhân vật được gắn vào <b>mọi cảnh</b> có nhân vật đó để giữ ngoại hình nhất quán.</div></div>
+<div class="panel" style="padding: 14px; display: flex; flex-direction: column; gap: 12px"><div class="field"><label class="label" for="cn">Tên gọi</label><input class="input" id="cn" value="Chú Tư"></div><div class="field"><label class="label" for="cd">Ngoại hình &amp; trang phục</label><textarea class="textarea" id="cd" style="min-height: 64px">Nông dân khoảng 60 tuổi, da rám nắng, tóc muối tiêu, áo sơ mi nâu bạc màu, đội nón lá.</textarea></div></div>
+<button class="btn btn-ghost" type="button" style="align-self: flex-start">%%plus%%Thêm nhân vật</button>
+</div></sc-if>
+<sc-if value="{{ s.isOpenMusic }}" hint-placeholder-val="{{ false }}"><div class="acc-body">
+<div class="field"><label class="label" for="mu">Mô tả âm nhạc</label><input class="input" id="mu" value="Guitar mộc, nhịp chậm, ấm áp"><span class="hint">Để trống nếu không cần nhạc nền.</span></div>
+</div></sc-if>
+<sc-if value="{{ s.isOpenAdv }}" hint-placeholder-val="{{ false }}"><div class="acc-body">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px"><div><b style="font-weight: 500">Tự động chọn tài khoản Muse</b><p class="t-cap faint" style="margin-top: 2px">Dùng tài khoản khả dụng còn quota. Tắt để chọn tay.</p></div><button class="toggle" type="button" role="switch" aria-checked="true" aria-label="Tự động chọn tài khoản Muse"></button></div>
+<div class="field"><label class="label" for="lang">Ngôn ngữ kịch bản</label><select class="select" id="lang"><option>Tiếng Việt</option><option>English</option></select></div>
+<span class="flag assume" style="align-self: flex-start">Giả định · đối chiếu tùy chọn thật trong source</span>
+</div></sc-if>
+</div>
+</sc-for>
+</div>
+
+</div>
+
+<aside class="np-side">
+<div class="panel" style="overflow: hidden">
+<div class="panel-b" style="display: flex; flex-direction: column; gap: 16px">
+<span class="eyebrow">Dự kiến</span>
+<div style="display: flex; align-items: baseline; gap: 8px"><span style="font: 600 40px/1 var(--f)" class="num">{{ sceneCount }}</span><span class="t-h3">cảnh</span><span class="muted t-sm">× ~8 giây ≈ <span class="mono">{{ total }}</span></span></div>
+<div class="frames" aria-hidden="true"><sc-for list="{{ frames }}" as="f" hint-placeholder-count="8"><i></i></sc-for></div>
+<div style="display: grid; place-items: center; height: 132px; background: var(--bg); border-radius: 8px"><div style="height: 100px; aspect-ratio: {{ ar }}; border: 1px dashed var(--line-2); border-radius: 6px; display: grid; place-items: center; color: var(--tx-3)" class="mono t-cap">{{ ratio }}</div></div>
+<div class="rows t-sm" style="border-top: 1px solid var(--line)">
+<div style="display: flex; justify-content: space-between; padding: 8px 0"><span class="muted">Ảnh tham chiếu</span><span class="num">{{ refCount }}</span></div>
+<div style="display: flex; justify-content: space-between; padding: 8px 0"><span class="muted">Nhân vật</span><span>Chú Tư</span></div>
+<div style="display: flex; justify-content: space-between; padding: 8px 0"><span class="muted">Tài khoản</span><span>Tự động</span></div>
+</div>
+<p class="t-cap faint">Số cảnh tính từ thời lượng mục tiêu, giả định mỗi cảnh ~8 giây. Kịch bản thực tế có thể chia khác; bạn sẽ thấy ngay ở bước sau.</p>
+</div>
+
+<sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}"><div style="padding: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; background: var(--s2)">
+<button class="btn btn-primary btn-lg btn-block" type="button" onClick="{{ generate }}" aria-disabled="{{ disabled }}">%%spark%%Tạo kịch bản</button>
+<p class="t-cap faint" style="text-align: center">Chưa render ở bước này. Bạn sẽ duyệt từng cảnh trước.</p>
+</div></sc-if>
+<sc-if value="{{ isGen }}" hint-placeholder-val="{{ false }}"><div style="padding: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; background: var(--s2)" role="status">
+<div style="display: flex; align-items: center; gap: 10px">%%spin%%<b style="font-weight: 600">Đang viết kịch bản…</b><span class="mono t-cap faint" style="margin-left: auto">{{ elapsed }}</span></div>
+<div class="bar indet"><i></i></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="sk" style="height: 12px; width: 90%"></span><span class="sk" style="height: 12px; width: 70%"></span><span class="sk" style="height: 12px; width: 80%"></span></div>
+<button class="btn btn-ghost btn-sm" type="button" onClick="{{ cancel }}" style="align-self: flex-start">Hủy</button>
+</div></sc-if>
+<sc-if value="{{ isReady }}" hint-placeholder-val="{{ false }}"><div style="padding: 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; background: var(--s2)" role="status">
+<div class="note ok">%%check%%<div><b>Kịch bản {{ sceneCount }} cảnh đã sẵn sàng.</b> Dự án được lưu dưới dạng bản nháp.</div></div>
+<a class="btn btn-primary btn-lg btn-block" href="Studio.dc.html">Mở để duyệt%%arrowr%%</a>
+</div></sc-if>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  componentWillUnmount() { clearInterval(this._t); }
+  renderVals() {
+    var self = this;
+    var IDEA = 'Một video kể về hành trình của hạt cà phê ở Đà Lạt: sương sớm trên đồi Cầu Đất, chú Tư hái những chùm quả chín đỏ, phơi và rang thủ công, rồi tách cà phê đầu tiên trong quán gỗ nhỏ lúc hoàng hôn. Nhịp chậm, ấm áp, điện ảnh.';
+    var st = Object.assign({ dur: 60, custom: 45, ratio: '16:9', idea: IDEA, open: '', phase: 'form', sec: 0,
+      refs: [{ id: 1, pc: 'p1', name: 'doi-cau-dat.jpg' }, { id: 2, pc: 'p2', name: 'chan-dung-chu-tu.jpg' }] }, this.state);
+    var seconds = st.dur === 0 ? (parseInt(st.custom, 10) || 8) : st.dur;
+    var n = Math.max(1, Math.ceil(seconds / 8));
+    var tot = n * 8;
+    var fmt = function (s) { var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; };
+    var durs = [[30, '30 giây'], [60, '60 giây'], [90, '90 giây'], [120, '2 phút'], [0, 'Tùy chỉnh']].map(function (d) {
+      return { label: d[1], pressed: st.dur === d[0] ? 'true' : 'false', pick: function () { self.setState({ dur: d[0] }); } };
+    });
+    var hints = { '16:9': 'Ngang · YouTube, màn hình lớn', '9:16': 'Dọc · Reels, TikTok, Shorts', '1:1': 'Vuông · bài đăng mạng xã hội' };
+    var ratios = ['16:9', '9:16', '1:1'].map(function (r) {
+      return { label: r, is169: r === '16:9', is916: r === '9:16', is11: r === '1:1', pressed: st.ratio === r ? 'true' : 'false', pick: function () { self.setState({ ratio: r }); } };
+    });
+    var refs = st.refs.map(function (r) { return Object.assign({}, r, { remove: function () { self.setState({ refs: st.refs.filter(function (x) { return x.id !== r.id; }) }); } }); });
+    var pool = [{ pc: 'p9', name: 'quan-go-chieu.jpg' }, { pc: 'p5', name: 'chao-rang.jpg' }, { pc: 'p4', name: 'san-phoi.jpg' }, { pc: 'p3', name: 'qua-chin.jpg' }];
+    var defs = [
+      ['style', 'Phong cách & hình ảnh', 'Điện ảnh, tông ấm'],
+      ['char', 'Nhân vật', '1 nhân vật · Chú Tư'],
+      ['music', 'Âm nhạc', 'Guitar mộc, nhịp chậm'],
+      ['adv', 'Nâng cao', 'Tài khoản tự động · Tiếng Việt']
+    ];
+    var secs = defs.map(function (d) {
+      var o = st.open === d[0];
+      return { title: d[1], sum: d[2], exp: o ? 'true' : 'false', iStyle: d[0] === 'style', iChar: d[0] === 'char', iMusic: d[0] === 'music', iAdv: d[0] === 'adv',
+        isOpenStyle: o && d[0] === 'style', isOpenChar: o && d[0] === 'char', isOpenMusic: o && d[0] === 'music', isOpenAdv: o && d[0] === 'adv',
+        toggle: function () { self.setState({ open: o ? '' : d[0] }); } };
+    });
+    var samples = [
+      ['Cà phê Đà Lạt', IDEA],
+      ['Phố cổ Hội An về đêm', 'Đêm rằm ở phố cổ Hội An: đèn lồng thắp dọc sông Hoài, một cô bé thả hoa đăng, ghe chèo chậm qua cầu, phố đông dần rồi lắng lại khi khuya.'],
+      ['Chú mèo phi hành gia', 'Một chú mèo cam mặc bộ đồ phi hành gia nhỏ, khám phá trạm vũ trụ, đuổi theo viên cá khô trôi lơ lửng, cuối cùng ngủ quên bên cửa sổ nhìn ra Trái Đất.']
+    ].map(function (s) { return { label: s[0], use: function () { self.setState({ idea: s[1] }); } }; });
+    var len = (st.idea || '').length;
+    var short = len > 0 && len < 20;
+    return {
+      idea: st.idea, ideaLen: len, ideaShort: short, ideaErrCls: short ? 'is-err' : '',
+      onIdea: function (e) { self.setState({ idea: e.target.value }); },
+      samples: samples, durs: durs, isCustom: st.dur === 0, custom: st.custom,
+      onCustom: function (e) { self.setState({ custom: e.target.value }); },
+      ratios: ratios, ratioHint: hints[st.ratio], ratio: st.ratio, ar: st.ratio.replace(':', ' / '),
+      refs: refs, refCount: refs.length, canAdd: refs.length < 4,
+      addRef: function () { var p = pool[(st.refs.length) % pool.length]; self.setState({ refs: st.refs.concat([{ id: Date.now(), pc: p.pc, name: p.name }]) }); },
+      secs: secs, sceneCount: n, total: fmt(tot), frames: new Array(Math.min(n, 40)).fill(0),
+      isForm: st.phase === 'form', isGen: st.phase === 'gen', isReady: st.phase === 'ready',
+      disabled: len < 20 ? 'true' : 'false', elapsed: '00:0' + Math.min(st.sec, 9),
+      generate: function () {
+        if (len < 20) return;
+        self.setState({ phase: 'gen', sec: 0 });
+        clearInterval(self._t);
+        self._t = setInterval(function () {
+          var s = (self.state && self.state.sec || 0) + 1;
+          if (s >= 3) { clearInterval(self._t); self.setState({ phase: 'ready', sec: s }); } else self.setState({ sec: s });
+        }, 900);
+      },
+      cancel: function () { clearInterval(self._t); self.setState({ phase: 'form' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

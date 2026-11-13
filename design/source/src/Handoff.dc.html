@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Ghi chú bàn giao frontend</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+</helmet>
+<div style="min-height: 100vh; background: var(--bg); color: var(--tx); font-family: var(--f)">
+<div class="doc">
+
+<div style="display: flex; flex-direction: column; gap: 12px; max-width: 880px">
+<span class="eyebrow">42 · Bàn giao frontend</span>
+<h1>Hành vi component, responsive và dữ liệu cần từ backend</h1>
+<p style="font-size: 16px; line-height: 26px">Mọi artboard dùng chung một stylesheet: token ở <span class="mono">:root</span>, mỗi class (<span class="mono">.btn</span>, <span class="mono">.badge</span>, <span class="mono">.scene</span>, <span class="mono">.segbar</span>…) tương ứng một component. Không phụ thuộc framework; với React/Vue, mỗi class thành một component có props trạng thái.</p>
+</div>
+
+<section class="sec">
+<h2>1 · Hành vi component</h2>
+<div class="panel tbl-wrap"><table class="tbl spec"><thead><tr><th>Component</th><th>Hành vi</th><th>Bàn phím &amp; a11y</th></tr></thead><tbody>
+<tr><td>Sidebar</td><td>2 nhóm cố định. Huy hiệu số chỉ hiện khi &gt; 0: Tác vụ = số lỗi, Tài khoản = số cần xử lý. Trong Studio thu thành rail 64px, nhớ lựa chọn của người dùng.</td><td><span class="mono">nav</span> + <span class="mono">aria-current="page"</span>; rail có <span class="mono">title</span>/tooltip và nhãn ẩn.</td></tr>
+<tr><td>Chỉ báo tác vụ</td><td>"N đang chạy · M lỗi" trên thanh trên, cập nhật realtime. Ẩn phần lỗi khi M = 0.</td><td>Là link tới Tác vụ; số đọc qua <span class="mono">aria-live="polite"</span> tối đa 1 lần / 10 giây.</td></tr>
+<tr><td>Stepper dự án</td><td>4 bước cố định. Bước đã xong là link quay lại; bước sau chưa mở thì không bấm được. Trạng thái dự án quyết định bước hiện tại.</td><td><span class="mono">aria-current="step"</span>.</td></tr>
+<tr><td>Danh sách cảnh</td><td>Mục "Toàn bộ dự án" luôn ở đầu. Mỗi cảnh: số, thumbnail (khi có), tiêu đề, thời lượng, nhãn "Đã sửa" nếu khác bản đã render.</td><td>↑/↓ hoặc J/K khi focus trong danh sách; Enter mở. Roving tabindex.</td></tr>
+<tr><td>Storyboard &amp; dòng thời gian</td><td>Lưới thẻ cảnh khi chọn "Toàn bộ dự án". Dòng thời gian dưới preview luôn hiện, đoạn đang chọn tô màu nhấn.</td><td>Mỗi đoạn là nút có nhãn "Cảnh N".</td></tr>
+<tr><td>Bảng thuộc tính</td><td>Tự lưu sau 800 ms ngừng gõ, hiện "Đã lưu HH:MM". Nếu cảnh đã render, hiện cảnh báo phạm vi ảnh hưởng ngay khi trường bị sửa lần đầu.</td><td>Mọi trường có <span class="mono">label</span>; cảnh báo nằm trước trường trong thứ tự đọc.</td></tr>
+<tr><td>Badge trạng thái</td><td>7 biến thể (board 02). Luôn icon + chữ. "Đang xử lý" có spinner, tắt khi <span class="mono">prefers-reduced-motion</span>.</td><td>Chữ là nhãn chính, icon <span class="mono">aria-hidden</span>.</td></tr>
+<tr><td>Thanh cảnh (segbar)</td><td>Mỗi đoạn một cảnh, độ rộng theo thời lượng, đoạn cuối là bước ghép. Không cần % từ backend.</td><td>Kèm text "4/8 cảnh hoàn tất" cạnh thanh.</td></tr>
+<tr><td>Dialog xác nhận</td><td>Dùng cho xóa, hủy render, tạo lại, sửa mô tả chung sau render, thu hồi khóa. Nút phá hủy dạng đặc đỏ chỉ có trong dialog.</td><td>Focus vào nút an toàn, trap focus, Esc đóng, trả focus về nút gọi.</td></tr>
+<tr><td>Drawer chi tiết</td><td>Mở từ hàng bảng, URL có <span class="mono">?account=acc-04</span> để chia sẻ/khôi phục. Bảng phía sau giữ vị trí cuộn.</td><td>Như dialog; tiêu đề drawer là <span class="mono">aria-labelledby</span>.</td></tr>
+<tr><td>Bí mật (khóa, phiên)</td><td>Che mặc định, chỉ hiện 4 ký tự cuối. Nút hiện/ẩn và sao chép riêng. Tự che lại khi rời trang.</td><td>Nút có nhãn "Hiện khóa …" / "Ẩn khóa …".</td></tr>
+<tr><td>Toast</td><td>Góc dưới phải, tối đa 3, tự ẩn 5 giây (8 giây nếu có nút), dừng khi hover/focus.</td><td><span class="mono">role="status"</span>; lỗi dùng banner trong trang, không dùng toast.</td></tr>
+<tr><td>Chọn nhiều (Thư viện)</td><td>Ô chọn hiện khi hover/focus hoặc khi đã có mục được chọn. Shift + click chọn dải. Thanh thao tác dính đáy.</td><td>Space chọn, Ctrl A chọn tất cả trong bộ lọc hiện tại.</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="sec">
+<h2>2 · Quy tắc nghiệp vụ hiển thị</h2>
+<div class="grid-auto">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Phạm vi ảnh hưởng</h3><ul><li>Sửa cảnh N (tiêu đề không tính) sau khi render → cảnh N…cuối đánh dấu "cần render lại".</li><li>Sửa mô tả chung → mọi cảnh "cần render lại".</li><li>Trước lần render đầu: không cảnh báo.</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Tiếp tục &amp; thử lại</h3><ul><li><strong>Thử lại</strong>: cùng input, có thể đổi tài khoản.</li><li><strong>Tạo lại từ cảnh N</strong>: render lại N…cuối.</li><li><strong>Tiếp tục</strong> sau hủy: từ cảnh đã hủy đầu tiên.</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Không bịa số</h3><ul><li>Không ETA, không chi phí, không % giả.</li><li>Hiện "đã chạy" tính từ <span class="mono">started_at</span>.</li><li>Số cảnh dự kiến ghi rõ là ước tính.</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Thông điệp lỗi</h3><ul><li>Map <span class="mono">error.code</span> → câu tiếng Việt + hành động gợi ý.</li><li>Mã gốc để trong "Chi tiết kỹ thuật".</li><li>Mã chưa biết: "Muse trả về lỗi không xác định" + Thử lại.</li></ul></div>
+</div>
+</section>
+
+<section class="sec">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><h2>3 · Dữ liệu cần từ backend</h2><span class="flag assume">Đề xuất hợp đồng · đối chiếu API hiện có</span></div>
+<p>Trường in đậm là bắt buộc để giao diện hoạt động đúng; trường thường là để hiển thị tốt hơn.</p>
+<div class="panel tbl-wrap"><table class="tbl spec"><thead><tr><th>Thực thể</th><th>Trường</th><th>Dùng ở</th></tr></thead><tbody>
+<tr><td>Project</td><td class="mono"><strong>id, name, status</strong> (draft · awaiting_review · rendering · completed · failed · canceled), <strong>aspect_ratio, target_duration_s, scene_count, updated_at</strong>, idea, shared {script, characters[], style, music}, ref_images[], render {started_at, finished_at, failed_scene_index}, cover_media_id</td><td>10–14, 20</td></tr>
+<tr><td>Scene</td><td class="mono"><strong>id, index, title, script, prompt, status</strong> (pending · processing · succeeded · failed · canceled), <strong>started_at, finished_at, attempts, media_id</strong>, duration_s, character_ids[], ref_image_ids[], account_id, error {code, message}, stale (cần render lại)</td><td>12, 13, 14</td></tr>
+<tr><td>Task</td><td class="mono"><strong>id, kind</strong> (script · scene · merge · image · short_video), <strong>status, created_at, started_at, account_id</strong>, project_id, scene_index, error {code, message}, <strong>retryable</strong>, suggested_action (relogin · check_proxy · retry · switch_account), progress_pct (tùy chọn)</td><td>13, 21, 23, thanh trên</td></tr>
+<tr><td>Account</td><td class="mono"><strong>id, email, status</strong> (ready · low_quota · session_expired · proxy_error · disabled), <strong>quota {remaining, total, updated_at}</strong>, <strong>session {expires_at}</strong>, proxy_id, running_tasks, created_at</td><td>20, 30, sidebar</td></tr>
+<tr><td>Proxy</td><td class="mono"><strong>id, name, status</strong>, host (che một phần), last_checked_at, error</td><td>30, 34</td></tr>
+<tr><td>MediaItem</td><td class="mono"><strong>id, kind, url, thumb_url, created_at</strong>, source (studio · quick · api), project_id, scene_index, width, height, duration_s</td><td>14, 21, 22</td></tr>
+<tr><td>ApiKey</td><td class="mono"><strong>id, name, last4, created_at</strong>, last_used_at; endpoint riêng để lấy khóa đầy đủ khi bấm hiện</td><td>32, 33</td></tr>
+<tr><td>System</td><td class="mono"><strong>public_base_url</strong>, default_proxy_id, defaults {duration, ratio, language}, scene_length_s (để tính số cảnh dự kiến)</td><td>11, 32, 34</td></tr>
+</tbody></table></div>
+<div class="grid-auto">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Thao tác cần có</h3><ul class="mono" style="font-size: 13px"><li>POST /projects (idea → bản nháp + tác vụ viết kịch bản)</li><li>PATCH /projects/:id, PATCH /scenes/:id</li><li>POST /projects/:id/render {from_scene}</li><li>POST /projects/:id/cancel</li><li>POST /tasks/:id/retry {account_id?}</li><li>POST /accounts/import?dry_run=true → kiểm tra trước khi ghi</li><li>POST /accounts/:id/check, /proxies/:id/check</li><li>DELETE /media (nhiều id)</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Realtime</h3><ul><li>Ưu tiên SSE hoặc WebSocket cho thay đổi trạng thái Task/Scene/Account.</li><li>Dự phòng: polling 3 giây trên trang Render/Tác vụ, 15 giây ở trang khác, dừng khi tab ẩn.</li><li>Mỗi sự kiện mang <span class="mono">updated_at</span> để bỏ bản cũ đến muộn.</li></ul></div>
+</div>
+</section>
+
+<section class="sec">
+<h2>4 · Responsive &amp; truy cập</h2>
+<div class="grid-auto">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Breakpoint</h3><ul><li><strong>≥ 1180</strong>: sidebar đầy đủ, Studio 3 khung.</li><li><strong>820–1179</strong>: rail, thuộc tính thành bottom sheet.</li><li><strong>&lt; 820</strong>: tab bar dưới, bảng thành danh sách, Studio chuyển tab.</li><li>Chi tiết: board 41.</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Truy cập</h3><ul><li>Tương phản chữ ≥ 4.5 : 1 (tx-3 không đặt trên s4).</li><li>Focus ring 2px màu nhấn, cách 2px, mọi phần tử tương tác.</li><li>Tiến độ render: vùng <span class="mono">aria-live="polite"</span>, chỉ đọc khi cảnh đổi trạng thái.</li><li>Vùng bấm ≥ 44px trên màn hình cảm ứng.</li></ul></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 8px"><h3>Phím tắt</h3><ul><li><span class="kbd">Ctrl K</span> tìm kiếm và lệnh nhanh</li><li><span class="kbd">J</span> <span class="kbd">K</span> chuyển cảnh trong Studio</li><li><span class="kbd">Esc</span> đóng dialog, drawer, bottom sheet</li><li><span class="kbd">Space</span> chọn trong Thư viện, phát/dừng ở Thành phẩm</li></ul></div>
+</div>
+</section>
+
+<section class="sec">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><h2>5 · Đề xuất tương lai</h2><span class="flag future">Chưa có trong sản phẩm</span></div>
+<p>Không xuất hiện trên các màn hình như tính năng hiện có. Ghi lại để cân nhắc sau khi đối chiếu backend.</p>
+<div class="grid-auto">
+<div class="panel panel-b"><h3>Ước tính quota trước khi render</h3><p style="margin-top: 6px">Chỉ khi backend biết chi phí mỗi cảnh. Hiện trong hộp "Bắt đầu render".</p></div>
+<div class="panel panel-b"><h3>Thông báo trình duyệt</h3><p style="margin-top: 6px">Báo khi render xong hoặc lỗi lúc tab đang ẩn.</p></div>
+<div class="panel panel-b"><h3>Sắp xếp, thêm, xóa cảnh</h3><p style="margin-top: 6px">Kéo thả trong danh sách cảnh; kéo theo quy tắc ảnh hưởng từ vị trí thay đổi.</p></div>
+<div class="panel panel-b"><h3>Lịch sử phiên bản cảnh</h3><p style="margin-top: 6px">Giữ các lần render của một cảnh để chọn lại bản ưng ý.</p></div>
+<div class="panel panel-b"><h3>Preset phong cách &amp; nhân vật</h3><p style="margin-top: 6px">Lưu mô tả chung để dùng lại giữa các dự án.</p></div>
+<div class="panel panel-b"><h3>Webhook cho API</h3><p style="margin-top: 6px">Gọi lại URL khi tác vụ video xong, thay cho polling phía client.</p></div>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

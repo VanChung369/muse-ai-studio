@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MUSE2API – Vấn đề UX và định hướng</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<!--@HEAD-->
+</helmet>
+<div style="min-height: 100vh; background: var(--bg); color: var(--tx); font-family: var(--f)">
+<div class="doc">
+
+<div style="display: flex; flex-direction: column; gap: 16px; max-width: 880px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><span class="brand-mark">M2</span><span class="eyebrow">MUSE2API · Thiết kế lại trải nghiệm · Bản 1 · 13/11/2026</span></div>
+<h1>Từ trang quản trị kỹ thuật thành một studio sáng tạo</h1>
+<p style="font-size: 17px; line-height: 28px; color: var(--tx-2)">Người dùng đến MUSE2API để làm ra ảnh và video. Thiết kế mới đặt việc sáng tạo ở trung tâm, đưa việc quản trị về đúng chỗ: dễ tìm, chỉ nổi lên khi có việc cần xử lý.</p>
+</div>
+
+<div class="note warn" style="margin-top: 28px; max-width: 880px">%%alert%%<div><b>Phạm vi dữ liệu đầu vào.</b> Thiết kế dựa trên brief chức năng; source code chưa được cung cấp nên chưa đối chiếu. Chi tiết không có trong brief được gắn nhãn <span class="flag assume">Giả định</span>. Mọi tên, số liệu trên màn hình là <b>dữ liệu demo</b>.</div></div>
+
+<section class="sec">
+<div><span class="eyebrow">1 · Chẩn đoán</span><h2 style="margin-top: 6px">Vấn đề UX hiện tại và hướng giải quyết</h2></div>
+<div class="grid-auto">
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P1</span><h3>Sáng tạo và quản trị nằm ngang hàng</h3><p>Người mới mở ứng dụng gặp ngay bảng tài khoản, proxy, API key. Không có điểm bắt đầu rõ ràng.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> Tách hai khu vực trong sidebar. Tổng quan luôn chỉ ra một bước tiếp theo.</p></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P2</span><h3>Form dài phơi toàn bộ cấu hình</h3><p>Ý tưởng, thứ quan trọng nhất, chìm giữa hàng chục tham số. Người dùng phải hiểu mọi thứ trước khi bắt đầu.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> Ý tưởng là trường chính. Thời lượng, tỉ lệ hiện sẵn; phong cách, nhân vật, âm nhạc, nâng cao mở theo nhu cầu.</p></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P3</span><h3>Bảng dày đặc, trạng thái chỉ là chữ</h3><p>Tác vụ lỗi, tài khoản hết phiên lẫn trong hàng trăm dòng. Quản trị viên phải đọc từng dòng để tìm vấn đề.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> 5 trạng thái chuẩn (màu + icon + chữ). Lỗi luôn đi kèm lý do và hành động kế tiếp, được ghim lên đầu.</p></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P4</span><h3>Hướng dẫn trộn lẫn với thao tác</h3><p>Đoạn giải thích dài nằm cạnh nút bấm, làm phiền người đã quen và vẫn khó theo với người mới.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> Hướng dẫn chuyển vào empty state, luồng Import riêng và trang Tài liệu riêng.</p></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P5</span><h3>Video dài không có luồng thống nhất</h3><p>Không rõ dự án đang ở bước nào, sửa một cảnh thì ảnh hưởng gì, lỗi giữa chừng thì tiếp tục ra sao.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> Stepper 4 bước cố định trong Studio. Quy tắc ảnh hưởng hiện ngay tại chỗ sửa và trong hộp xác nhận.</p></div>
+<div class="panel panel-b" style="display: flex; flex-direction: column; gap: 10px"><span class="tag mono">P6</span><h3>Thiếu phân cấp thị giác</h3><p>Mọi nút và khối trông như nhau; nội dung (ảnh, video) không phải trọng tâm.</p><p style="color: var(--tx)"><b style="color: var(--acc)">→</b> Một hành động chính mỗi màn hình. Thumbnail, storyboard và player chiếm diện tích lớn nhất.</p></div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">2 · Nguyên tắc</span><h2 style="margin-top: 6px">Bốn nguyên tắc dùng để quyết định mọi màn hình</h2></div>
+<div class="grid-auto">
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font: 600 32px/1 var(--mono); color: var(--acc)">01</span><h3>Màu nhấn là bước tiếp theo của bạn</h3><p>Vàng hổ phách chỉ dùng cho hành động chính và trạng thái "chờ bạn duyệt". Nhìn thấy màu vàng nghĩa là đến lượt người dùng.</p></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font: 600 32px/1 var(--mono); color: var(--acc)">02</span><h3>Nội dung trước, giao diện lùi lại</h3><p>Nền charcoal, viền mảnh, ít khung. Thumbnail và video là điểm sáng duy nhất trên màn hình.</p></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font: 600 32px/1 var(--mono); color: var(--acc)">03</span><h3>Trung thực với dữ liệu</h3><p>Không ETA, không chi phí ước tính, không biểu đồ trang trí. Tiến độ tính từ trạng thái thật của từng cảnh; hiển thị thời gian đã chạy thay vì thời gian còn lại.</p></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font: 600 32px/1 var(--mono); color: var(--acc)">04</span><h3>Quản trị theo ngoại lệ</h3><p>Tài khoản và tác vụ khỏe thì im lặng. Có vấn đề thì xuất hiện ở sidebar, thanh trên và Tổng quan, kèm nút xử lý trực tiếp.</p></div>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">3 · Tiêu chí đánh giá</span><h2 style="margin-top: 6px">Ba câu hỏi thiết kế phải trả lời được</h2></div>
+<div class="panel tbl-wrap">
+<table class="tbl spec">
+<thead><tr><th>Người dùng</th><th>Câu hỏi</th><th>Thiết kế trả lời bằng</th><th>Xem tại</th></tr></thead>
+<tbody>
+<tr><td>Người dùng mới</td><td>Tôi bắt đầu từ đâu?</td><td>Empty state có 1 nút duy nhất "Tạo dự án đầu tiên" + 3 ý tưởng mẫu. Nếu chưa có tài khoản Muse khả dụng, hệ thống chặn sớm và dẫn sang Import thay vì để lỗi xảy ra lúc render.</td><td>40 · Trạng thái, 10 · Dự án</td></tr>
+<tr><td>Người đang làm video</td><td>Bước tiếp theo là gì?</td><td>Thẻ "Tiếp tục làm" trên Tổng quan và Dự án; stepper trong Studio; khi lỗi, banner nói rõ cảnh nào dừng, vì sao, cảnh nào được giữ, và nút "Thử lại cảnh 5".</td><td>20 · Tổng quan, 12, 13</td></tr>
+<tr><td>Quản trị viên</td><td>Vấn đề nằm ở đâu?</td><td>Huy hiệu số trên sidebar, khối "Cần chú ý", bộ lọc "Cần xử lý" trong Tài khoản và Tác vụ, mỗi lỗi có nút xử lý (Đăng nhập lại, Kiểm tra proxy, Thử lại).</td><td>23 · Tác vụ, 30 · Tài khoản</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="sec">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><span class="eyebrow">4 · Cần đối chiếu source</span><span class="flag assume">Giả định</span></div>
+<h2 style="margin-top: -12px">Những điểm thiết kế đang giả định</h2>
+<div class="grid-auto">
+<ul>
+<li><strong>Thời lượng cảnh:</strong> ~8 giây/cảnh; số cảnh = thời lượng mục tiêu ÷ 8, làm tròn lên.</li>
+<li><strong>Lựa chọn thời lượng:</strong> 30 / 60 / 90 / 120 giây + tùy chỉnh. <strong>Tỉ lệ:</strong> 16:9, 9:16, 1:1.</li>
+<li><strong>Render tuần tự:</strong> suy ra từ quy tắc "sửa cảnh N ảnh hưởng N đến cuối" trong brief.</li>
+<li><strong>Bước ghép video</strong> là một bước riêng, có trạng thái.</li>
+</ul>
+<ul>
+<li><strong>Tiến độ từng cảnh:</strong> thiết kế không cần %; chỉ cần trạng thái + thời điểm bắt đầu. Nếu backend có %, thanh tiến độ chuyển từ dạng chạy vô định sang dạng xác định.</li>
+<li><strong>Tạo nhanh:</strong> ảnh tham chiếu cho ảnh; ảnh khởi đầu cho video ngắn.</li>
+<li><strong>Quota:</strong> dạng "còn lại / tổng", chưa rõ đơn vị và chu kỳ reset.</li>
+</ul>
+<ul>
+<li><strong>Import:</strong> mỗi dòng một tài khoản; extension gửi phiên đăng nhập về MUSE2API.</li>
+<li><strong>API:</strong> endpoint theo chuẩn OpenAI (/v1/models, /v1/images/generations, /v1/chat/completions); endpoint video và tên model là ví dụ.</li>
+<li><strong>Chọn tài khoản:</strong> mặc định tự động chọn tài khoản còn quota; có thể chọn tay ở mục Nâng cao.</li>
+</ul>
+</div>
+</section>
+
+<section class="sec">
+<div><span class="eyebrow">5 · Đọc canvas này</span><h2 style="margin-top: 6px">Thứ tự xem đề xuất</h2></div>
+<div class="grid-auto">
+<div class="row panel"><span class="tag mono">00–02</span><span class="grow">Nền tảng: chẩn đoán, sitemap, design system</span></div>
+<div class="row panel"><span class="tag mono">10–14</span><span class="grow">Long Video Studio, prototype bấm được</span></div>
+<div class="row panel"><span class="tag mono">20–23</span><span class="grow">Tổng quan, Tạo nhanh, Thư viện, Tác vụ</span></div>
+<div class="row panel"><span class="tag mono">30–34</span><span class="grow">Tài khoản, Import, API, Playground, Cài đặt</span></div>
+<div class="row panel"><span class="tag mono">40–42</span><span class="grow">Trạng thái, tablet &amp; mobile, bàn giao frontend</span></div>
+<a class="row panel" href="Projects.dc.html" style="text-decoration: none; color: var(--tx); border-color: var(--acc-line)">%%play%%<span class="grow">Bắt đầu prototype từ Danh sách dự án</span>%%arrowr%%</a>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2500}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
