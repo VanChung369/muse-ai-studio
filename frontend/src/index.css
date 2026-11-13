@@ -39,6 +39,7 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-destructive-soft: var(--destructive-soft);
@@ -96,6 +97,7 @@
   --surface-4: #2f3036; /* s4: pressed */
   --border: #2a2c31; /* line */
   --input: #383a40; /* line-2 */
+  --input-hover: #4a4d54; /* .input:hover border */
 
   --foreground: #eeeef0; /* tx */
   --card-foreground: #eeeef0;

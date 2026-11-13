@@ -24,15 +24,23 @@ export function LanguageSwitcher() {
     >
       <SelectTrigger
         aria-label={t("language.label")}
-        className="h-8 shrink-0 cursor-pointer rounded-full border-input pr-1.5 pl-2.5 text-[13px] font-medium text-muted-foreground shadow-none hover:border-faint hover:text-foreground focus-visible:border-input focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent data-[size=default]:max-tablet:h-11"
+        className="h-8 shrink-0 cursor-pointer rounded-full border-input pr-1.5 pl-2.5 text-[13px] font-medium text-muted-foreground shadow-none hover:border-faint hover:text-foreground bg-transparent data-[size=default]:max-tablet:h-11"
       >
         <Languages className="size-3.5 shrink-0" aria-hidden="true" />
         <SelectValue>{t(`language.names.${language}`)}</SelectValue>
       </SelectTrigger>
-      <SelectContent position="popper" align="end" className="border border-input motion-reduce:animate-none">
+      <SelectContent
+        position="popper"
+        align="end"
+        className="border border-input motion-reduce:animate-none"
+      >
         <SelectGroup>
           {SUPPORTED_LANGUAGES.map((option) => (
-            <SelectItem key={option} value={option} className="cursor-pointer max-tablet:min-h-11">
+            <SelectItem
+              key={option}
+              value={option}
+              className="cursor-pointer max-tablet:min-h-11"
+            >
               {t(`language.names.${option}`)}
             </SelectItem>
           ))}

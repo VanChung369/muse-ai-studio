@@ -93,7 +93,7 @@ export function ProjectToolbar({
         >
           <SelectTrigger
             aria-label={t("projects.sortLabel")}
-            className="min-w-36 bg-secondary data-[size=default]:h-9 data-[size=default]:max-tablet:h-11"
+            className="min-w-36 data-[size=default]:h-9 data-[size=default]:max-tablet:h-11"
           >
             <SelectValue>{t(`projects.sorts.${sort}`)}</SelectValue>
           </SelectTrigger>
