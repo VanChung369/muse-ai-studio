@@ -17,16 +17,13 @@
     "workspaceLabel": "{{page}} workspace",
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
-    "openMenu": "Open navigation menu",
-    "closeMenu": "Close navigation menu",
-    "menuTitle": "{{appName}} navigation",
-    "menuDescription": "Choose a creative workspace or management tool.",
-    "currentLocation": "Current location"
+    "more": "More",
+    "moreTitle": "More pages",
+    "moreDescription": "Tasks, management, integration, and settings."
   },
   "search": {
     "triggerLabel": "Go to page (Ctrl or Command K)",
     "trigger": "Go to page…",
-    "shortcut": "⌘ / Ctrl K",
     "title": "Go to page",
     "description": "Search for a page, then press Enter to open the first result or use Tab to select another result.",
     "inputLabel": "Search pages",

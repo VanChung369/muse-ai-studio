@@ -44,11 +44,14 @@ npx shadcn@latest add button
 - `/` redirects to `/projects` (Video Studio).
 - Route paths are defined in `src/constants/routes.ts`. Navigation groups, page IDs, and icons live in `src/app/navigation.ts`; translated text lives in `src/i18n/locales/`.
 - `src/components/layout/app-layout.tsx` hosts the shared sidebar, header, and route outlet.
-- Desktop navigation can be collapsed; `useLocalStorage` persists the preference and subscribes to updates in the same page and other tabs. Tablet uses an icon rail, and mobile uses a modal navigation drawer.
+- Layout follows the design breakpoints (`tablet` = 820px, `desktop` = 1180px in `src/index.css`, mirrored in `src/constants/breakpoints.ts`): a 232px sidebar at desktop width, a 64px icon rail on tablets, and a bottom tab bar with a "More" sheet on phones.
+- Desktop navigation can be collapsed to the rail; `useLocalStorage` persists the preference and subscribes to updates in the same page and other tabs.
+- Each page sets its document title with `useDocumentTitle`.
 - Press `Ctrl+K` or `Cmd+K` to find a page. Search is case- and accent-insensitive. Press Enter to open the first match or Tab to select another result.
 - `src/components/shared/page-header.tsx` provides the shared page heading.
 - `src/pages/workspace-page.tsx` holds temporary route content until feature pages are built. Unknown URLs show a 404 page.
-- Theme tokens and bundled Be Vietnam Pro fonts are configured in `src/index.css`.
+- Theme tokens in `src/index.css` mirror `design/design-system/muse.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
+- `src/components/ui/button.tsx` uses the design button sizes (36px default, 44px on phones) and variants, including `danger` for solid destructive actions in dialogs.
 
 The shell currently makes no API requests and shows no simulated task or account counts.
 

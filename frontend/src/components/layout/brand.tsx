@@ -1,36 +1,38 @@
-import { Clapperboard } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
-import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
+import { cn } from "@/lib/utils";
 
 export function Brand({
   compact = false,
-  responsive = false,
+  className,
 }: {
   compact?: boolean;
-  responsive?: boolean;
+  className?: string;
 }) {
   const { t } = useTranslation();
+  const brandName = t("app.brandName");
 
   return (
     <Link
       to={ROUTES.PROJECTS}
       aria-label={t("navigation.brandLabel", { appName: t("app.name"), page: t("pages.projects.title") })}
-      className="flex min-h-12 items-center gap-2.5 rounded-lg px-2 text-foreground"
+      className={cn(
+        "flex shrink-0 items-center gap-2.5 rounded-lg text-[15px] leading-none font-bold tracking-[0.04em] text-foreground",
+        compact && "justify-center",
+        className,
+      )}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Clapperboard className="size-4.5" aria-hidden="true" />
+      <span
+        aria-hidden="true"
+        className="grid size-7 shrink-0 place-items-center rounded-[7px] bg-primary text-[13px] leading-none font-extrabold tracking-normal text-primary-foreground"
+      >
+        {brandName.charAt(0)}
       </span>
       {!compact && (
-        <span
-          className={cn(
-            "whitespace-nowrap text-[14px] font-semibold tracking-tight",
-            responsive && "hidden xl:inline",
-          )}
-        >
-          {t("app.brandName")}{" "}
+        <span className="whitespace-nowrap">
+          {brandName}{" "}
           <span className="font-normal text-muted-foreground">{t("app.brandSuffix")}</span>
         </span>
       )}

@@ -17,16 +17,13 @@
     "workspaceLabel": "Không gian {{page}}",
     "expandSidebar": "Mở rộng thanh bên",
     "collapseSidebar": "Thu gọn thanh bên",
-    "openMenu": "Mở menu điều hướng",
-    "closeMenu": "Đóng menu điều hướng",
-    "menuTitle": "Điều hướng {{appName}}",
-    "menuDescription": "Chọn không gian sáng tạo hoặc công cụ quản trị.",
-    "currentLocation": "Vị trí hiện tại"
+    "more": "Thêm",
+    "moreTitle": "Các trang khác",
+    "moreDescription": "Tác vụ, quản trị, tích hợp và cài đặt."
   },
   "search": {
     "triggerLabel": "Đi tới trang (Ctrl hoặc Command K)",
     "trigger": "Đi tới trang…",
-    "shortcut": "⌘ / Ctrl K",
     "title": "Đi tới trang",
     "description": "Tìm tên trang, sau đó nhấn Enter để mở kết quả đầu tiên hoặc dùng Tab để chọn kết quả khác.",
     "inputLabel": "Tìm trang",

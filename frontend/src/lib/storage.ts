@@ -28,11 +28,26 @@ export function writeLocalStorage(key: string, value: string): void {
   window.dispatchEvent(new Event(STORAGE_EVENTS.LOCAL_STORAGE_CHANGE));
 }
 
-export function deserializeStoredValue<T>(value: string | null, fallback: T): T {
+// Stored values can come from older builds, manual edits, or other apps on
+// the same origin, so only accept values shaped like the fallback.
+function hasSameShape<T>(value: unknown, fallback: T): value is T {
+  if (fallback === null) return value === null;
+  if (Array.isArray(fallback)) return Array.isArray(value);
+  if (typeof fallback === "object") {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  return typeof value === typeof fallback;
+}
+
+export function deserializeStoredValue<T>(
+  value: string | null,
+  fallback: T,
+): T {
   if (value === null) return fallback;
 
   try {
-    return JSON.parse(value) as T;
+    const parsed: unknown = JSON.parse(value);
+    return hasSameShape(parsed, fallback) ? parsed : fallback;
   } catch {
     return fallback;
   }

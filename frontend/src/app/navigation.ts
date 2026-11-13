@@ -58,3 +58,19 @@ export const navigationItems: NavigationItem[] = [
   ...navigationGroups.flatMap((group) => group.items),
   settingsNavigation,
 ];
+
+// Phone tab bar (< 820px): four primary destinations plus "More".
+const mobilePrimaryIds: NavigationItem["id"][] = [
+  "overview",
+  "projects",
+  "create",
+  "library",
+];
+
+export const mobilePrimaryNavigation = navigationItems.filter((item) =>
+  mobilePrimaryIds.includes(item.id),
+);
+
+export const mobileMoreNavigation = navigationItems.filter(
+  (item) => !mobilePrimaryIds.includes(item.id),
+);

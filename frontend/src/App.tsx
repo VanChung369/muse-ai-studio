@@ -4,7 +4,7 @@ import { navigationItems } from "@/app/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { WorkspacePage } from "@/pages/workspace-page";
-import { ROUTES } from "@/constants/routes";
+import { NOT_FOUND_ROUTE, ROUTES } from "@/constants/routes";
 
 function App() {
   return (
@@ -18,7 +18,7 @@ function App() {
             element={<WorkspacePage page={page} />}
           />
         ))}
-        <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
+        <Route path={NOT_FOUND_ROUTE} element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

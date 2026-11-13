@@ -1,6 +1,7 @@
 import { Tooltip } from "radix-ui";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
+import { NavLink, useMatch } from "react-router";
 
 import {
   navigationGroups,
@@ -10,65 +11,51 @@ import {
 import { cn } from "@/lib/utils";
 
 type NavigationProps = {
+  /** Icon rail: labels move into tooltips. */
   compact?: boolean;
-  responsive?: boolean;
-  onNavigate?: () => void;
 };
 
 function NavigationLink({
   item,
-  compact,
-  responsive,
-  onNavigate,
+  compact = false,
 }: NavigationProps & { item: NavigationItem }) {
   const { t } = useTranslation();
   const Icon = item.icon;
   const label = t(`pages.${item.id}.title`);
+  // Resolve the active state here and pass plain strings: Radix Slot
+  // (Tooltip.Trigger asChild) stringifies function classNames.
+  const isActive = useMatch({ path: item.path, end: false }) !== null;
+
+  const link = (
+    <NavLink
+      to={item.path}
+      aria-label={compact ? label : undefined}
+      className={cn(
+        "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium whitespace-nowrap transition-colors motion-reduce:transition-none",
+        compact && "h-10 w-11 justify-center px-0",
+        isActive
+          ? "bg-accent text-foreground"
+          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+      )}
+    >
+      <Icon
+        className={cn("size-4 shrink-0", isActive && "text-primary")}
+        aria-hidden="true"
+      />
+      {!compact && <span>{label}</span>}
+    </NavLink>
+  );
+
+  if (!compact) return link;
 
   return (
     <Tooltip.Root>
-      <Tooltip.Trigger asChild>
-        <NavLink
-          to={item.path}
-          aria-label={label}
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "group flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors motion-reduce:transition-none",
-              compact
-                ? "justify-center px-0"
-                : responsive && "justify-center px-0 xl:justify-start xl:px-3",
-              isActive
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-            )
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <Icon
-                className={cn("size-4 shrink-0", isActive && "text-primary")}
-                aria-hidden="true"
-              />
-              {!compact && (
-                <span
-                  className={cn(
-                    "whitespace-nowrap",
-                    responsive && "hidden xl:inline",
-                  )}
-                >
-                  {label}
-                </span>
-              )}
-            </>
-          )}
-        </NavLink>
-      </Tooltip.Trigger>
+      <Tooltip.Trigger asChild>{link}</Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content
           side="right"
-          sideOffset={12}
-          className="z-50 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
+          sideOffset={10}
+          className="z-50 rounded-md border border-input bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg"
         >
           {label}
         </Tooltip.Content>
@@ -77,50 +64,43 @@ function NavigationLink({
   );
 }
 
-export function AppNavigation({
-  compact = false,
-  responsive = false,
-  onNavigate,
-}: NavigationProps) {
+export function AppNavigation({ compact = false }: NavigationProps) {
   const { t } = useTranslation();
 
   return (
-    <nav aria-label={t("navigation.main")} className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto py-6">
-        {navigationGroups.map((group) => (
-          <div key={group.id}>
+    <nav
+      aria-label={t("navigation.main")}
+      className={cn("flex min-h-0 flex-1 flex-col", compact && "items-center")}
+    >
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto",
+          compact && "items-center",
+        )}
+      >
+        {navigationGroups.map((group, index) => (
+          <Fragment key={group.id}>
+            {compact && index > 0 && (
+              <div aria-hidden="true" className="my-2.5 h-px w-7 shrink-0 bg-border" />
+            )}
             <p
               className={cn(
-                "mb-2 px-3 text-[10px] font-medium tracking-[0.09em] text-muted-foreground uppercase",
-                compact
-                  ? "sr-only"
-                  : responsive &&
-                      "sr-only xl:not-sr-only xl:mb-2 xl:px-3 xl:text-[10px]",
+                "px-2.5 pt-4.5 pb-2 text-[11px] leading-none font-semibold tracking-[0.07em] text-faint uppercase",
+                compact && "sr-only",
               )}
             >
               {t(`navigation.groups.${group.id}`)}
             </p>
-            <div className="space-y-1">
+            <div className={cn("flex flex-col gap-0.5", compact && "items-center")}>
               {group.items.map((item) => (
-                <NavigationLink
-                  key={item.path}
-                  item={item}
-                  compact={compact}
-                  responsive={responsive}
-                  onNavigate={onNavigate}
-                />
+                <NavigationLink key={item.path} item={item} compact={compact} />
               ))}
             </div>
-          </div>
+          </Fragment>
         ))}
       </div>
-      <div className="border-t pt-3 pb-1">
-        <NavigationLink
-          item={settingsNavigation}
-          compact={compact}
-          responsive={responsive}
-          onNavigate={onNavigate}
-        />
+      <div className={cn("mt-auto flex flex-col gap-1 pt-4", compact && "items-center")}>
+        <NavigationLink item={settingsNavigation} compact={compact} />
       </div>
     </nav>
   );

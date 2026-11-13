@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+// Matches .ph in design/design-system/muse.css.
 export function PageHeader({
   title,
   description,
@@ -10,17 +11,17 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+        <h1 className="text-2xl leading-8 font-semibold tracking-[-0.01em]">
           {title}
         </h1>
-        <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">
+        <p className="mt-1 max-w-160 text-sm leading-[1.55] text-muted-foreground">
           {description}
         </p>
       </div>
       {actions && (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       )}
     </div>
   );

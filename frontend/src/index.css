@@ -4,130 +4,160 @@
 @import "@fontsource/be-vietnam-pro/400.css";
 @import "@fontsource/be-vietnam-pro/500.css";
 @import "@fontsource/be-vietnam-pro/600.css";
+@import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/800.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Design breakpoints (design/canvas/project/Responsive.dc.html).
+   Keep in sync with MEDIA_QUERIES in src/constants/breakpoints.ts. */
+@theme {
+  --breakpoint-tablet: 51.25rem; /* 820px: icon rail */
+  --breakpoint-desktop: 73.75rem; /* 1180px: full sidebar */
+}
+
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: var(--font-sans);
+  --font-sans:
+    "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-running: var(--running);
+  --color-running-soft: var(--running-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-surface-4: var(--surface-4);
+  --color-faint: var(--faint);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-press: var(--primary-press);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-line: var(--primary-line);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* Design radii: 6 / 8 / 12 / 16px. Controls use rounded-lg (8px). */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
 }
 
+/* Tokens from design/design-system/muse.css. The product is dark-only;
+   index.html keeps class="dark" so shadcn `dark:` variants apply. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
-}
+  color-scheme: dark;
+  --radius: 8px;
 
-.dark {
-    color-scheme: dark;
-    --background: #111214;
-    --foreground: #eeeef0;
-    --card: #17181b;
-    --card-foreground: #eeeef0;
-    --popover: #17181b;
-    --popover-foreground: #eeeef0;
-    --primary: #f2b84b;
-    --primary-foreground: #1b1406;
-    --secondary: #1e1f23;
-    --secondary-foreground: #eeeef0;
-    --muted: #1e1f23;
-    --muted-foreground: #8c8f96;
-    --accent: #26272c;
-    --accent-foreground: #eeeef0;
-    --destructive: #f07171;
-    --border: #2a2c31;
-    --input: #383a40;
-    --ring: #f2b84b;
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: #17181b;
-    --sidebar-foreground: #eeeef0;
-    --sidebar-primary: #f2b84b;
-    --sidebar-primary-foreground: #1b1406;
-    --sidebar-accent: #26272c;
-    --sidebar-accent-foreground: #eeeef0;
-    --sidebar-border: #2a2c31;
-    --sidebar-ring: #f2b84b;
+  --background: #111214; /* bg */
+  --card: #17181b; /* s1 */
+  --secondary: #1e1f23; /* s2 */
+  --muted: #1e1f23; /* s2 */
+  --popover: #1e1f23; /* s2: dialogs, menus */
+  --accent: #26272c; /* s3: hover, current nav item */
+  --surface-4: #2f3036; /* s4: pressed */
+  --border: #2a2c31; /* line */
+  --input: #383a40; /* line-2 */
+
+  --foreground: #eeeef0; /* tx */
+  --card-foreground: #eeeef0;
+  --popover-foreground: #eeeef0;
+  --secondary-foreground: #eeeef0;
+  --accent-foreground: #eeeef0;
+  --muted-foreground: #b0b2b8; /* tx-2: secondary text */
+  --faint: #8c8f96; /* tx-3: labels, placeholders, captions */
+
+  --primary: #f2b84b;
+  --primary-hover: #f6c76a;
+  --primary-press: #dda43a;
+  --primary-foreground: #1b1406;
+  --primary-soft: rgb(242 184 75 / 0.12);
+  --primary-line: rgb(242 184 75 / 0.45);
+  --ring: #f2b84b;
+
+  --running: #6ca8f5;
+  --running-soft: rgb(108 168 245 / 0.13);
+  --success: #4cc38a;
+  --success-soft: rgb(76 195 138 / 0.13);
+  --warning: #ee8f45;
+  --warning-soft: rgb(238 143 69 / 0.13);
+  --destructive: #f07171; /* err: error text, outline danger button */
+  --destructive-soft: rgb(240 113 113 / 0.13);
+  --danger: #c94242; /* solid destructive button, dialogs only */
+  --danger-hover: #b83a3a;
+
+  --chart-1: #f2b84b;
+  --chart-2: #6ca8f5;
+  --chart-3: #4cc38a;
+  --chart-4: #ee8f45;
+  --chart-5: #f07171;
+
+  --sidebar: #17181b;
+  --sidebar-foreground: #eeeef0;
+  --sidebar-primary: #f2b84b;
+  --sidebar-primary-foreground: #1b1406;
+  --sidebar-accent: #26272c;
+  --sidebar-accent-foreground: #eeeef0;
+  --sidebar-border: #2a2c31;
+  --sidebar-ring: #f2b84b;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
+    @apply border-border;
+  }
   html {
     @apply font-sans;
-    }
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Design icons use a 1.75 stroke; Lucide defaults to 2. */
+  svg.lucide {
+    stroke-width: 1.75;
+  }
 }
