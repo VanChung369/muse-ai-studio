@@ -1,5 +1,6 @@
 import threading
 import time
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -320,6 +321,16 @@ def test_list_pagination_filters_and_errors(settings):
     with TestClient(make_app(settings)) as client:
         client.app.state.task_coordinator.stop()
         ids = [add_task(client, title=f"Task {index}") for index in range(5)]
+        # Tasks created within one clock tick share created_at and fall back
+        # to the ID tie-break; space them out so "newest first" is defined.
+        start = utcnow()
+        with client.app.state.database.engine.begin() as connection:
+            for index, task_id in enumerate(ids):
+                connection.execute(
+                    update(Task)
+                    .where(Task.id == task_id)
+                    .values(created_at=start + timedelta(seconds=index))
+                )
         first = client.get("/api/tasks", params={"limit": 2}).json()
         assert first["total"] == 5 and len(first["items"]) == 2 and first["nextCursor"]
         names, cursor = [], None
@@ -416,3 +427,30 @@ def test_shutdown_does_not_wait_for_running_handlers(settings):
     # Recovery of what was left running is covered by the restart test.
     assert time.monotonic() - stopped_at < 3
     release.set()
+
+
+def test_accounts_report_their_running_tasks(settings):
+    release = threading.Event()
+
+    def slow(ctx):
+        release.wait(10)
+
+    with TestClient(make_app(settings, slow=slow)) as client:
+        busy = import_account(client, "Busy", "busy-fixture")
+        idle = import_account(client, "Idle", "idle-fixture")
+        task_id = add_task(
+            client, kind="slow", requires_account=True, account_id=busy["id"]
+        )
+        wait_for(client, task_id, "running")
+        add_task(client, kind="slow", requires_account=True, account_id=busy["id"])
+
+        def running():
+            listed = client.get("/api/accounts").json()["items"]
+            return {item["id"]: item["runningTasks"] for item in listed}
+
+        # The second task is queued behind the first: only running ones count.
+        assert running() == {busy["id"]: 1, idle["id"]: 0}
+        assert client.get(f"/api/accounts/{busy['id']}").json()["runningTasks"] == 1
+        client.post(f"/api/tasks/{task_id}/cancel")
+        release.set()
+        wait_for(client, task_id, "cancelled", "succeeded")

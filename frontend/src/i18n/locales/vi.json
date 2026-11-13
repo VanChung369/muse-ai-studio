@@ -331,7 +331,8 @@
       "enabled": "Bật",
       "lastUsed": "Dùng lần cuối",
       "notes": "Ghi chú",
-      "proxy": "Proxy"
+      "proxy": "Proxy",
+      "running": "Đang chạy"
     },
     "status": {
       "ready": "Sẵn sàng",

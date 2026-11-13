@@ -15,6 +15,7 @@ export const accountSchema = z.object({
   quotaCheckedAt: z.iso.datetime().nullable(),
   notes: z.string().max(2000),
   lastError: z.string().nullable(),
+  runningTasks: z.number().int().nonnegative(),
   credentialVersion: z.number().int().nonnegative(),
   proxy: z
     .object({

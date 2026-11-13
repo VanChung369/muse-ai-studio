@@ -104,8 +104,11 @@ def not_found() -> HTTPException:
 
 @router.get("", response_model=AccountListResponse)
 def list_accounts(request: Request, session: DatabaseSession) -> AccountListResponse:
+    running = accounts.running_task_counts(session)
     items = [
-        accounts.public_account(account, request.app.state.account_vault)
+        accounts.public_account(
+            session, account, request.app.state.account_vault, running
+        )
         for account in accounts.list_accounts(session)
     ]
     return AccountListResponse(items=items, total=len(items))
@@ -136,7 +139,7 @@ def import_account(
     response.headers["Location"] = str(
         request.url_for("get_account", account_id=account.id)
     )
-    return accounts.public_account(account, request.app.state.account_vault)
+    return accounts.public_account(session, account, request.app.state.account_vault)
 
 
 @router.get(
@@ -150,7 +153,7 @@ def get_account(
     account = accounts.get_account(session, account_id)
     if account is None:
         raise not_found()
-    return accounts.public_account(account, request.app.state.account_vault)
+    return accounts.public_account(session, account, request.app.state.account_vault)
 
 
 @router.patch(
@@ -164,7 +167,7 @@ def patch_account(
     account = accounts.patch_account(session, account_id, values)
     if account is None:
         raise not_found()
-    return accounts.public_account(account, request.app.state.account_vault)
+    return accounts.public_account(session, account, request.app.state.account_vault)
 
 
 @router.delete(
@@ -198,7 +201,9 @@ def update_cookies(
         )
         if account is None:
             raise not_found()
-        return accounts.public_account(account, request.app.state.account_vault)
+        return accounts.public_account(
+            session, account, request.app.state.account_vault
+        )
 
 
 @router.put("/{account_id}/proxy", response_model=AccountResponse)
@@ -252,7 +257,7 @@ def update_proxy(
         )
         if account is None:
             raise account_changed()
-        return accounts.public_account(account, vault)
+        return accounts.public_account(session, account, vault)
 
 
 def run_operation(
@@ -272,7 +277,7 @@ def run_operation(
         raise not_found() from None
     except AccountChangedError:
         raise account_changed() from None
-    public = accounts.public_account(outcome.account, state.account_vault)
+    public = accounts.public_account(session, outcome.account, state.account_vault)
     result, failure = outcome.result, outcome.failure
     if failure:
         if failure.code == "session_invalid":

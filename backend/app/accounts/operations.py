@@ -1,6 +1,7 @@
 """Remote account checks, shared by the API routes and the session refresher."""
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -22,6 +23,10 @@ class AccountChangedError(Exception):
     """The credentials changed while the remote call was in flight."""
 
 
+class AccountSkippedError(Exception):
+    """The caller's `only_if` condition no longer holds; Muse was not contacted."""
+
+
 @dataclass
 class OperationOutcome:
     account: Account
@@ -37,15 +42,21 @@ def run_account_operation(
     client,
     account_id: str,
     action: str,
+    only_if: Callable[[Session], bool] | None = None,
 ) -> OperationOutcome:
     """Run `test`, `keep-alive` or `quota` and store what Muse returned.
 
     Raises AccountBusyError when another operation holds the account.
+    `only_if` is evaluated once the account is held, so a decision made
+    earlier (the refresher's due list) is confirmed before any upstream call.
     """
     with operations.acquire(account_id):
         account = accounts.get_account(session, account_id)
         if account is None:
             raise AccountNotFoundError
+        if only_if is not None and not only_if(session):
+            session.rollback()
+            raise AccountSkippedError
         version = account.credential_version
         cookies = vault.decrypt(account.encrypted_cookies)
         expiries = json.loads(account.cookie_expiries)

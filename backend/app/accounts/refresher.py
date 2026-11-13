@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from app.accounts.operations import (
     AccountChangedError,
     AccountNotFoundError,
+    AccountSkippedError,
     run_account_operation,
 )
 from app.core.account_operations import AccountBusyError
@@ -87,6 +88,16 @@ class SessionRefresher:
             if account_id in self._attempts:
                 continue
             self._attempts[account_id] = now
+
+            def still_due(session, account_id=account_id):
+                # Earlier checks in this round take time: the account may have
+                # been disabled, re-imported or checked by hand since `due`.
+                return bool(
+                    accounts.sessions_due(
+                        session, now, self.interval, self.retry_gap, account_id
+                    )
+                )
+
             try:
                 with state.database.sessions() as session:
                     outcome = run_account_operation(
@@ -96,9 +107,11 @@ class SessionRefresher:
                         state.muse_client,
                         account_id,
                         self.action,
+                        only_if=still_due,
                     )
-            except AccountBusyError:
-                # A task or a manual check holds the account: try next round.
+            except (AccountBusyError, AccountSkippedError):
+                # Busy: a task or a manual check holds the account. Skipped:
+                # no longer due. Neither contacted Muse, so do not space it out.
                 del self._attempts[account_id]
                 continue
             except (AccountNotFoundError, AccountChangedError):

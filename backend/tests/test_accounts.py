@@ -28,6 +28,7 @@ PUBLIC_FIELDS = {
     "quotaCheckedAt",
     "notes",
     "lastError",
+    "runningTasks",
     "credentialVersion",
     "proxy",
     "quota",

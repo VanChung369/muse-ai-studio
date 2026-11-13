@@ -108,7 +108,10 @@ class ProxyInput(BaseModel):
         # SOCKS5 username/password auth stores each length in one byte.
         if self.server.startswith(("socks5://", "socks5h://")):
             password = self.password.get_secret_value() if self.password else ""
-            if len(self.username.encode("latin-1")) > 255 or len(password.encode("latin-1")) > 255:
+            if (
+                len(self.username.encode("latin-1")) > 255
+                or len(password.encode("latin-1")) > 255
+            ):
                 raise ValueError("SOCKS5 credentials must not exceed 255 bytes.")
         return self
 
@@ -145,6 +148,8 @@ class AccountResponse(BaseModel):
     quota_checked_at: datetime | None = None
     notes: str = ""
     last_error: str | None = None
+    # Tasks currently running on this account.
+    running_tasks: int = 0
     credential_version: int = 0
     proxy: ProxyPublic | None = None
     quota: AccountQuota | None = None

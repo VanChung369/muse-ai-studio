@@ -2,7 +2,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -31,18 +31,24 @@ def get_account(session: Session, account_id: str) -> Account | None:
 
 
 def sessions_due(
-    session: Session, now: datetime, interval: timedelta, retry_gap: timedelta
+    session: Session,
+    now: datetime,
+    interval: timedelta,
+    retry_gap: timedelta,
+    account_id: str | None = None,
 ) -> list[str]:
     """IDs of enabled, verified accounts whose session should be re-checked.
 
     Due when the last check is older than `interval`, or sooner (every
     `retry_gap`) while the session would expire before the next regular check.
-    `now` is naive UTC, like the stored timestamps.
+    `now` is naive UTC, like the stored timestamps. `account_id` limits the
+    answer to that one account.
     """
     return list(
         session.scalars(
             select(Account.id)
             .where(
+                *([Account.id == account_id] if account_id else []),
                 Account.enabled.is_(True),
                 Account.session_status == "valid",
                 or_(
@@ -145,8 +151,32 @@ def delete_account(session: Session, account_id: str) -> bool:
         raise
 
 
-def public_account(account: Account, vault: AccountVault) -> AccountResponse:
+def running_task_counts(
+    session: Session, account_id: str | None = None
+) -> dict[str, int]:
+    """Running tasks per account ID; accounts without any are absent."""
+    statement = (
+        select(Task.account_id, func.count())
+        .where(Task.status == "running", Task.account_id.is_not(None))
+        .group_by(Task.account_id)
+    )
+    if account_id is not None:
+        statement = statement.where(Task.account_id == account_id)
+    return dict(session.execute(statement).all())
+
+
+def public_account(
+    session: Session,
+    account: Account,
+    vault: AccountVault,
+    running: dict[str, int] | None = None,
+) -> AccountResponse:
+    """Build the public view. `running` avoids one count query per account
+    when the caller already loaded the counts for a whole list."""
     response = AccountResponse.model_validate(account)
+    if running is None:
+        running = running_task_counts(session, account.id)
+    response.running_tasks = running.get(account.id, 0)
     if account.encrypted_proxy:
         response.proxy = ProxyPublic.model_validate(
             public_proxy(vault.decrypt(account.encrypted_proxy))

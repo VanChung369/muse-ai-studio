@@ -31,9 +31,12 @@ export function AccountRow({
   const now = useNow();
   const relative = (value: string) => formatRelativeTime(value, language, now);
 
-  const status = accountStatus(account, now);
+  // useNow() is rounded up to the next minute. Expiry is judged against the
+  // start of the current minute so a session never shows as expired early.
+  const minuteStart = now - 60_000;
+  const status = accountStatus(account, minuteStart);
   const { quota, expiresAt, proxy } = account;
-  const expired = expiresAt !== null && Date.parse(expiresAt) <= now;
+  const expired = expiresAt !== null && Date.parse(expiresAt) <= minuteStart;
   const proxyFailed = account.lastError === "proxy_error";
   const quotaNote =
     quota &&
@@ -148,7 +151,7 @@ export function AccountRow({
                 ? t("accounts.unknown")
                 : t("accounts.session.left", {
                     value: formatTimeLeft(
-                      Date.parse(expiresAt) - now,
+                      Date.parse(expiresAt) - minuteStart,
                       language,
                     ),
                   })}
@@ -187,6 +190,17 @@ export function AccountRow({
               : t("accounts.neverUsed"),
           })}
         </Caption>
+      </Cell>
+
+      <Cell label={t("accounts.fields.running")}>
+        <p
+          className={cn(
+            "text-[13px] font-medium tabular-nums",
+            account.runningTasks === 0 && "text-muted-foreground",
+          )}
+        >
+          {account.runningTasks}
+        </p>
       </Cell>
 
       <Cell className="max-tablet:col-span-2">

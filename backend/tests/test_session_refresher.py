@@ -172,6 +172,38 @@ def test_busy_account_is_skipped_then_checked_on_the_next_round(client):
     assert job.run_once() == 1
 
 
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"enabled": False},
+        {"session_status": "unverified"},
+        {"last_checked_at": "now"},
+    ],
+)
+def test_account_changed_during_the_round_is_not_contacted(client, change):
+    client.app.state.muse_client = Provider()
+    first = create_account(client, "first-fixture")
+    second = create_account(client, "second-fixture")
+    set_fields(client, first["id"], last_checked_at=utcnow() - timedelta(hours=9))
+    set_fields(client, second["id"], last_checked_at=utcnow() - timedelta(hours=7))
+    if change.get("last_checked_at") == "now":
+        change = {"last_checked_at": utcnow()}
+
+    class ChangesSecond(Provider):
+        def session(self, *args, **kwargs):
+            # While the first account is being checked, the user disables,
+            # re-imports or manually checks the second one.
+            set_fields(client, second["id"], **change)
+            return super().session(*args, **kwargs)
+
+    client.app.state.muse_client = provider = ChangesSecond()
+    job = refresher(client)
+
+    assert job.run_once() == 1
+    assert len(provider.calls) == 1
+    assert second["id"] not in job._attempts
+
+
 def test_unsaved_check_does_not_hit_muse_again_within_the_retry_gap(client):
     client.app.state.muse_client = Provider()
     account = create_account(client)

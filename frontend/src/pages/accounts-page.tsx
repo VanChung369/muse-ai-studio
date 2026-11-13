@@ -140,12 +140,13 @@ export function AccountsPage() {
               {/* Fixed columns; narrow tablets scroll sideways like the design. */}
               <table className="w-full table-fixed border-collapse text-left text-sm max-tablet:block tablet:min-w-220">
                 <colgroup className="max-tablet:hidden">
-                  <col className="w-[21%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[21%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[19%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[14%]" />
                 </colgroup>
                 <thead className="border-b text-xs text-faint max-tablet:hidden">
                   <tr>

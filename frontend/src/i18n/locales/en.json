@@ -331,7 +331,8 @@
       "enabled": "Enabled",
       "lastUsed": "Last used",
       "notes": "Notes",
-      "proxy": "Proxy"
+      "proxy": "Proxy",
+      "running": "Running"
     },
     "status": {
       "ready": "Ready",

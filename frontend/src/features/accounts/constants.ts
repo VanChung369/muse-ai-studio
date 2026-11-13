@@ -8,6 +8,7 @@ export const ACCOUNT_COLUMNS = [
   "quota",
   "session",
   "proxy",
+  "running",
   "actions",
 ] as const;
 
