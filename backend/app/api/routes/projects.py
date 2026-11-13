@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.rendering import storage
 from app.repositories import projects
 from app.schemas.project import (
     FeaturedProject,
@@ -84,7 +85,7 @@ def save_project_script(project_id: str, values: ProjectScriptUpdate, session: D
     response_class=Response,
     responses={404: {"description": "Project not found"}, 409: {"description": "Project has a running operation"}},
 )
-def delete_project(project_id: str, session: DatabaseSession) -> Response:
+def delete_project(project_id: str, request: Request, session: DatabaseSession) -> Response:
     try:
         projects.delete_project(session, project_id)
     except projects.ProjectDeleteError as error:
@@ -92,4 +93,5 @@ def delete_project(project_id: str, session: DatabaseSession) -> Response:
             status_code=error.status_code,
             detail={"code": error.code, "message": str(error)},
         ) from None
+    storage.remove_project(request.app.state.settings, project_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

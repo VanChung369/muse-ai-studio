@@ -803,6 +803,306 @@
         }
       }
     },
+    "/api/projects/{project_id}/render": {
+      "get": {
+        "tags": ["Render"],
+        "summary": "Get Render",
+        "operationId": "get_render_api_projects__project_id__render_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Render"],
+        "summary": "Start Project Render",
+        "description": "Render every scene in order, then merge them into one video.",
+        "operationId": "start_project_render_api_projects__project_id__render_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Not ready to render, or no usable account"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/render/cancel": {
+      "post": {
+        "tags": ["Render"],
+        "summary": "Cancel Project Render",
+        "description": "Waiting scenes stop now, the running one after its current step.\nFinished scenes are kept.",
+        "operationId": "cancel_project_render_api_projects__project_id__render_cancel_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Nothing is rendering"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/render/resume": {
+      "post": {
+        "tags": ["Render"],
+        "summary": "Resume Project Render",
+        "description": "Continue a failed or cancelled render from the first unfinished scene.",
+        "operationId": "resume_project_render_api_projects__project_id__render_resume_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RenderResume"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Values"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          },
+          "409": {
+            "description": "Nothing to continue, or confirmation required"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/scenes/{number}/video": {
+      "get": {
+        "tags": ["Render"],
+        "summary": "Get Scene Video",
+        "operationId": "get_scene_video_api_projects__project_id__scenes__number__video_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Project or clip not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/video": {
+      "get": {
+        "tags": ["Render"],
+        "summary": "Get Project Video",
+        "operationId": "get_project_video_api_projects__project_id__video_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Project or video not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tasks": {
       "get": {
         "tags": ["Tasks"],
@@ -1964,6 +2264,132 @@
         "type": "object",
         "required": ["proxy"],
         "title": "ProxyUpdate"
+      },
+      "RenderResponse": {
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "title": "Projectid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "planning",
+              "ready",
+              "rendering",
+              "cancelling",
+              "cancelled",
+              "failed",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "sceneCount": {
+            "type": "integer",
+            "title": "Scenecount"
+          },
+          "completedScenes": {
+            "type": "integer",
+            "title": "Completedscenes"
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/SceneRender"
+            },
+            "type": "array",
+            "title": "Scenes"
+          },
+          "merge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "videoUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Videourl"
+          },
+          "usableAccounts": {
+            "type": "integer",
+            "title": "Usableaccounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projectId",
+          "status",
+          "sceneCount",
+          "completedScenes",
+          "scenes",
+          "merge",
+          "videoUrl",
+          "usableAccounts"
+        ],
+        "title": "RenderResponse"
+      },
+      "RenderResume": {
+        "properties": {
+          "confirmDuplicate": {
+            "type": "boolean",
+            "title": "Confirmduplicate",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RenderResume"
+      },
+      "SceneRender": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "title": "Durationseconds"
+          },
+          "videoUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Videourl"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": ["number", "title", "durationSeconds", "videoUrl", "task"],
+        "title": "SceneRender"
       },
       "ScriptGenerationRequest": {
         "properties": {

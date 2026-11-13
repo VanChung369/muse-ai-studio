@@ -297,6 +297,72 @@
         "account_changed": "Account credentials changed during this attempt. Verify the account and try again.",
         "wake_failed": "The session is valid, but Muse refused the workspace wake request. Generation can still connect the workspace; try Keep alive again later."
       }
+    },
+    "render": {
+      "title": "Render",
+      "loadError": "Could not load the render status.",
+      "headline": {
+        "notStarted": "Not rendered yet",
+        "scene": "Rendering scene {{number}} / {{count}}",
+        "waiting": "Waiting for a free account",
+        "merging": "Merging {{count}} scenes into one video",
+        "cancelling": "Stopping after the current step…",
+        "failedScene": "Render stopped at scene {{number}}",
+        "failedMerge": "The scenes could not be merged",
+        "cancelledScene": "Render cancelled at scene {{number}}",
+        "cancelled": "Render cancelled",
+        "completed": "Your video is ready"
+      },
+      "progress": "{{done}}/{{count}} scenes finished",
+      "elapsed": "running for {{time}}",
+      "order": "Scenes render one after another, then they are merged.",
+      "kept": "Finished scenes are kept.",
+      "leaveNote": "You can leave this page. Progress also shows under Tasks.",
+      "notRendered": "Not rendered",
+      "merge": "Merge video",
+      "attempt": "attempt {{attempts}}",
+      "watch": "Watch scene {{number}}",
+      "hide": "Hide scene {{number}}",
+      "downloadScene": "Download scene",
+      "downloadVideo": "Download video",
+      "finalVideo": "Final video",
+      "noAccounts": "No enabled account has a verified session. Test an account first.",
+      "start": {
+        "action": "Start render",
+        "title_one": "Start rendering {{count}} scene?",
+        "title_other": "Start rendering {{count}} scenes?",
+        "description": "Scenes render one after another from scene 1, then they are merged into one video. You can leave the page; progress also shows under Tasks.",
+        "account": "Muse account",
+        "automatic_one": "Automatic · {{count}} account available",
+        "automatic_other": "Automatic · {{count}} accounts available",
+        "locked": "The script cannot be edited once rendering starts.",
+        "review": "Review again",
+        "starting": "Starting…"
+      },
+      "cancel": {
+        "action": "Cancel render",
+        "title": "Cancel the render?",
+        "description": "The scene being generated stops and the scenes that have not run are cancelled. Finished scenes are kept, and you can continue later.",
+        "keep": "Keep rendering",
+        "cancelling": "Cancelling…"
+      },
+      "resume": {
+        "action": "Continue render",
+        "fromScene": "Continue from scene {{number}}",
+        "title": "Send the interrupted scene again?",
+        "description": "The app stopped after this scene was sent to Muse, so it may already have been generated there. Sending it again can use quota a second time.",
+        "confirm": "Send again",
+        "resuming": "Continuing…"
+      },
+      "errors": {
+        "render_not_ready": "This project cannot start rendering right now. Reload it and try again.",
+        "account_unavailable": "No enabled account has a verified session. Test an account, then try again.",
+        "render_not_active": "Nothing is rendering for this project any more.",
+        "render_not_resumable": "There is no stopped render to continue.",
+        "confirm_required": "A scene may already have been sent to Muse. Confirm to send it again.",
+        "project_not_found": "This project no longer exists.",
+        "unknown": "The request failed. Please try again."
+      }
     }
   },
   "accounts": {
@@ -479,6 +545,8 @@
     },
     "kinds": {
       "plan_script": "Script generation",
+      "render_scene": "Scene render",
+      "merge_video": "Video merge",
       "other": "Task"
     },
     "fields": {
@@ -615,7 +683,14 @@
       "unknown": "The task failed.",
       "network": "Could not reach the server. Check the connection and try again.",
       "load": "Could not refresh tasks. Any visible data may be out of date.",
-      "loadMore": "Could not load more tasks. Your loaded tasks are still available."
+      "loadMore": "Could not load more tasks. Your loaded tasks are still available.",
+      "quota_exhausted": "The account ran out of Muse quota. Continue with another account or wait for the weekly reset.",
+      "generation_timeout": "Muse did not deliver the video in time. Check the conversation on Muse before retrying.",
+      "generation_refused": "Muse replied without a video. Review the prompt of the scene, then retry.",
+      "media_download_failed": "The video was generated but could not be downloaded. Retry the scene.",
+      "scene_missing": "The clip of a scene is missing, so the video could not be merged.",
+      "ffmpeg_unavailable": "FFmpeg is not installed on the server, so the scenes could not be merged. Install it, then continue.",
+      "merge_failed": "FFmpeg could not merge the scenes."
     },
     "refresh": "Refresh",
     "autoUpdate": "Updates every 5 seconds while this tab is visible. Progress is shown only when reported by Muse.",

@@ -151,6 +151,8 @@ class TaskCoordinator:
     poll_interval: float = 1.0
     retry_delay: timedelta = timedelta(seconds=30)
     handlers: dict[str, Handler] = field(default_factory=dict)
+    # Called after a task of that kind stops running, whatever the outcome.
+    listeners: dict[str, Callable[[TaskContext], None]] = field(default_factory=dict)
 
     def __post_init__(self):
         self._wake = threading.Event()
@@ -162,8 +164,15 @@ class TaskCoordinator:
 
     # -- lifecycle --------------------------------------------------------
 
-    def register(self, kind: str, handler: Handler) -> None:
+    def register(
+        self,
+        kind: str,
+        handler: Handler,
+        on_settled: Callable[[TaskContext], None] | None = None,
+    ) -> None:
         self.handlers[kind] = handler
+        if on_settled is not None:
+            self.listeners[kind] = on_settled
 
     def start(self) -> None:
         self.recover()
@@ -247,7 +256,10 @@ class TaskCoordinator:
                         self._running += 1
                         self._contexts[claim.task_id] = claim.context
                     threading.Thread(
-                        target=self._run, args=(claim,), name=f"task-{claim.kind}", daemon=True
+                        target=self._run,
+                        args=(claim,),
+                        name=f"task-{claim.kind}",
+                        daemon=True,
                     ).start()
             except Exception:  # noqa: BLE001 - keep dispatching after a DB hiccup
                 logger.exception("Task dispatcher error")
@@ -351,8 +363,9 @@ class TaskCoordinator:
                 select(Account.id)
                 # Only sessions confirmed by Test/Keep alive; imported
                 # (unverified) sessions are never picked automatically.
-                .where(Account.enabled.is_(True), Account.session_status == "valid")
-                .order_by(
+                .where(
+                    Account.enabled.is_(True), Account.session_status == "valid"
+                ).order_by(
                     Account.last_used_at.is_not(None),
                     Account.last_used_at,
                     Account.created_at,
@@ -413,6 +426,12 @@ class TaskCoordinator:
             with self._lock:
                 self._running -= 1
                 self._contexts.pop(context.task_id, None)
+            listener = self.listeners.get(context.kind)
+            if listener is not None:
+                try:
+                    listener(context)
+                except Exception:  # noqa: BLE001 - a listener must not stop dispatch
+                    logger.exception("Listener for task %s failed", context.task_id)
             self._wake.set()
 
     def _fail(self, context: TaskContext, failure: TaskFailure) -> None:

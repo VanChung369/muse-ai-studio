@@ -32,6 +32,17 @@ export const PROJECT_ERROR_CODES = [
   "unknown",
 ] as const;
 
+// While a render runs (design board 42: poll every 3 s).
+export const RENDER_POLL_INTERVAL_MS = 3_000;
+export const RENDER_ERROR_CODES = [
+  "render_not_ready",
+  "account_unavailable",
+  "render_not_active",
+  "render_not_resumable",
+  "confirm_required",
+  "project_not_found",
+] as const;
+
 // Projects per request; matches the backend default.
 export const PROJECT_PAGE_SIZE = 24;
 

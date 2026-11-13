@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Chromium instances at once (generation tasks + a quota check).
     browser_slots: int = 3
     planning_timeout: int = 300
+    # Seconds to wait for one scene's video. Extended while Muse is visibly
+    # still working on it.
+    render_timeout: int = 600
+    # FFmpeg binary for merging scenes; found on PATH when unset.
+    ffmpeg_path: str | None = None
     # Re-check each enabled, verified account this often so Muse can rotate its
     # cookies before they expire. 0 turns the background refresher off.
     session_refresh_minutes: int = 360
@@ -65,3 +70,7 @@ class Settings(BaseSettings):
     @property
     def database_path(self) -> Path:
         return self.data_dir / "muse-ai-studio.db"
+
+    @property
+    def media_dir(self) -> Path:
+        return self.data_dir / "media"

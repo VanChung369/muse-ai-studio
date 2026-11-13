@@ -102,6 +102,16 @@ A background session refresher re-checks every enabled account whose session is 
 
 Credentials are encrypted with Fernet before they enter SQLite. Startup creates `data/account-secret.key` automatically with mode 0600, alongside the existing database. Back up **both the database and this key** to restore imported accounts. Startup fails with an explicit message if stored accounts exist but their key is missing or does not match; it never silently replaces that key. Importing the Python module alone creates no data files. The key and database are runtime data ignored by Git. Database encryption protects the stored credential fields; the key remains on the same host and is not a replacement for host access controls.
 
+## Rendering
+
+`POST /api/projects/{id}/render` renders every scene through Muse, one after another, then merges the clips with FFmpeg. Each scene is one `render_scene` task that depends on the previous one; the last task, `merge_video`, needs no account. A failed or cancelled scene holds back the rest of the chain until `POST /api/projects/{id}/render/resume` (or a task-level retry). `app/rendering/tasks.py` derives the project status from the chain wherever a task changes.
+
+Clips are stored under `data/media/projects/<project id>/` (`scene-01.mp4`, ..., `final.mp4`) and served by `GET /api/projects/{id}/scenes/{number}/video` and `GET /api/projects/{id}/video`. Back them up with the database.
+
+Merging needs an `ffmpeg` binary on `PATH`, or `MUSE_FFMPEG_PATH`. Without it the scenes still render and the merge task fails with `ffmpeg_unavailable`; install FFmpeg and resume. `MUSE_RENDER_TIMEOUT` (default 600 seconds) is how long one scene may take; it is extended while Muse is visibly still working. A scene prompt is the scene's own prompt plus the project's visual style and character description; narration is not sent yet.
+
+`tests/test_muse_media.py` drives a real Chromium against a local page that mimics the Muse composer, and `tests/test_ffmpeg_merge.py` uses a real FFmpeg; both are skipped when the binary is missing.
+
 ## Validation
 
 ```bash

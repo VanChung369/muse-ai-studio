@@ -15,6 +15,13 @@ from app.core.account_operations import AccountOperations
 from app.tasks.coordinator import TaskCoordinator
 from app.integrations.muse.client import MuseClient
 from app.planning.tasks import PLANNING_KIND, make_script_handler
+from app.rendering.tasks import (
+    make_listener,
+    make_merge_handler,
+    make_scene_handler,
+    sync_active_projects,
+)
+from app.tasks.kinds import MERGE_VIDEO, RENDER_SCENE
 from app.db.session import Database
 from app.models.account import Account
 
@@ -37,6 +44,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await asyncio.to_thread(prepare_vault)
             # After migrations: a failed migration must not accept tasks.
             await asyncio.to_thread(coordinator.start)
+            # Recovery may have interrupted or requeued render tasks.
+            await asyncio.to_thread(sync_active_projects, database)
             refresher.start()
             yield
         finally:
@@ -46,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await asyncio.to_thread(database.close)
 
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    app.state.settings = settings
     app.state.database = database
     app.state.account_vault = vault
     app.state.account_operations = AccountOperations()
@@ -55,6 +65,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.task_coordinator = coordinator
     app.state.muse_client = MuseClient(settings)
     coordinator.register(PLANNING_KIND, make_script_handler(app))
+    render_settled = make_listener(app)
+    coordinator.register(RENDER_SCENE, make_scene_handler(app), render_settled)
+    coordinator.register(MERGE_VIDEO, make_merge_handler(app), render_settled)
     refresher = SessionRefresher(
         app,
         timedelta(minutes=settings.session_refresh_minutes),

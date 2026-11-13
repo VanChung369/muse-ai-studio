@@ -8,7 +8,7 @@ from sqlalchemy import ColumnElement, and_, case, func, or_, select, delete, upd
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.text import normalize_search_text
-from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
+from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT, RENDER_KINDS
 from app.models import Project, Scene
 from app.models.task import Task
 from app.schemas.project import (
@@ -293,6 +293,24 @@ class ProjectDeleteError(ValueError):
 
 def delete_project(session: Session, project_id: str) -> None:
     try:
+        # A failed or cancelled render leaves the rest of its chain waiting.
+        # Once the project is gone those tasks lose it (FK SET NULL) and
+        # would wait forever, so stop them in this same transaction.
+        now = datetime.now(UTC).replace(tzinfo=None)
+        session.execute(
+            update(Task)
+            .where(
+                Task.project_id == project_id,
+                Task.kind.in_(RENDER_KINDS),
+                Task.status == "queued",
+            )
+            .values(
+                status="cancelled",
+                cancel_requested=True,
+                finished_at=now,
+                updated_at=now,
+            )
+        )
         # Write first to avoid upgrading an old SQLite read snapshot. The
         # database cascades scene deletion within this same transaction.
         result = session.execute(

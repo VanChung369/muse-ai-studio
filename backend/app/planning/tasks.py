@@ -1,15 +1,14 @@
 import json
-from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 
-from app.core.account_cookies import account_expiry, limit_cookies
+from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseError
 from app.models import Account, Project, Task
 from app.planning.script import build_script_prompt, parse_script_reply
-from app.repositories import accounts, tasks
-from app.tasks.coordinator import TaskDeferred, TaskFailure
+from app.repositories import tasks
+from app.tasks.coordinator import TaskFailure
 from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
 
 PLANNING_KIND = PLAN_SCRIPT
@@ -121,54 +120,11 @@ def latest_script_task(session, project_id):
 def make_script_handler(app):
     def handler(context):
         context.raise_if_cancelled()
-        database, vault = app.state.database, app.state.account_vault
-        with database.sessions() as session:
-            account = session.get(Account, context.account_id)
-            project = session.get(Project, context.project_id)
-            if project is None:
-                raise TaskFailure("project_not_found")
-            if (
-                account is None
-                or not account.enabled
-                or account.session_status != "valid"
-            ):
-                raise TaskFailure("account_unavailable", suggested_action="relogin")
-            version = account.credential_version
-            cookies, expiries = vault.decrypt(account.encrypted_cookies), json.loads(
-                account.cookie_expiries
-            )
-            proxy = (
-                vault.decrypt(account.encrypted_proxy)
-                if account.encrypted_proxy
-                else None
-            )
-
-        persisted = []  # SessionResults already saved (on_session).
-
-        def persist_session(result):
-            nonlocal version
-            now = datetime.now(UTC)
-            # Muse can grow the jar past the stored limit (CHECK 1..100).
-            cookies, cookie_expiries = limit_cookies(result.cookies, result.expiries)
-            values = {
-                "encrypted_cookies": vault.encrypt(cookies),
-                "session_fingerprint": vault.fingerprint(cookies["hatch_sess"]),
-                "cookie_expiries": json.dumps(cookie_expiries),
-                "cookie_count": len(cookies),
-                "expires_at": account_expiry(cookie_expiries),
-                "last_checked_at": now,
-                "credential_version": version + 1,
-            }
-            if result.verified:
-                values.update(session_status="valid", last_error=None)
-            with database.sessions() as session:
-                updated = accounts.update_values(
-                    session, context.account_id, values, version
-                )
-                if updated is None:
-                    raise TaskFailure("account_changed")
-            version += 1
-            persisted.append(result)
+        with app.state.database.sessions() as session:
+            project_exists = session.get(Project, context.project_id) is not None
+        if not project_exists:
+            raise TaskFailure("project_not_found")
+        account = TaskAccountSession(app, context.account_id)
 
         def before_send(result):
             context.raise_if_cancelled()
@@ -177,45 +133,17 @@ def make_script_handler(app):
         try:
             text = generate_script_text(
                 app.state.muse_client,
-                cookies,
-                expiries,
-                proxy,
+                account.cookies,
+                account.expiries,
+                account.proxy,
                 build_script_prompt(context.payload["brief"]),
-                on_session=persist_session,
+                on_session=account.persist,
                 before_send=before_send,
                 check_cancelled=context.raise_if_cancelled,
                 timeout=app.state.muse_client.settings.planning_timeout,
             )
         except MuseError as error:
-            if error.code == "browser_busy" and any(
-                error.partial is saved for saved in persisted
-            ):
-                # Nothing was sent yet (the browser slot was taken before the
-                # composer opened): wait for a slot instead of failing.
-                raise TaskDeferred("browser_busy", delay=15) from None
-            partial = error.partial
-            if (
-                partial
-                and partial.cookies.get("hatch_sess")
-                and not any(partial is saved for saved in persisted)
-            ):
-                # Only save cookies on_session did not already store, so a
-                # late failure does not bump credential_version again.
-                persist_session(partial)
-            if error.code == "session_invalid":
-                with database.sessions() as session:
-                    accounts.update_values(
-                        session,
-                        context.account_id,
-                        {"session_status": "invalid", "last_error": error.code},
-                        version,
-                    )
-            hint = (
-                "relogin"
-                if error.code == "session_invalid"
-                else "check_proxy" if error.code == "proxy_error" else "retry"
-            )
-            raise TaskFailure(error.code, error.detail, suggested_action=hint) from None
+            raise account.failure(error) from None
         try:
             script = parse_script_reply(
                 text,

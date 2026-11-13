@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/http";
 import {
   TASK_ERROR_CODES,
   TASK_FILTERS,
+  TASK_KINDS,
   TASK_QUERY_PARAMS,
 } from "../constants";
 import type { Task } from "../types";
@@ -14,9 +15,8 @@ export function resolveTaskFilter(value: string | null) {
 }
 
 export function taskKindKey(kind: string) {
-  return kind === "plan_script"
-    ? "tasks.kinds.plan_script"
-    : "tasks.kinds.other";
+  const known = TASK_KINDS.find((value) => value === kind);
+  return known ? (`tasks.kinds.${known}` as const) : "tasks.kinds.other";
 }
 
 export function isTaskActive(task: Task) {

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.repositories import tasks
 from app.planning.tasks import PlanningRequestError, validate_retry
-from app.tasks.kinds import PLAN_SCRIPT
+from app.rendering.tasks import sync_project
+from app.tasks.kinds import PLAN_SCRIPT, RENDER_KINDS
 from app.schemas.task import TaskCounts, TaskFilter, TaskListResponse, TaskResponse, TaskRetry
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -26,6 +27,15 @@ def task_response(session: Session, task_id: str) -> TaskResponse:
     if found is None:
         raise not_found()
     return TaskResponse.from_task(*found)
+
+
+def changed_response(session: Session, task_id: str) -> TaskResponse:
+    """Response after a cancel or retry; a render task also moves its project."""
+    response = task_response(session, task_id)
+    if response.kind in RENDER_KINDS and response.project_id:
+        session.rollback()  # End the read snapshot before writing (WAL).
+        sync_project(session, response.project_id)
+    return response
 
 
 @router.get("", response_model=TaskListResponse, responses={400: {"description": "Invalid cursor"}})
@@ -71,7 +81,7 @@ def cancel_task(task_id: str, request: Request, session: DatabaseSession) -> Tas
         raise state_error(error) from None
     request.app.state.task_coordinator.notify_cancel(task_id)
     request.app.state.task_coordinator.wake()
-    return task_response(session, task_id)
+    return changed_response(session, task_id)
 
 
 @router.post(
@@ -102,4 +112,4 @@ def retry_task(
     except tasks.TaskStateError as error:
         raise state_error(error) from None
     request.app.state.task_coordinator.wake()
-    return task_response(session, task_id)
+    return changed_response(session, task_id)

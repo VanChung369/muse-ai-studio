@@ -3,6 +3,7 @@
 import json
 import shutil
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from playwright.sync_api import Error as BrowserError, sync_playwright
@@ -13,27 +14,30 @@ from app.integrations.muse.proxy import HTTPProxyRelay, ProxyConfigError
 POLL_CHAT_JS = "(function(){var els=[...document.querySelectorAll('*')].filter(function(e){var s=getComputedStyle(e);return (s.overflowY==='auto'||s.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+100;});els.sort(function(a,b){return b.scrollHeight-a.scrollHeight;});if(els[0])els[0].scrollTop=els[0].scrollHeight;var scope=document.querySelector('main,[class*=\"chat-scroll\"],[class*=\"hatch-chat-scroll\"]')||document.body;var bs=[].slice.call(scope.querySelectorAll('div[class*=\"hatch-chat-groupable-bubble\"]')).filter(function(b){return /hatch-agent-bubble-bg/.test(b.className||'');});var nonEmpty=bs.filter(function(b){return ((b.innerText||'').trim().length)>0;});var txt=nonEmpty.length?(nonEmpty[nonEmpty.length-1].innerText||'').trim():'';var stop=!!(document.querySelector('[data-testid=\"hatch-composer-stop-button\"]')||document.querySelector('button[aria-label*=\"Stop\" i]')||document.querySelector('button[aria-label*=\"停止\"]'));return JSON.stringify({cnt:nonEmpty.length,total:bs.length,txt:txt,stop:stop});})()"
 
 
-def generate_script_text(
-    client,
-    cookies,
-    expiries,
-    proxy,
-    prompt,
-    *,
-    on_session,
-    before_send,
-    check_cancelled,
-    timeout=300
-):
-    """Send once in a new browser context. Never resend on timeout."""
-    result = client.session(cookies, expiries, proxy, wake=True)
-    on_session(result)
-    if not result.verified:
-        raise MuseError(result.code, partial=result, detail=result.detail)
-    # A failed or unconfirmed wake is not fatal: the chat page connects the
-    # workspace itself (reference behavior). Composer/reply errors below
-    # still report a workspace that really cannot be used.
-    check_cancelled()
+SEND_BUTTON_JS = """() => {
+    const textarea = document.querySelector('textarea');
+    if (!textarea) return null;
+    const visible = node => node.getClientRects().length > 0;
+    for (let parent = textarea.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+        const button = [...parent.querySelectorAll('button')].find(button => visible(button) && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && (
+            /^(hatch-composer-send-button|composer-send-button|send-button)$/.test(button.getAttribute('data-testid') || '') ||
+            /^(send(?: message)?|发送(?:消息)?|發送(?:訊息)?|傳送(?:訊息)?|送出)$/i.test((button.getAttribute('aria-label') || button.innerText || '').trim())
+        ));
+        if (button) { const box=button.getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; }
+        if (parent.matches('form,main,[role=main]')) break;
+    }
+    return null;
+}"""
+
+
+@contextmanager
+def open_composer(client, result, proxy):
+    """Yield a new Muse thread page in a private browser context.
+
+    Holds one browser slot for as long as the page is open. `result` is the
+    confirmed session; it rides along on every error as `partial` so cookies
+    Muse rotated are still saved.
+    """
     if not client.browser_lock.acquire(blocking=False):
         raise MuseError("browser_busy", 409, partial=result)
     relay = None
@@ -72,61 +76,10 @@ def generate_script_text(
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )
-                composer = page.locator("textarea:visible").first
-                composer.wait_for(state="visible", timeout=30000)
-                composer.fill(prompt)
-                deadline = time.monotonic() + 15
-                point = None
-                while time.monotonic() < deadline:
-                    check_cancelled()
-                    point = page.evaluate("""() => {
-                        const textarea = document.querySelector('textarea');
-                        if (!textarea) return null;
-                        const visible = node => node.getClientRects().length > 0;
-                        for (let parent = textarea.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
-                            const button = [...parent.querySelectorAll('button')].find(button => visible(button) && !button.disabled && button.getAttribute('aria-disabled') !== 'true' && (
-                                /^(hatch-composer-send-button|composer-send-button|send-button)$/.test(button.getAttribute('data-testid') || '') ||
-                                /^(send(?: message)?|发送(?:消息)?|發送(?:訊息)?|傳送(?:訊息)?|送出)$/i.test((button.getAttribute('aria-label') || button.innerText || '').trim())
-                            ));
-                            if (button) { const box=button.getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; }
-                            if (parent.matches('form,main,[role=main]')) break;
-                        }
-                        return null;
-                    }""")
-                    if point:
-                        break
-                    page.wait_for_timeout(200)
-                if not point:
-                    raise MuseError("composer_unavailable", partial=result)
-                baseline = json.loads(page.evaluate(POLL_CHAT_JS))
-                check_cancelled()
-                before_send(
-                    result
-                )  # Record submission BEFORE the click; refreshed cookies are already saved.
-                page.mouse.click(point["x"], point["y"])
-                deadline, first_deadline = (
-                    time.monotonic() + timeout,
-                    time.monotonic() + 45,
+                page.locator("textarea:visible").first.wait_for(
+                    state="visible", timeout=30000
                 )
-                previous, stable, busy = "", 0, False
-                while time.monotonic() < deadline:
-                    check_cancelled()
-                    state = json.loads(page.evaluate(POLL_CHAT_JS))
-                    busy = busy or state["stop"]
-                    text = state["txt"]
-                    if text and (
-                        state["cnt"] > baseline["cnt"] or text != baseline["txt"]
-                    ):
-                        if text == previous and not state["stop"]:
-                            stable += 1
-                            if stable >= 5:
-                                return text
-                        else:
-                            previous, stable = text, 0
-                    elif not busy and time.monotonic() > first_deadline:
-                        raise MuseError("reply_timeout", 504, partial=result)
-                    page.wait_for_timeout(200)
-                raise MuseError("reply_timeout", 504, partial=result)
+                yield page
             finally:
                 browser.close()
     except ProxyConfigError:
@@ -137,3 +90,75 @@ def generate_script_text(
         if relay:
             relay.close()
         client.browser_lock.release()
+
+
+def fill_composer(page, prompt, check_cancelled, result):
+    """Type `prompt` and return the send button's click point (not clicked yet)."""
+    page.locator("textarea:visible").first.fill(prompt)
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        check_cancelled()
+        point = page.evaluate(SEND_BUTTON_JS)
+        if point:
+            return point
+        page.wait_for_timeout(200)
+    raise MuseError("composer_unavailable", partial=result)
+
+
+def confirmed_session(client, cookies, expiries, proxy, on_session, check_cancelled):
+    """Refresh and confirm the session before a browser is opened."""
+    result = client.session(cookies, expiries, proxy, wake=True)
+    on_session(result)
+    if not result.verified:
+        raise MuseError(result.code, partial=result, detail=result.detail)
+    # A failed or unconfirmed wake is not fatal: the chat page connects the
+    # workspace itself (reference behavior). Composer/reply errors below
+    # still report a workspace that really cannot be used.
+    check_cancelled()
+    return result
+
+
+def generate_script_text(
+    client,
+    cookies,
+    expiries,
+    proxy,
+    prompt,
+    *,
+    on_session,
+    before_send,
+    check_cancelled,
+    timeout=300
+):
+    """Send once in a new browser context. Never resend on timeout."""
+    result = confirmed_session(
+        client, cookies, expiries, proxy, on_session, check_cancelled
+    )
+    with open_composer(client, result, proxy) as page:
+        point = fill_composer(page, prompt, check_cancelled, result)
+        baseline = json.loads(page.evaluate(POLL_CHAT_JS))
+        check_cancelled()
+        # Record submission BEFORE the click; refreshed cookies are already saved.
+        before_send(result)
+        page.mouse.click(point["x"], point["y"])
+        deadline, first_deadline = (
+            time.monotonic() + timeout,
+            time.monotonic() + 45,
+        )
+        previous, stable, busy = "", 0, False
+        while time.monotonic() < deadline:
+            check_cancelled()
+            state = json.loads(page.evaluate(POLL_CHAT_JS))
+            busy = busy or state["stop"]
+            text = state["txt"]
+            if text and (state["cnt"] > baseline["cnt"] or text != baseline["txt"]):
+                if text == previous and not state["stop"]:
+                    stable += 1
+                    if stable >= 5:
+                        return text
+                else:
+                    previous, stable = text, 0
+            elif not busy and time.monotonic() > first_deadline:
+                raise MuseError("reply_timeout", 504, partial=result)
+            page.wait_for_timeout(200)
+        raise MuseError("reply_timeout", 504, partial=result)

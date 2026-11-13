@@ -176,15 +176,8 @@ def request_cancel(session: Session, task_id: str) -> bool:
     raise TaskStateError("task_finished", "This task has already finished.")
 
 
-def retry_task(
-    session: Session,
-    task_id: str,
-    *,
-    switch_account: bool = False,
-    confirm_duplicate: bool = False,
-) -> bool:
-    """Queue a failed, interrupted, or cancelled task again (attempt budget reset)."""
-    retryable = ["failed", "cancelled"] + (["interrupted"] if confirm_duplicate else [])
+def requeue_values(switch_account: bool = False) -> dict:
+    """Column values that put a finished task back in the queue."""
     values = dict(
         status="queued",
         cancel_requested=False,
@@ -204,6 +197,19 @@ def retry_task(
         values["account_id"] = case(
             (Task.requires_account.is_(True), None), else_=Task.account_id
         )
+    return values
+
+
+def retry_task(
+    session: Session,
+    task_id: str,
+    *,
+    switch_account: bool = False,
+    confirm_duplicate: bool = False,
+) -> bool:
+    """Queue a failed, interrupted, or cancelled task again (attempt budget reset)."""
+    retryable = ["failed", "cancelled"] + (["interrupted"] if confirm_duplicate else [])
+    values = requeue_values(switch_account)
     try:
         if session.execute(
             update(Task)

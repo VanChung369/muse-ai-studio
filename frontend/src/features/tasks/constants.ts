@@ -55,6 +55,19 @@ export const TASK_ERROR_CODES = [
   "upstream_error",
   "wake_failed",
   "generation_browser_error",
+  "quota_exhausted",
+  "generation_timeout",
+  "generation_refused",
+  "media_download_failed",
+  "scene_missing",
+  "ffmpeg_unavailable",
+  "merge_failed",
+] as const;
+
+export const TASK_KINDS = [
+  "plan_script",
+  "render_scene",
+  "merge_video",
 ] as const;
 
 export const TASK_STATUS_CLASSES = {

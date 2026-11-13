@@ -16,6 +16,18 @@
 @theme {
   --breakpoint-tablet: 51.25rem; /* 820px: icon rail */
   --breakpoint-desktop: 73.75rem; /* 1180px: full sidebar */
+
+  /* A bar sliding across its track: work in progress with no known
+     percentage (design system `.bar.indet`, `.segbar > .run`). */
+  --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
 }
 
 @theme inline {

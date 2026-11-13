@@ -17,6 +17,7 @@ import { formatDuration } from "@/lib/format";
 import { projectTasksHref } from "@/features/tasks/lib/task-format";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { ProjectCover } from "./project-cover";
+import { ProjectRenderSection } from "./project-render-section";
 import { ProjectScriptSection } from "./project-script-section";
 import { ProjectStatusBadge } from "./project-status-badge";
 import type { Project } from "../types";
@@ -97,9 +98,11 @@ export function ProjectDetailsSheet({
                 <ProjectStatusBadge status={project.status} />
               </div>
               <ProjectCover project={project} />
-              <p className="mt-2 text-xs leading-5 text-faint">
-                {t("projects.details.previewNote")}
-              </p>
+              {project.completedScenes === 0 && (
+                <p className="mt-2 text-xs leading-5 text-faint">
+                  {t("projects.details.previewNote")}
+                </p>
+              )}
             </div>
             <dl className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4 text-sm">
               <div>
@@ -142,6 +145,10 @@ export function ProjectDetailsSheet({
                 {project.idea || t("projects.details.noIdea")}
               </p>
             </section>
+            <ProjectRenderSection
+              key={`render-${project.id}`}
+              project={project}
+            />
             <ProjectScriptSection key={project.id} project={project} />
           </div>
         )}
