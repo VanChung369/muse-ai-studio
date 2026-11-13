@@ -1,9 +1,27 @@
+import { Navigate, Route, Routes } from "react-router";
+
+import { navigationItems } from "@/app/navigation";
+import { AppLayout } from "@/components/layout/app-layout";
+import { NotFoundPage } from "@/pages/not-found-page";
+import { WorkspacePage } from "@/pages/workspace-page";
+import { ROUTES } from "@/constants/routes";
+
 function App() {
   return (
-    <main className="grid min-h-svh place-items-center p-6">
-      <h1 className="text-xl font-semibold">Muse AI Studio</h1>
-    </main>
-  )
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route index element={<Navigate to={ROUTES.PROJECTS} replace />} />
+        {navigationItems.map((page) => (
+          <Route
+            key={page.path}
+            path={page.path}
+            element={<WorkspacePage page={page} />}
+          />
+        ))}
+        <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  );
 }
 
-export default App
+export default App;

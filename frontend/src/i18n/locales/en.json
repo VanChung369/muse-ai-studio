@@ -1,0 +1,102 @@
+{
+  "app": {
+    "name": "Muse AI Studio",
+    "brandName": "Muse",
+    "brandSuffix": "AI Studio",
+    "documentTitle": "{{title}} · {{appName}}"
+  },
+  "navigation": {
+    "groups": {
+      "workspace": "Workspace",
+      "management": "Manage & integrate"
+    },
+    "main": "Main navigation",
+    "sidebar": "Sidebar",
+    "skipToContent": "Skip to main content",
+    "brandLabel": "{{appName}} — {{page}}",
+    "workspaceLabel": "{{page}} workspace",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu",
+    "menuTitle": "{{appName}} navigation",
+    "menuDescription": "Choose a creative workspace or management tool.",
+    "currentLocation": "Current location"
+  },
+  "search": {
+    "triggerLabel": "Go to page (Ctrl or Command K)",
+    "trigger": "Go to page…",
+    "shortcut": "⌘ / Ctrl K",
+    "title": "Go to page",
+    "description": "Search for a page, then press Enter to open the first result or use Tab to select another result.",
+    "inputLabel": "Search pages",
+    "placeholder": "Where would you like to go?",
+    "close": "Close search",
+    "resultsLabel": "Page search results",
+    "noResults": "No matching pages found."
+  },
+  "language": {
+    "label": "Language",
+    "names": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "This page does not exist. Return to Video Studio to continue.",
+    "back": "Back to Video Studio"
+  },
+  "pages": {
+    "overview": {
+      "title": "Overview",
+      "description": "Keep track of your projects and activity across your creative workspace.",
+      "headline": "All your ideas, in one place."
+    },
+    "projects": {
+      "title": "Video Studio",
+      "description": "Turn an idea into a script, individual scenes, and a finished film.",
+      "headline": "Your next story starts here."
+    },
+    "create": {
+      "title": "Quick Create",
+      "description": "Explore ideas through images and short videos.",
+      "headline": "One idea. Many ways to tell it."
+    },
+    "library": {
+      "title": "Media Library",
+      "description": "A shared space for your images and videos.",
+      "headline": "Keep your favorite frames together."
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Follow content generation and check the results of each task.",
+      "headline": "Follow every step of the process."
+    },
+    "accounts": {
+      "title": "Muse Accounts",
+      "description": "Manage your Muse accounts, sessions, and connections.",
+      "headline": "Connect to your Muse workspace."
+    },
+    "api": {
+      "title": "Connection & API",
+      "description": "Connect Muse AI Studio to your applications.",
+      "headline": "Bring creative tools into your applications."
+    },
+    "playground": {
+      "title": "Playground",
+      "description": "Try out content generation requests.",
+      "headline": "Explore what the API can do."
+    },
+    "docs": {
+      "title": "Documentation",
+      "description": "Learn how to use and integrate Muse AI Studio.",
+      "headline": "Find your way around."
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Customize your Muse AI Studio workspace.",
+      "headline": "Make this workspace your own."
+    }
+  }
+}
