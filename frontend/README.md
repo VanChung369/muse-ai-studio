@@ -53,7 +53,17 @@ npx shadcn@latest add button
 - Theme tokens in `src/index.css` mirror `design/design-system/muse.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
 - `src/components/ui/button.tsx` uses the design button sizes (36px default, 44px on phones) and variants, including `danger` for solid destructive actions in dialogs.
 
-The project list uses the real local API. The global shell does not report simulated task or account counts.
+Projects, accounts, and tasks use the real local API. The header task indicator reports active work and tasks needing attention from `GET /api/tasks/summary`.
+
+## Tasks
+
+- `/tasks` lists background work from `GET /api/tasks`, newest first, with 25 tasks per page. Status counts cover all matching tasks, including pages that have not been loaded.
+- Status filters, a project scope, and task details are shareable through the `status`, `projectId`, and `task` query parameters. A project's detail sheet includes a **View tasks** link.
+- Lists, details, and the header indicator refresh every five seconds while the tab is visible. Only progress supplied by the backend is displayed. Connection failures preserve loaded data and show a warning.
+- Open a task's details to see its account, timestamps, attempts, errors, and project link. Completed script tasks link back to the project, where the proposal can be reviewed and applied.
+- Stopping queued work cancels it immediately; running work stops cooperatively. A request already submitted to Muse may continue upstream.
+- Running a task again requires confirmation and uses its original input. Previously submitted or interrupted work shows an explicit duplicate/quota warning. Script tasks can keep their assigned account or let the coordinator select an eligible account; automatic selection may choose the same account again.
+- Mutations are never automatically retried. A changed script or project can reject a retry; start a new generation from the current project instead.
 
 ## Video Studio Project List
 

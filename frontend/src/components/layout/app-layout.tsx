@@ -1,9 +1,8 @@
-import { Activity, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Link,
   NavigationType,
   Outlet,
   useLocation,
@@ -18,7 +17,7 @@ import { NavigationSearch } from "@/components/layout/navigation-search";
 import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { MEDIA_QUERIES } from "@/constants/breakpoints";
-import { ROUTES } from "@/constants/routes";
+import { TaskIndicator } from "@/features/tasks/components/task-indicator";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -111,13 +110,7 @@ export function AppLayout() {
             <NavigationSearch onBeforeOpen={() => setMoreOpen(false)} />
             <div className="ml-auto flex shrink-0 items-center gap-2.5">
               <LanguageSwitcher />
-              <Link
-                to={ROUTES.TASKS}
-                className="hidden h-8 items-center gap-2 rounded-full border border-input px-3 text-[13px] leading-none font-medium text-muted-foreground hover:border-faint hover:text-foreground tablet:inline-flex"
-              >
-                <Activity className="size-3.5" aria-hidden="true" />
-                {t("pages.tasks.title")}
-              </Link>
+              <TaskIndicator />
             </div>
           </header>
 

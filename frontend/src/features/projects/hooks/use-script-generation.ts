@@ -6,6 +6,7 @@ import {
   startScriptGeneration,
 } from "../api/script-generation";
 import { projectKeys } from "../api/query-keys";
+import { taskKeys } from "@/features/tasks/api/query-keys";
 
 export function useScriptGeneration(projectId: string) {
   const client = useQueryClient();
@@ -24,6 +25,7 @@ export function useScriptGeneration(projectId: string) {
     retry: false,
     onSuccess: (task) => {
       client.setQueryData(key, task);
+      void client.invalidateQueries({ queryKey: taskKeys.all });
       void client.invalidateQueries({
         queryKey: projectKeys.detail(projectId),
       });
@@ -33,7 +35,10 @@ export function useScriptGeneration(projectId: string) {
   const cancel = useMutation({
     mutationFn: cancelScriptGeneration,
     retry: false,
-    onSuccess: (task) => client.setQueryData(key, task),
+    onSuccess: (task) => {
+      client.setQueryData(key, task);
+      void client.invalidateQueries({ queryKey: taskKeys.all });
+    },
   });
   return { query, start, cancel };
 }

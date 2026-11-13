@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { useLanguage } from "@/hooks/use-language";
 import { formatDuration } from "@/lib/format";
+import { projectTasksHref } from "@/features/tasks/lib/task-format";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { ProjectCover } from "./project-cover";
 import { ProjectScriptSection } from "./project-script-section";
@@ -147,6 +149,13 @@ export function ProjectDetailsSheet({
           <SheetClose asChild>
             <Button variant="outline">{t("common.close")}</Button>
           </SheetClose>
+          {project && (
+            <Button variant="outline" asChild>
+              <Link to={projectTasksHref(project.id)}>
+                {t("tasks.actions.projectTasks")}
+              </Link>
+            </Button>
+          )}
           {project && (
             <DeleteProjectDialog project={project} onDeleted={onDeleted} />
           )}
