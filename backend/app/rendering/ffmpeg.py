@@ -64,6 +64,33 @@ def probe(ffmpeg: str, path: Path) -> Clip:
     )
 
 
+def thumbnail(ffmpeg: str, clip: Path, target: Path) -> bool:
+    """Write a small JPEG of the clip to `target`. False when it could not be made."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + ".part.jpg")
+    try:
+        # A frame one second in avoids a black or fading first frame; very
+        # short clips fall back to their first frame.
+        for seek in ("1", "0"):
+            subprocess.run(  # noqa: S603 - fixed arguments, no shell
+                [
+                    ffmpeg, "-y", "-v", "error", "-ss", seek, "-i", str(clip),
+                    "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", str(temporary),
+                ],  # fmt: skip
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=60,
+            )
+            if temporary.is_file() and temporary.stat().st_size > 0:
+                os.replace(temporary, target)
+                return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    finally:
+        temporary.unlink(missing_ok=True)
+    return False
+
+
 def last_frame(ffmpeg: str, clip: Path) -> bytes:
     """The clip's final frame as a JPEG."""
     with tempfile.TemporaryDirectory() as folder:
@@ -92,8 +119,9 @@ def merge(
     paths: list[Path],
     output: Path,
     check_cancelled: Callable[[], None],
+    mute: bool = False,
 ) -> None:
-    """Join the clips in order into `output`.
+    """Join the clips in order into `output`. With `mute`, without any sound.
 
     Clips that share container, frame size and audio layout are joined
     without re-encoding. Otherwise, or when that result is not as long as
@@ -107,15 +135,18 @@ def merge(
     first = clips[0]
     uniform = all(
         clip.path.suffix == ".mp4"
-        and (clip.width, clip.height, clip.has_audio)
-        == (first.width, first.height, first.has_audio)
+        # Audio layout only matters when the sound is kept.
+        and (clip.width, clip.height, mute or clip.has_audio)
+        == (first.width, first.height, mute or first.has_audio)
         for clip in clips
     )
     try:
         with tempfile.TemporaryDirectory() as folder:
-            attempts = [_reencode_arguments(clips)]
+            attempts = [_reencode_arguments(clips, mute)]
             if uniform:
-                attempts.insert(0, _copy_arguments(clips, Path(folder) / "clips.txt"))
+                attempts.insert(
+                    0, _copy_arguments(clips, Path(folder) / "clips.txt", mute)
+                )
             for arguments in attempts:
                 command = [
                     ffmpeg, "-y", "-v", "error", *arguments,
@@ -133,7 +164,7 @@ def merge(
         temporary.unlink(missing_ok=True)
 
 
-def _copy_arguments(clips: list[Clip], listing: Path) -> list[str]:
+def _copy_arguments(clips: list[Clip], listing: Path, mute: bool) -> list[str]:
     listing.write_text(
         "".join(
             "file '{}'\n".format(clip.path.resolve().as_posix().replace("'", "'\\''"))
@@ -141,14 +172,15 @@ def _copy_arguments(clips: list[Clip], listing: Path) -> list[str]:
         ),
         encoding="utf-8",
     )
-    return ["-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy"]
+    arguments = ["-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy"]
+    return [*arguments, "-an"] if mute else arguments
 
 
-def _reencode_arguments(clips: list[Clip]) -> list[str]:
+def _reencode_arguments(clips: list[Clip], mute: bool) -> list[str]:
     width, height = clips[0].width, clips[0].height
     # H.264 with yuv420p needs even dimensions.
     width, height = width - width % 2, height - height % 2
-    with_audio = any(clip.has_audio for clip in clips)
+    with_audio = not mute and any(clip.has_audio for clip in clips)
     inputs, filters, pads = [], [], []
     for clip in clips:
         inputs += ["-i", str(clip.path)]

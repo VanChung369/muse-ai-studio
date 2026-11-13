@@ -296,7 +296,10 @@
         "workspace_not_running": "The Muse workspace is not running yet. Try Keep alive on the account.",
         "account_changed": "Account credentials changed during this attempt. Verify the account and try again.",
         "wake_failed": "The session is valid, but Muse refused the workspace wake request. Generation can still connect the workspace; try Keep alive again later."
-      }
+      },
+      "narration": "Write a voice-over line for every scene",
+      "direction": "Extra direction for the AI",
+      "directionPlaceholder": "For example: fast pacing, a humorous tone, for young viewers, end with a call to action…"
     },
     "render": {
       "title": "Render",
@@ -383,7 +386,7 @@
     },
     "settings": {
       "open": "Edit project",
-      "summary": "Look: {{look}} · Continuity: {{continuity}}",
+      "summary": "Language: {{language}} · Look: {{look}} · Continuity: {{continuity}}",
       "title": "Edit project",
       "description": "The name, idea, ratio and duration can change until a render starts. The render options also apply when you render again.",
       "lockedBrief": "This project has been rendered, so only the render options can change.",
@@ -428,7 +431,43 @@
         "duration_locked": "The script is written for the current duration. Tick the box to delete it, or keep the duration.",
         "project_not_found": "This project no longer exists.",
         "unknown": "The changes could not be saved. Please try again."
-      }
+      },
+      "language": "Video language",
+      "languageHint": "Used for scene titles, narration and anything spoken in the video.",
+      "languages": {
+        "auto": "Automatic (same as the idea)",
+        "vi": "Tiếng Việt",
+        "en": "English",
+        "zh": "中文",
+        "ja": "日本語",
+        "ko": "한국어",
+        "es": "Español",
+        "fr": "Français",
+        "de": "Deutsch",
+        "pt": "Português",
+        "th": "ไทย",
+        "id": "Bahasa Indonesia"
+      },
+      "mute": "Mute the video",
+      "muteHint": "Muse is asked for silent scenes and the merged video has no sound. On a finished project this merges the video again; nothing is rendered again.",
+      "muted": "Muted"
+    },
+    "studio": {
+      "open": "Open Studio",
+      "title": "Studio",
+      "back": "Back to project details",
+      "scenes": "Scenes",
+      "preview": "Preview",
+      "noClip": "The picture appears here once this scene is rendered.",
+      "prompt": "Prompt",
+      "narration": "Narration",
+      "noNarration": "No narration for this scene.",
+      "account": "Rendered with",
+      "tools": "Editing tools",
+      "toolsNote": "Editing the finished video is not available yet. These tools are planned.",
+      "music": "Background music",
+      "subtitles": "Subtitles",
+      "soon": "Planned"
     }
   },
   "accounts": {

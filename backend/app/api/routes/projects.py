@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
 from app.rendering import storage
+from app.rendering.tasks import remerge
 from app.repositories import projects
 from app.schemas.project import (
     FeaturedProject,
@@ -102,8 +103,11 @@ def get_project(project_id: str, session: DatabaseSession) -> ProjectResponse:
     },
 )
 def update_project(
-    project_id: str, values: ProjectUpdate, session: DatabaseSession
+    project_id: str, values: ProjectUpdate, request: Request, session: DatabaseSession
 ) -> ProjectResponse:
+    before = projects.get_project(session, project_id)
+    was_muted = before.mute if before else None
+    session.rollback()  # End the read snapshot before writing (WAL).
     try:
         project = projects.update_project(session, project_id, values)
     except projects.ProjectUpdateError as error:
@@ -111,6 +115,14 @@ def update_project(
             status_code=error.status_code,
             detail={"code": error.code, "message": str(error)},
         ) from None
+    if project.mute != was_muted:
+        # Sound is decided when the scenes are merged: a finished film is
+        # merged again from its clips, without rendering anything.
+        session.rollback()
+        if remerge(session, project_id):
+            request.app.state.task_coordinator.wake()
+            session.expire_all()
+            project = projects.get_project(session, project_id)
     return ProjectResponse.model_validate(project)
 
 

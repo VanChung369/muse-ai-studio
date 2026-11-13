@@ -15,7 +15,13 @@ from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import generate_video
 from app.models import Account, Project, Scene, Task
 from app.rendering import storage
-from app.rendering.ffmpeg import MergeError, find_ffmpeg, last_frame, merge
+from app.rendering.ffmpeg import (
+    MergeError,
+    find_ffmpeg,
+    last_frame,
+    merge,
+    thumbnail,
+)
 from app.rendering.prompt import build_scene_prompt
 from app.repositories import tasks
 from app.tasks.coordinator import TaskFailure, utcnow
@@ -73,6 +79,19 @@ def start_render(session, project_id: str) -> None:
         if not usable_accounts(session):
             raise RenderRequestError("account_unavailable", 409)
         project = session.get(Project, project_id)
+        # If the script was written in a conversation, render there: pin
+        # the scenes to the account that owns it while it is usable.
+        pinned = (
+            session.scalar(
+                select(Account.id).where(
+                    Account.id == project.muse_thread_account_id,
+                    Account.enabled.is_(True),
+                    Account.session_status == "valid",
+                )
+            )
+            if project.muse_thread_account_id
+            else None
+        )
         previous = None
         for scene in project.scenes:
             previous = tasks.create_task(
@@ -81,6 +100,7 @@ def start_render(session, project_id: str) -> None:
                 title=f"Scene {scene.number}: {project.name}",
                 project_id=project_id,
                 scene_number=scene.number,
+                account_id=pinned,
                 requires_account=True,
                 depends_on_id=previous,
             ).id
@@ -279,7 +299,37 @@ def restart_render(session, project_id: str, from_scene: int) -> list[str]:
             .values(**tasks.requeue_values())
         )
         session.commit()
-        return [*stale, storage.FINAL_FILE]
+        return [
+            *stale,
+            *(storage.thumbnail_file(name) for name in stale),
+            storage.FINAL_FILE,
+        ]
+    except Exception:
+        session.rollback()
+        raise
+
+
+def remerge(session, project_id: str) -> bool:
+    """Merge a finished film again from the clips it already has (for a
+    change that only affects the merge, such as muting). No scene is
+    rendered again. False when the project is not a finished film."""
+    try:
+        claimed = session.execute(
+            update(Project)
+            .where(Project.id == project_id, Project.status == "completed")
+            .values(status="rendering", updated_at=datetime.now(UTC))
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        if not claimed:
+            session.rollback()
+            return False
+        session.execute(
+            update(Task)
+            .where(Task.project_id == project_id, Task.kind == MERGE_VIDEO)
+            .values(**tasks.requeue_values())
+        )
+        session.commit()
+        return True
     except Exception:
         session.rollback()
         raise
@@ -445,6 +495,11 @@ def make_scene_handler(app):
         name = storage.scene_file(context.scene_number, video.mime)
         folder = storage.project_dir(settings, context.project_id)
         storage.write(folder / name, video.data)
+        # A still for covers and players. Best effort: the clip routes make
+        # it on demand if this did not.
+        ffmpeg = find_ffmpeg(settings)
+        if ffmpeg:
+            thumbnail(ffmpeg, folder / name, folder / storage.thumbnail_file(name))
         with database.sessions() as session:
             saved = session.execute(
                 update(Scene)
@@ -523,6 +578,7 @@ def make_merge_handler(app):
             if project is None:
                 raise TaskFailure("project_not_found")
             files = [scene.video_file for scene in project.scenes]
+            mute = project.mute
         folder = storage.project_dir(settings, context.project_id)
         clips = [folder / name for name in files if name]
         if len(clips) != len(files) or not all(clip.is_file() for clip in clips):
@@ -532,7 +588,11 @@ def make_merge_handler(app):
             raise TaskFailure("ffmpeg_unavailable", suggested_action="retry")
         try:
             merge(
-                ffmpeg, clips, folder / storage.FINAL_FILE, context.raise_if_cancelled
+                ffmpeg,
+                clips,
+                folder / storage.FINAL_FILE,
+                context.raise_if_cancelled,
+                mute=mute,
             )
         except MergeError:
             raise TaskFailure("merge_failed", suggested_action="retry") from None

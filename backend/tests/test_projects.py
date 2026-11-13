@@ -19,7 +19,7 @@ EMPTY_LIST = {
 
 def summary(project):
     """List items omit the potentially large `idea` and `scenes` fields."""
-    return {key: value for key, value in project.items() if key not in ('idea', 'scenes', 'characterBible', 'visualStyle', 'scriptRevision', 'look', 'continuity')}
+    return {key: value for key, value in project.items() if key not in ('idea', 'scenes', 'characterBible', 'visualStyle', 'scriptRevision', 'look', 'continuity', 'language', 'mute')}
 
 
 @pytest.fixture

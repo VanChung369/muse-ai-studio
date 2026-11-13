@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.models import Account, Project, Scene, Task
 from app.rendering import storage
+from app.rendering.ffmpeg import find_ffmpeg, thumbnail
 from app.rendering.tasks import (
     RenderRequestError,
     cancel_render,
@@ -48,6 +49,8 @@ class SceneRender(CamelModel):
     duration_seconds: int
     # Null until the scene has a clip.
     video_url: str | None
+    # A still of the clip, for posters and lists.
+    thumbnail_url: str | None
     # Null until a render has been started.
     task: TaskResponse | None
 
@@ -116,6 +119,11 @@ def render_response(session: Session, project_id: str) -> RenderResponse:
                 duration_seconds=scene.duration_seconds,
                 video_url=(
                     f"{base}/scenes/{scene.number}/video{_version(scene.rendered_at)}"
+                    if scene.video_file
+                    else None
+                ),
+                thumbnail_url=(
+                    f"{base}/scenes/{scene.number}/thumbnail{_version(scene.rendered_at)}"
                     if scene.video_file
                     else None
                 ),
@@ -280,6 +288,69 @@ def get_scene_video(
     name = scene.video_file
     session.rollback()
     return _file(request, project_id, name, f"scene-{number:02d}" if download else "")
+
+
+def _thumbnail(request: Request, project_id: str, clip_name: str | None):
+    """The still kept next to a clip, made now if it is missing (clips rendered
+    before thumbnails existed, or when FFmpeg was not installed yet)."""
+    settings = request.app.state.settings
+    folder = storage.project_dir(settings, project_id)
+    clip = folder / Path(clip_name).name if clip_name else None
+    if clip is None or not clip.is_file():
+        raise HTTPException(
+            404, detail={"code": "media_not_found", "message": "No video yet."}
+        )
+    target = folder / storage.thumbnail_file(clip.name)
+    if not target.is_file():
+        ffmpeg = find_ffmpeg(settings)
+        if ffmpeg is None or not thumbnail(ffmpeg, clip, target):
+            raise HTTPException(
+                404,
+                detail={
+                    "code": "media_not_found",
+                    "message": "No thumbnail available.",
+                },
+            )
+    return FileResponse(
+        target,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@router.get(
+    "/{project_id}/scenes/{number}/thumbnail",
+    response_class=FileResponse,
+    responses={404: {"description": "Project, clip or thumbnail not found"}},
+)
+def get_scene_thumbnail(
+    project_id: str, number: int, request: Request, session: DatabaseSession
+):
+    scene = session.get(Scene, (project_id, number))
+    if scene is None:
+        raise not_found()
+    name = scene.video_file
+    session.rollback()
+    return _thumbnail(request, project_id, name)
+
+
+@router.get(
+    "/{project_id}/cover",
+    response_class=FileResponse,
+    responses={404: {"description": "Project not found, or nothing rendered yet"}},
+)
+def get_project_cover(project_id: str, request: Request, session: DatabaseSession):
+    """A still of the first scene that has a clip."""
+    if session.get(Project, project_id) is None:
+        raise not_found()
+    name = session.scalar(
+        select(Scene.video_file)
+        .where(Scene.project_id == project_id, Scene.video_file.is_not(None))
+        .order_by(Scene.number)
+        .limit(1)
+    )
+    session.rollback()
+    return _thumbnail(request, project_id, name)
 
 
 @router.get(

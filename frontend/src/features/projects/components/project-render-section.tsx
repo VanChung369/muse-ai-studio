@@ -108,6 +108,7 @@ export function ProjectRenderSection({ project }: { project: Project }) {
             <div className="space-y-2">
               <RenderVideo
                 src={render.videoUrl}
+                poster={project.coverUrl}
                 aspectRatio={project.aspectRatio}
                 label={t("projects.render.finalVideo")}
               />
@@ -123,6 +124,7 @@ export function ProjectRenderSection({ project }: { project: Project }) {
             <RenderSceneList
               render={render}
               aspectRatio={project.aspectRatio}
+              muted={project.mute}
               onRestart={setRestartFrom}
             />
           )}

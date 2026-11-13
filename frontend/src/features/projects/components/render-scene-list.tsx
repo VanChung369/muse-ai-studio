@@ -17,10 +17,16 @@ const VIDEO_FRAMES = {
 
 export function RenderVideo({
   src,
+  poster,
+  muted = false,
   aspectRatio,
   label,
 }: {
+  // The project is a silent film: scene clips may still carry sound.
+  muted?: boolean;
   src: string;
+  // A still shown until the video plays, instead of a black frame.
+  poster?: string | null;
   aspectRatio: Project["aspectRatio"];
   label: string;
 }) {
@@ -30,6 +36,8 @@ export function RenderVideo({
       preload="metadata"
       playsInline
       src={src}
+      poster={poster ?? undefined}
+      muted={muted}
       aria-label={label}
       className={cn("rounded-lg bg-black", VIDEO_FRAMES[aspectRatio])}
     />
@@ -40,9 +48,11 @@ export function RenderVideo({
 export function RenderSceneList({
   render,
   aspectRatio,
+  muted,
   onRestart,
 }: {
   render: ProjectRender;
+  muted: boolean;
   aspectRatio: Project["aspectRatio"];
   onRestart: (fromScene: number) => void;
 }) {
@@ -154,6 +164,8 @@ export function RenderSceneList({
               <div className="mt-3 space-y-2">
                 <RenderVideo
                   src={scene.videoUrl}
+                  poster={scene.thumbnailUrl}
+                  muted={muted}
                   aspectRatio={aspectRatio}
                   label={scene.title}
                 />

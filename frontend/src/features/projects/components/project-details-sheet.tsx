@@ -1,4 +1,4 @@
-import { Settings2 } from "lucide-react";
+import { Clapperboard, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -17,6 +17,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { formatDuration } from "@/lib/format";
 import { projectTasksHref } from "@/features/tasks/lib/task-format";
+import { projectStudioHref } from "../lib/project-list";
 import { isRenderActive } from "../lib/project-render";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { EditProjectDialog } from "./edit-project-dialog";
@@ -64,7 +65,7 @@ export function ProjectDetailsSheet({
     >
       <SheetContent
         onCloseAutoFocus={onCloseAutoFocus}
-        className="gap-0 overflow-y-auto motion-reduce:animate-none data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+        className="gap-0 overflow-hidden motion-reduce:animate-none data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
       >
         <SheetHeader className="border-b px-6 py-5 pr-12">
           <SheetTitle className="text-base font-semibold">
@@ -82,108 +83,122 @@ export function ProjectDetailsSheet({
             )}
           </SheetDescription>
         </SheetHeader>
-        {isLoading && <PageLoading />}
-        {isError && (
-          <div role="alert" className="space-y-3 p-6">
-            <p className="text-sm text-muted-foreground">
-              {t("projects.details.loadError")}
-            </p>
-            <Button variant="outline" disabled={isFetching} onClick={onRetry}>
-              {t("common.retry")}
-            </Button>
-          </div>
-        )}
-        {project && (
-          <div className="space-y-6 p-6">
-            <div>
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <h2 className="min-w-0 flex-1 text-xl leading-7 font-semibold wrap-break-word">
-                  {project.name}
-                </h2>
-                <ProjectStatusBadge status={project.status} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {isLoading && <PageLoading />}
+          {isError && (
+            <div role="alert" className="space-y-3 p-6">
+              <p className="text-sm text-muted-foreground">
+                {t("projects.details.loadError")}
+              </p>
+              <Button variant="outline" disabled={isFetching} onClick={onRetry}>
+                {t("common.retry")}
+              </Button>
+            </div>
+          )}
+          {project && (
+            <div className="space-y-6 p-6">
+              <div>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <h2 className="min-w-0 flex-1 text-xl leading-7 font-semibold wrap-break-word">
+                    {project.name}
+                  </h2>
+                  <ProjectStatusBadge status={project.status} />
+                </div>
+                <ProjectCover project={project} />
+                {project.completedScenes === 0 && (
+                  <p className="mt-2 text-xs leading-5 text-faint">
+                    {t("projects.details.previewNote")}
+                  </p>
+                )}
               </div>
-              <ProjectCover project={project} />
-              {project.completedScenes === 0 && (
-                <p className="mt-2 text-xs leading-5 text-faint">
-                  {t("projects.details.previewNote")}
+              <dl className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4 text-sm">
+                <div>
+                  <dt className="text-xs text-faint">
+                    {t("projects.details.duration")}
+                  </dt>
+                  <dd className="mt-1 font-mono">
+                    {formatDuration(project.durationSeconds)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-faint">
+                    {t("projects.details.ratio")}
+                  </dt>
+                  <dd className="mt-1 font-mono">{project.aspectRatio}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-faint">
+                    {t("projects.details.scenes")}
+                  </dt>
+                  <dd className="mt-1 font-mono">{project.sceneCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-faint">
+                    {t("projects.details.updated")}
+                  </dt>
+                  <dd className="mt-1 text-xs leading-5">
+                    {new Intl.DateTimeFormat(language, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(project.updatedAt))}
+                  </dd>
+                </div>
+              </dl>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+                  {t("projects.settings.summary", {
+                    language: t(
+                      `projects.settings.languages.${project.language}`,
+                    ),
+                    look: t(`projects.settings.looks.${project.look}`),
+                    continuity: t(
+                      `projects.settings.continuities.${project.continuity}`,
+                    ),
+                  })}
+                  {project.mute && ` · ${t("projects.settings.muted")}`}
                 </p>
+                {/* While a render runs nothing about the project can change. */}
+                {!isRenderActive(project.status) && (
+                  <Button variant="outline" onClick={() => setEditing(true)}>
+                    <Settings2 aria-hidden="true" />
+                    {t("projects.settings.open")}
+                  </Button>
+                )}
+              </div>
+              {editing && (
+                <EditProjectDialog
+                  project={project}
+                  onClose={() => setEditing(false)}
+                />
               )}
-            </div>
-            <dl className="grid grid-cols-2 gap-4 rounded-lg border bg-card p-4 text-sm">
-              <div>
-                <dt className="text-xs text-faint">
-                  {t("projects.details.duration")}
-                </dt>
-                <dd className="mt-1 font-mono">
-                  {formatDuration(project.durationSeconds)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-faint">
-                  {t("projects.details.ratio")}
-                </dt>
-                <dd className="mt-1 font-mono">{project.aspectRatio}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-faint">
-                  {t("projects.details.scenes")}
-                </dt>
-                <dd className="mt-1 font-mono">{project.sceneCount}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-faint">
-                  {t("projects.details.updated")}
-                </dt>
-                <dd className="mt-1 text-xs leading-5">
-                  {new Intl.DateTimeFormat(language, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(project.updatedAt))}
-                </dd>
-              </div>
-            </dl>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="min-w-0 text-xs leading-5 text-muted-foreground">
-                {t("projects.settings.summary", {
-                  look: t(`projects.settings.looks.${project.look}`),
-                  continuity: t(
-                    `projects.settings.continuities.${project.continuity}`,
-                  ),
-                })}
-              </p>
-              {/* While a render runs nothing about the project can change. */}
-              {!isRenderActive(project.status) && (
-                <Button variant="outline" onClick={() => setEditing(true)}>
-                  <Settings2 aria-hidden="true" />
-                  {t("projects.settings.open")}
-                </Button>
-              )}
-            </div>
-            {editing && (
-              <EditProjectDialog
+              <section>
+                <h3 className="mb-2 text-sm font-semibold">
+                  {t("projects.details.idea")}
+                </h3>
+                <p className="text-[13px] leading-6 whitespace-pre-wrap text-muted-foreground">
+                  {project.idea || t("projects.details.noIdea")}
+                </p>
+              </section>
+              <ProjectRenderSection
+                key={`render-${project.id}`}
                 project={project}
-                onClose={() => setEditing(false)}
               />
-            )}
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">
-                {t("projects.details.idea")}
-              </h3>
-              <p className="text-[13px] leading-6 whitespace-pre-wrap text-muted-foreground">
-                {project.idea || t("projects.details.noIdea")}
-              </p>
-            </section>
-            <ProjectRenderSection
-              key={`render-${project.id}`}
-              project={project}
-            />
-            <ProjectScriptSection key={project.id} project={project} />
-          </div>
-        )}
+              <ProjectScriptSection key={project.id} project={project} />
+            </div>
+          )}
+        </div>
         <SheetFooter className="border-t px-6 py-4">
           <SheetClose asChild>
             <Button variant="outline">{t("common.close")}</Button>
           </SheetClose>
+          {project && project.sceneCount > 0 && (
+            <Button variant="outline" asChild>
+              <Link to={projectStudioHref(project.id)}>
+                <Clapperboard aria-hidden="true" />
+                {t("projects.studio.open")}
+              </Link>
+            </Button>
+          )}
           {project && (
             <Button variant="outline" asChild>
               <Link to={projectTasksHref(project.id)}>

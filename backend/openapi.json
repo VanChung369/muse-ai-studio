@@ -7,7 +7,9 @@
   "paths": {
     "/api/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Health",
         "operationId": "health_api_health_get",
         "responses": {
@@ -29,7 +31,9 @@
     },
     "/api/accounts": {
       "get": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "List Accounts",
         "operationId": "list_accounts_api_accounts_get",
         "responses": {
@@ -46,7 +50,9 @@
         }
       },
       "post": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Import Account",
         "operationId": "import_account_api_accounts_post",
         "requestBody": {
@@ -88,7 +94,9 @@
     },
     "/api/accounts/{account_id}": {
       "get": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Get Account",
         "operationId": "get_account_api_accounts__account_id__get",
         "parameters": [
@@ -129,7 +137,9 @@
         }
       },
       "patch": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Patch Account",
         "operationId": "patch_account_api_accounts__account_id__patch",
         "parameters": [
@@ -180,7 +190,9 @@
         }
       },
       "delete": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Delete Account",
         "operationId": "delete_account_api_accounts__account_id__delete",
         "parameters": [
@@ -216,7 +228,9 @@
     },
     "/api/accounts/{account_id}/cookies": {
       "put": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Update Cookies",
         "operationId": "update_cookies_api_accounts__account_id__cookies_put",
         "parameters": [
@@ -266,7 +280,9 @@
     },
     "/api/accounts/{account_id}/proxy": {
       "put": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Update Proxy",
         "operationId": "update_proxy_api_accounts__account_id__proxy_put",
         "parameters": [
@@ -316,7 +332,9 @@
     },
     "/api/accounts/{account_id}/test": {
       "post": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Test Account",
         "operationId": "test_account_api_accounts__account_id__test_post",
         "parameters": [
@@ -356,7 +374,9 @@
     },
     "/api/accounts/{account_id}/keep-alive": {
       "post": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Keep Account Alive",
         "operationId": "keep_account_alive_api_accounts__account_id__keep_alive_post",
         "parameters": [
@@ -396,7 +416,9 @@
     },
     "/api/accounts/{account_id}/quota": {
       "post": {
-        "tags": ["Accounts"],
+        "tags": [
+          "Accounts"
+        ],
         "summary": "Refresh Account Quota",
         "operationId": "refresh_account_quota_api_accounts__account_id__quota_post",
         "parameters": [
@@ -436,7 +458,9 @@
     },
     "/api/projects": {
       "get": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "List Projects",
         "operationId": "list_projects_api_projects_get",
         "parameters": [
@@ -458,7 +482,12 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["all", "inProgress", "completed", "cancelled"],
+              "enum": [
+                "all",
+                "inProgress",
+                "completed",
+                "cancelled"
+              ],
               "type": "string",
               "default": "all",
               "title": "Status"
@@ -469,7 +498,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["updated", "name", "duration"],
+              "enum": [
+                "updated",
+                "name",
+                "duration"
+              ],
               "type": "string",
               "default": "updated",
               "title": "Sort"
@@ -534,7 +567,9 @@
         }
       },
       "post": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Create Project",
         "operationId": "create_project_api_projects_post",
         "requestBody": {
@@ -573,7 +608,9 @@
     },
     "/api/projects/{project_id}": {
       "get": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Get Project",
         "operationId": "get_project_api_projects__project_id__get",
         "parameters": [
@@ -614,7 +651,9 @@
         }
       },
       "patch": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Update Project",
         "operationId": "update_project_api_projects__project_id__patch",
         "parameters": [
@@ -668,7 +707,9 @@
         }
       },
       "delete": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Delete Project",
         "operationId": "delete_project_api_projects__project_id__delete",
         "parameters": [
@@ -707,7 +748,9 @@
     },
     "/api/projects/{project_id}/script": {
       "put": {
-        "tags": ["Projects"],
+        "tags": [
+          "Projects"
+        ],
         "summary": "Save Project Script",
         "operationId": "save_project_script_api_projects__project_id__script_put",
         "parameters": [
@@ -763,7 +806,9 @@
     },
     "/api/projects/{project_id}/script-generation": {
       "post": {
-        "tags": ["Script generation"],
+        "tags": [
+          "Script generation"
+        ],
         "summary": "Start Script Generation",
         "operationId": "start_script_generation_api_projects__project_id__script_generation_post",
         "parameters": [
@@ -811,7 +856,9 @@
         }
       },
       "get": {
-        "tags": ["Script generation"],
+        "tags": [
+          "Script generation"
+        ],
         "summary": "Get Script Generation",
         "operationId": "get_script_generation_api_projects__project_id__script_generation_get",
         "parameters": [
@@ -859,7 +906,9 @@
     },
     "/api/projects/{project_id}/render": {
       "get": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Get Render",
         "operationId": "get_render_api_projects__project_id__render_get",
         "parameters": [
@@ -900,7 +949,9 @@
         }
       },
       "post": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Start Project Render",
         "description": "Render every scene in order, then merge them into one video.",
         "operationId": "start_project_render_api_projects__project_id__render_post",
@@ -947,7 +998,9 @@
     },
     "/api/projects/{project_id}/render/cancel": {
       "post": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Cancel Project Render",
         "description": "Waiting scenes stop now, the running one after its current step.\nFinished scenes are kept.",
         "operationId": "cancel_project_render_api_projects__project_id__render_cancel_post",
@@ -994,7 +1047,9 @@
     },
     "/api/projects/{project_id}/render/resume": {
       "post": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Resume Project Render",
         "description": "Continue a failed or cancelled render from the first unfinished scene.",
         "operationId": "resume_project_render_api_projects__project_id__render_resume_post",
@@ -1058,7 +1113,9 @@
     },
     "/api/projects/{project_id}/render/restart": {
       "post": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Restart Project Render",
         "description": "Render again from one scene to the last, keeping the earlier scenes.\nThe current clips of the redone scenes and the merged video are deleted.",
         "operationId": "restart_project_render_api_projects__project_id__render_restart_post",
@@ -1115,7 +1172,9 @@
     },
     "/api/projects/{project_id}/scenes/{number}/video": {
       "get": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Get Scene Video",
         "operationId": "get_scene_video_api_projects__project_id__scenes__number__video_get",
         "parameters": [
@@ -1168,9 +1227,97 @@
         }
       }
     },
+    "/api/projects/{project_id}/scenes/{number}/thumbnail": {
+      "get": {
+        "tags": [
+          "Render"
+        ],
+        "summary": "Get Scene Thumbnail",
+        "operationId": "get_scene_thumbnail_api_projects__project_id__scenes__number__thumbnail_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Project, clip or thumbnail not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{project_id}/cover": {
+      "get": {
+        "tags": [
+          "Render"
+        ],
+        "summary": "Get Project Cover",
+        "description": "A still of the first scene that has a clip.",
+        "operationId": "get_project_cover_api_projects__project_id__cover_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Project not found, or nothing rendered yet"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{project_id}/video": {
       "get": {
-        "tags": ["Render"],
+        "tags": [
+          "Render"
+        ],
         "summary": "Get Project Video",
         "operationId": "get_project_video_api_projects__project_id__video_get",
         "parameters": [
@@ -1216,7 +1363,9 @@
     },
     "/api/tasks": {
       "get": {
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "summary": "List Tasks",
         "operationId": "list_tasks_api_tasks_get",
         "parameters": [
@@ -1314,7 +1463,9 @@
     },
     "/api/tasks/summary": {
       "get": {
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Task Summary",
         "description": "Counts for the top-bar indicator and the sidebar badge.",
         "operationId": "task_summary_api_tasks_summary_get",
@@ -1334,7 +1485,9 @@
     },
     "/api/tasks/{task_id}": {
       "get": {
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Get Task",
         "operationId": "get_task_api_tasks__task_id__get",
         "parameters": [
@@ -1377,7 +1530,9 @@
     },
     "/api/tasks/{task_id}/cancel": {
       "post": {
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Cancel Task",
         "operationId": "cancel_task_api_tasks__task_id__cancel_post",
         "parameters": [
@@ -1423,7 +1578,9 @@
     },
     "/api/tasks/{task_id}/retry": {
       "post": {
-        "tags": ["Tasks"],
+        "tags": [
+          "Tasks"
+        ],
         "summary": "Retry Task",
         "operationId": "retry_task_api_tasks__task_id__retry_post",
         "parameters": [
@@ -1513,7 +1670,11 @@
           }
         },
         "type": "object",
-        "required": ["account", "ok", "code"],
+        "required": [
+          "account",
+          "ok",
+          "code"
+        ],
         "title": "AccountActionResponse"
       },
       "AccountImport": {
@@ -1535,7 +1696,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["label", "cookieText"],
+        "required": [
+          "label",
+          "cookieText"
+        ],
         "title": "AccountImport"
       },
       "AccountListResponse": {
@@ -1553,7 +1717,10 @@
           }
         },
         "type": "object",
-        "required": ["items", "total"],
+        "required": [
+          "items",
+          "total"
+        ],
         "title": "AccountListResponse"
       },
       "AccountPatch": {
@@ -1666,7 +1833,9 @@
           }
         },
         "type": "object",
-        "required": ["weeklyUsedPct"],
+        "required": [
+          "weeklyUsedPct"
+        ],
         "title": "AccountQuota"
       },
       "AccountResponse": {
@@ -1689,7 +1858,11 @@
           },
           "sessionStatus": {
             "type": "string",
-            "enum": ["unverified", "valid", "invalid"],
+            "enum": [
+              "unverified",
+              "valid",
+              "invalid"
+            ],
             "title": "Sessionstatus",
             "default": "unverified"
           },
@@ -1834,7 +2007,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["cookieText"],
+        "required": [
+          "cookieText"
+        ],
         "title": "CookieUpdate"
       },
       "FeaturedProject": {
@@ -1863,7 +2038,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -1902,6 +2081,19 @@
             },
             "type": "array",
             "title": "Previewscenes"
+          },
+          "coverUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverurl",
+            "description": "A still of the first rendered scene; null until one exists.",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -1912,7 +2104,8 @@
           "aspectRatio",
           "durationSeconds",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "coverUrl"
         ],
         "title": "FeaturedProject"
       },
@@ -1967,7 +2160,12 @@
           }
         },
         "type": "object",
-        "required": ["all", "inProgress", "completed", "cancelled"],
+        "required": [
+          "all",
+          "inProgress",
+          "completed",
+          "cancelled"
+        ],
         "title": "ProjectCounts"
       },
       "ProjectCreate": {
@@ -1986,7 +2184,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio",
             "default": "16:9"
           },
@@ -2014,14 +2216,44 @@
           },
           "continuity": {
             "type": "string",
-            "enum": ["off", "reference", "seamless"],
+            "enum": [
+              "off",
+              "reference",
+              "seamless"
+            ],
             "title": "Continuity",
             "default": "reference"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "vi",
+              "en",
+              "zh",
+              "ja",
+              "ko",
+              "es",
+              "fr",
+              "de",
+              "pt",
+              "th",
+              "id"
+            ],
+            "title": "Language",
+            "default": "auto"
+          },
+          "mute": {
+            "type": "boolean",
+            "title": "Mute",
+            "default": false
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "ProjectCreate"
       },
       "ProjectListResponse": {
@@ -2063,7 +2295,13 @@
           }
         },
         "type": "object",
-        "required": ["items", "total", "nextCursor", "counts", "featured"],
+        "required": [
+          "items",
+          "total",
+          "nextCursor",
+          "counts",
+          "featured"
+        ],
         "title": "ProjectListResponse"
       },
       "ProjectResponse": {
@@ -2092,7 +2330,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -2144,8 +2386,34 @@
           },
           "continuity": {
             "type": "string",
-            "enum": ["off", "reference", "seamless"],
+            "enum": [
+              "off",
+              "reference",
+              "seamless"
+            ],
             "title": "Continuity"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "vi",
+              "en",
+              "zh",
+              "ja",
+              "ko",
+              "es",
+              "fr",
+              "de",
+              "pt",
+              "th",
+              "id"
+            ],
+            "title": "Language"
+          },
+          "mute": {
+            "type": "boolean",
+            "title": "Mute"
           },
           "characterBible": {
             "type": "string",
@@ -2165,6 +2433,19 @@
             },
             "type": "array",
             "title": "Scenes"
+          },
+          "coverUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverurl",
+            "description": "A still of the first rendered scene; null until one exists.",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -2179,9 +2460,12 @@
           "idea",
           "look",
           "continuity",
+          "language",
+          "mute",
           "characterBible",
           "visualStyle",
-          "scriptRevision"
+          "scriptRevision",
+          "coverUrl"
         ],
         "title": "ProjectResponse"
       },
@@ -2221,7 +2505,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["number", "title", "prompt", "durationSeconds"],
+        "required": [
+          "number",
+          "title",
+          "prompt",
+          "durationSeconds"
+        ],
         "title": "ProjectScene"
       },
       "ProjectSceneTitle": {
@@ -2236,7 +2525,10 @@
           }
         },
         "type": "object",
-        "required": ["number", "title"],
+        "required": [
+          "number",
+          "title"
+        ],
         "title": "ProjectSceneTitle"
       },
       "ProjectScriptUpdate": {
@@ -2270,7 +2562,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["expectedRevision", "scenes"],
+        "required": [
+          "expectedRevision",
+          "scenes"
+        ],
         "title": "ProjectScriptUpdate"
       },
       "ProjectSummary": {
@@ -2299,7 +2594,11 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": ["16:9", "9:16", "1:1"],
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -2331,6 +2630,19 @@
             "const": "coffee",
             "title": "Covertone",
             "default": "coffee"
+          },
+          "coverUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverurl",
+            "description": "A still of the first rendered scene; null until one exists.",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -2341,7 +2653,8 @@
           "aspectRatio",
           "durationSeconds",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "coverUrl"
         ],
         "title": "ProjectSummary",
         "description": "Fields a project card needs. Excludes `idea` and `scenes`, which can be\nlarge; fetch `GET /api/projects/{id}` for the full project."
@@ -2377,7 +2690,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["16:9", "9:16", "1:1"]
+                "enum": [
+                  "16:9",
+                  "9:16",
+                  "1:1"
+                ]
               },
               {
                 "type": "null"
@@ -2423,13 +2740,53 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["off", "reference", "seamless"]
+                "enum": [
+                  "off",
+                  "reference",
+                  "seamless"
+                ]
               },
               {
                 "type": "null"
               }
             ],
             "title": "Continuity"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "vi",
+                  "en",
+                  "zh",
+                  "ja",
+                  "ko",
+                  "es",
+                  "fr",
+                  "de",
+                  "pt",
+                  "th",
+                  "id"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "mute": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mute"
           },
           "discardScript": {
             "type": "boolean",
@@ -2472,7 +2829,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["server"],
+        "required": [
+          "server"
+        ],
         "title": "ProxyInput"
       },
       "ProxyPublic": {
@@ -2491,7 +2850,11 @@
           }
         },
         "type": "object",
-        "required": ["server", "username", "hasPassword"],
+        "required": [
+          "server",
+          "username",
+          "hasPassword"
+        ],
         "title": "ProxyPublic"
       },
       "ProxyUpdate": {
@@ -2509,7 +2872,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["proxy"],
+        "required": [
+          "proxy"
+        ],
         "title": "ProxyUpdate"
       },
       "RenderResponse": {
@@ -2597,7 +2962,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["fromScene"],
+        "required": [
+          "fromScene"
+        ],
         "title": "RenderRestart"
       },
       "RenderResume": {
@@ -2637,6 +3004,17 @@
             ],
             "title": "Videourl"
           },
+          "thumbnailUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnailurl"
+          },
           "task": {
             "anyOf": [
               {
@@ -2649,7 +3027,14 @@
           }
         },
         "type": "object",
-        "required": ["number", "title", "durationSeconds", "videoUrl", "task"],
+        "required": [
+          "number",
+          "title",
+          "durationSeconds",
+          "videoUrl",
+          "thumbnailUrl",
+          "task"
+        ],
         "title": "SceneRender"
       },
       "ScriptGenerationRequest": {
@@ -2670,11 +3055,71 @@
             "maxLength": 12000,
             "minLength": 1,
             "title": "Idea"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "vi",
+                  "en",
+                  "zh",
+                  "ja",
+                  "ko",
+                  "es",
+                  "fr",
+                  "de",
+                  "pt",
+                  "th",
+                  "id"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "look": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "realistic",
+                  "cinematic",
+                  "documentary",
+                  "commercial",
+                  "animation3d",
+                  "anime"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Look"
+          },
+          "narration": {
+            "type": "boolean",
+            "title": "Narration",
+            "default": false
+          },
+          "direction": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Direction",
+            "default": ""
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["accountId", "expectedRevision", "idea"],
+        "required": [
+          "accountId",
+          "expectedRevision",
+          "idea"
+        ],
         "title": "ScriptGenerationRequest"
       },
       "TaskCounts": {
@@ -2734,7 +3179,9 @@
           }
         },
         "type": "object",
-        "required": ["code"],
+        "required": [
+          "code"
+        ],
         "title": "TaskError"
       },
       "TaskListResponse": {
@@ -2766,7 +3213,12 @@
           }
         },
         "type": "object",
-        "required": ["items", "total", "nextCursor", "counts"],
+        "required": [
+          "items",
+          "total",
+          "nextCursor",
+          "counts"
+        ],
         "title": "TaskListResponse"
       },
       "TaskResponse": {
@@ -2891,7 +3343,12 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["retry", "relogin", "switch_account", "check_proxy"]
+                "enum": [
+                  "retry",
+                  "relogin",
+                  "switch_account",
+                  "check_proxy"
+                ]
               },
               {
                 "type": "null"
@@ -3021,7 +3478,11 @@
           }
         },
         "type": "object",
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError"
       }
     }

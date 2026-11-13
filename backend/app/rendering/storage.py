@@ -13,6 +13,7 @@ EXTENSIONS = {
     "video/quicktime": ".mov",
 }
 MEDIA_TYPES = {extension: mime for mime, extension in EXTENSIONS.items()}
+MEDIA_TYPES[".jpg"] = "image/jpeg"
 
 
 def project_dir(settings: Settings, project_id: str) -> Path:
@@ -22,6 +23,11 @@ def project_dir(settings: Settings, project_id: str) -> Path:
 def scene_file(number: int, mime: str) -> str:
     extension = EXTENSIONS.get(mime.split(";", 1)[0].strip().lower(), ".mp4")
     return f"scene-{number:02d}{extension}"
+
+
+def thumbnail_file(clip_name: str) -> str:
+    """The still image kept next to a clip (`scene-01.mp4` -> `scene-01.jpg`)."""
+    return Path(clip_name).stem + ".jpg"
 
 
 def media_type(name: str) -> str:

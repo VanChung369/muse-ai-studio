@@ -1,11 +1,13 @@
 """Isolated Muse composer client, using the reference UI selectors (see LICENSE)."""
 
 import json
+import re
 import shutil
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from playwright.sync_api import Error as BrowserError, sync_playwright
 
@@ -29,6 +31,80 @@ SEND_BUTTON_JS = """() => {
     }
     return null;
 }"""
+
+
+# A conversation's messages are found relative to our own message, which
+# starts with a short label (`marker`). A conversation that already holds
+# earlier messages renders them lazily, so "what was on the page before
+# sending" is not a safe baseline there: only what follows our message in the
+# document belongs to this request. With `all`, everything counts (callers
+# then compare against a baseline themselves).
+ANCHOR_JS = """
+  let anchor = null;
+  if (marker) {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeValue.includes(marker)) anchor = node;
+    }
+  }
+  const after = node => all || (!!anchor
+    && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+"""
+
+# The agent's reply to our message: {sent, cnt, txt, stop}.
+REPLY_STATE_JS = f"""([marker, all]) => {{
+  const scrollers = [...document.querySelectorAll('*')].filter(e => {{
+    const s = getComputedStyle(e);
+    return (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 100;
+  }});
+  scrollers.forEach(e => {{ e.scrollTop = e.scrollHeight; }});
+  {ANCHOR_JS}
+  const bubbles = [...document.querySelectorAll('div[class*="hatch-chat-groupable-bubble"]')]
+    .filter(b => /hatch-agent-bubble-bg/.test(b.className || ''))
+    .filter(after)
+    .filter(b => (b.innerText || '').trim().length > 0);
+  return {{
+    sent: !!anchor,
+    cnt: bubbles.length,
+    txt: bubbles.length ? (bubbles[bubbles.length - 1].innerText || '').trim() : '',
+    stop: !!(document.querySelector('[data-testid="hatch-composer-stop-button"]')
+      || document.querySelector('button[aria-label*="Stop" i]')
+      || document.querySelector('button[aria-label*="停止"]')),
+  }};
+}}"""
+
+CONVERSATION_SIZE_JS = """() => {
+  const scrollers = [...document.querySelectorAll('*')].filter(e => {
+    const s = getComputedStyle(e);
+    return (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 100;
+  });
+  scrollers.forEach(e => { e.scrollTop = e.scrollHeight; });
+  return document.querySelectorAll(
+    'div[class*="hatch-chat-groupable-bubble"], [data-testid^="hatch-chat-attachment-presentation-"]'
+  ).length;
+}"""
+# A real conversation, not the empty "new thread" page.
+THREAD_PATH = re.compile(r"^/thread/(?!new$)[A-Za-z0-9_-]{1,100}$")
+# How long to look for our own message in a continued conversation before
+# falling back to comparing with what was on the page before sending.
+ANCHOR_WAIT = 20.0
+
+
+def thread_path_of(url: str) -> str | None:
+    path = urlsplit(url).path.rstrip("/")
+    return path if THREAD_PATH.fullmatch(path) else None
+
+
+def settle_conversation(page) -> None:
+    """Wait until a reopened conversation stops growing, so the baseline
+    taken before sending includes its older messages."""
+    previous, stable = None, 0
+    deadline = time.monotonic() + 10
+    while stable < 3 and time.monotonic() < deadline:
+        size = page.evaluate(CONVERSATION_SIZE_JS)
+        stable = stable + 1 if size == previous else 0
+        previous = size
+        page.wait_for_timeout(400)
 
 
 GENERATING_JS = """() => !!(document.querySelector('[data-testid="hatch-composer-stop-button"]')
@@ -160,33 +236,58 @@ def generate_script_text(
     on_session,
     before_send,
     check_cancelled,
-    timeout=300
+    timeout=300,
+    thread_path=None,
+    on_thread=None,
 ):
-    """Send once in a new browser context. Never resend on timeout."""
+    """Send once and return the agent's reply. Never resend on timeout.
+
+    `thread_path` continues the film's conversation, so the script is
+    written in the same chat its scenes are later rendered in; `on_thread`
+    is told which conversation the reply came from.
+    """
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
     )
-    with open_composer(client, result, proxy) as page:
-        point = fill_composer(page, prompt, check_cancelled, result)
-        baseline = json.loads(page.evaluate(POLL_CHAT_JS))
+    # Our message is recognised on the page by this label (see ANCHOR_JS).
+    marker = f"plan-{uuid4().hex[:8]}"
+    with open_composer(client, result, proxy, thread_path) as page:
+        continued = thread_path_of(page.url) is not None
+        if continued:
+            settle_conversation(page)
+        point = fill_composer(page, f"[{marker}] {prompt}", check_cancelled, result)
+        baseline = page.evaluate(REPLY_STATE_JS, [None, True])
         check_cancelled()
         # Record submission BEFORE the click; refreshed cookies are already saved.
         before_send(result)
         page.mouse.click(point["x"], point["y"])
-        deadline, first_deadline = (
-            time.monotonic() + timeout,
-            time.monotonic() + 45,
-        )
+        sent_at = time.monotonic()
+        deadline, first_deadline = sent_at + timeout, sent_at + 45
         previous, stable, busy = "", 0, False
         while time.monotonic() < deadline:
             check_cancelled()
-            state = json.loads(page.evaluate(POLL_CHAT_JS))
+            state = page.evaluate(REPLY_STATE_JS, [marker, False])
             busy = busy or state["stop"]
             text = state["txt"]
-            if text and (state["cnt"] > baseline["cnt"] or text != baseline["txt"]):
+            if not state["sent"]:
+                # Our message is not found as text on the page. In a new
+                # conversation everything is ours; in a continued one, wait
+                # before trusting a comparison with the baseline.
+                text = ""
+                if not continued or time.monotonic() - sent_at > ANCHOR_WAIT:
+                    state = page.evaluate(REPLY_STATE_JS, [None, True])
+                    busy = busy or state["stop"]
+                    if (
+                        state["cnt"] > baseline["cnt"]
+                        or state["txt"] != baseline["txt"]
+                    ):
+                        text = state["txt"]
+            if text:
                 if text == previous and not state["stop"]:
                     stable += 1
                     if stable >= 5:
+                        if on_thread is not None:
+                            on_thread(thread_path_of(page.url))
                         return text
                 else:
                     previous, stable = text, 0

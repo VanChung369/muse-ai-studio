@@ -27,6 +27,12 @@ const featurePages: Partial<Record<NavigationItem["id"], ComponentType>> = {
   ),
 };
 
+const StudioPage = lazy(() =>
+  import("@/pages/studio-page").then((module) => ({
+    default: module.StudioPage,
+  })),
+);
+
 function App() {
   return (
     <Routes>
@@ -44,6 +50,10 @@ function App() {
             />
           );
         })}
+        <Route
+          path={`${ROUTES.PROJECTS}/:projectId/studio`}
+          element={<StudioPage />}
+        />
         <Route path={NOT_FOUND_ROUTE} element={<NotFoundPage />} />
       </Route>
     </Routes>

@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoaderCircle, Sparkles } from "lucide-react";
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -28,9 +28,13 @@ import { ApiError } from "@/lib/http";
 import { useScriptGeneration } from "../hooks/use-script-generation";
 import { useSaveProjectScript } from "../hooks/use-project-queries";
 import { scriptGenerationRequestSchema } from "../schemas";
-import { GENERATION_ERROR_CODES } from "../constants";
+import {
+  GENERATION_ERROR_CODES,
+  PROJECT_LANGUAGES,
+  PROJECT_LOOKS,
+} from "../constants";
 import { isScriptProposalApplied } from "../lib/project-script";
-import type { Project } from "../types";
+import type { Project, ScriptGenerationRequest } from "../types";
 
 export function GenerateScriptDialog({
   project,
@@ -49,9 +53,18 @@ export function GenerateScriptDialog({
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<{ accountId: string; idea: string }>({
+    getValues,
+    setValue,
+  } = useForm<ScriptGenerationRequest>({
     resolver: zodResolver(scriptGenerationRequestSchema),
-    defaultValues: { accountId: "", idea: project.idea },
+    defaultValues: {
+      accountId: "",
+      idea: project.idea,
+      language: project.language,
+      look: project.look,
+      narration: false,
+      direction: "",
+    },
   });
   const task = generation.query.data;
   const active = task?.status === "queued" || task?.status === "running";
@@ -59,6 +72,12 @@ export function GenerateScriptDialog({
     accounts.data?.items.filter(
       (account) => account.enabled && account.sessionStatus === "valid",
     ) ?? [];
+  // Start with an account already chosen; the user can still pick another.
+  const firstAccount = eligible[0]?.id;
+  useEffect(() => {
+    if (firstAccount && !getValues("accountId"))
+      setValue("accountId", firstAccount);
+  }, [firstAccount, getValues, setValue]);
   const proposal =
     task?.status === "succeeded" ? task.result?.script : undefined;
   const alreadyApplied = isScriptProposalApplied(project, proposal);
@@ -72,7 +91,7 @@ export function GenerateScriptDialog({
 
   const knownError = GENERATION_ERROR_CODES.find((code) => code === errorCode);
 
-  async function submit(values: { accountId: string; idea: string }) {
+  async function submit(values: ScriptGenerationRequest) {
     try {
       await generation.start.mutateAsync({
         ...values,
@@ -259,6 +278,97 @@ export function GenerateScriptDialog({
                   {t("projects.generation.ideaRequired")}
                 </p>
               )}
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-language`}>
+                  {t("projects.settings.language")}
+                </Label>
+                <Controller
+                  name="language"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={generation.start.isPending}
+                    >
+                      <SelectTrigger
+                        id={`${id}-language`}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROJECT_LANGUAGES.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {t(`projects.settings.languages.${value}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-look`}>
+                  {t("projects.settings.look")}
+                </Label>
+                <Controller
+                  name="look"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={generation.start.isPending}
+                    >
+                      <SelectTrigger
+                        id={`${id}-look`}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROJECT_LOOKS.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {t(`projects.settings.looks.${value}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-[13px]">
+              <input
+                {...register("narration")}
+                type="checkbox"
+                disabled={generation.start.isPending}
+                className="size-4 accent-primary"
+              />
+              {t("projects.generation.narration")}
+            </label>
+            <div className="space-y-2">
+              <Label htmlFor={`${id}-direction`}>
+                {t("projects.generation.direction")}
+                <span className="font-normal text-faint">
+                  {t("projects.form.optional")}
+                </span>
+              </Label>
+              <Textarea
+                {...register("direction")}
+                id={`${id}-direction`}
+                rows={2}
+                maxLength={2000}
+                placeholder={t("projects.generation.directionPlaceholder")}
+                disabled={generation.start.isPending}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor={`${id}-account`}>

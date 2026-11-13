@@ -296,7 +296,10 @@
         "workspace_not_running": "Workspace Muse chưa chạy. Thử Duy trì phiên ở tài khoản.",
         "account_changed": "Thông tin tài khoản đã thay đổi trong lần tạo này. Xác thực tài khoản rồi thử lại.",
         "wake_failed": "Phiên vẫn hợp lệ nhưng Muse từ chối yêu cầu đánh thức workspace. Việc tạo nội dung vẫn có thể tự kết nối workspace; hãy thử Duy trì phiên lại sau."
-      }
+      },
+      "narration": "Viết lời dẫn cho từng cảnh",
+      "direction": "Yêu cầu thêm cho AI",
+      "directionPlaceholder": "Ví dụ: nhịp nhanh, giọng hài hước, dành cho khán giả trẻ, kết bằng lời kêu gọi…"
     },
     "render": {
       "title": "Render",
@@ -383,7 +386,7 @@
     },
     "settings": {
       "open": "Chỉnh dự án",
-      "summary": "Phong cách: {{look}} · Liền mạch: {{continuity}}",
+      "summary": "Ngôn ngữ: {{language}} · Phong cách: {{look}} · Liền mạch: {{continuity}}",
       "title": "Chỉnh dự án",
       "description": "Tên, ý tưởng, tỉ lệ và thời lượng sửa được cho tới khi bắt đầu render. Tùy chọn render còn áp dụng khi tạo lại.",
       "lockedBrief": "Dự án đã render nên chỉ còn chỉnh được tùy chọn render.",
@@ -428,7 +431,43 @@
         "duration_locked": "Kịch bản đang viết cho thời lượng hiện tại. Tích ô xóa kịch bản, hoặc giữ nguyên thời lượng.",
         "project_not_found": "Dự án này không còn tồn tại.",
         "unknown": "Không lưu được thay đổi. Vui lòng thử lại."
-      }
+      },
+      "language": "Ngôn ngữ video",
+      "languageHint": "Dùng cho tiêu đề cảnh, lời dẫn và mọi lời nói trong video.",
+      "languages": {
+        "auto": "Tự động (theo ý tưởng)",
+        "vi": "Tiếng Việt",
+        "en": "English",
+        "zh": "中文",
+        "ja": "日本語",
+        "ko": "한국어",
+        "es": "Español",
+        "fr": "Français",
+        "de": "Deutsch",
+        "pt": "Português",
+        "th": "ไทย",
+        "id": "Bahasa Indonesia"
+      },
+      "mute": "Tắt tiếng video",
+      "muteHint": "Yêu cầu Muse tạo cảnh không âm thanh và video ghép sẽ không có tiếng. Với dự án đã xong, đổi mục này chỉ ghép lại video, không render lại.",
+      "muted": "Tắt tiếng"
+    },
+    "studio": {
+      "open": "Mở Studio",
+      "title": "Studio",
+      "back": "Quay lại chi tiết dự án",
+      "scenes": "Các cảnh",
+      "preview": "Xem trước",
+      "noClip": "Hình sẽ xuất hiện ở đây sau khi cảnh được render.",
+      "prompt": "Prompt",
+      "narration": "Lời dẫn",
+      "noNarration": "Cảnh này không có lời dẫn.",
+      "account": "Render bằng",
+      "tools": "Công cụ chỉnh sửa",
+      "toolsNote": "Chưa chỉnh sửa được video thành phẩm. Các công cụ dưới đây sẽ được bổ sung.",
+      "music": "Nhạc nền",
+      "subtitles": "Phụ đề",
+      "soon": "Sẽ có"
     }
   },
   "accounts": {

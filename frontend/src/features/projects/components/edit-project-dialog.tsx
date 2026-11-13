@@ -28,6 +28,7 @@ import { ApiError } from "@/lib/http";
 import {
   PROJECT_ASPECT_RATIOS,
   PROJECT_CONTINUITIES,
+  PROJECT_LANGUAGES,
   PROJECT_LOOKS,
   PROJECT_UPDATE_ERROR_CODES,
 } from "../constants";
@@ -42,7 +43,7 @@ const BRIEF_FIELDS = [
   "aspectRatio",
   "durationSeconds",
 ] as const;
-const OPTION_FIELDS = ["look", "continuity"] as const;
+const OPTION_FIELDS = ["language", "look", "continuity", "mute"] as const;
 const SELECT_TRIGGER =
   "w-full data-[size=default]:h-9 data-[size=default]:max-tablet:h-11";
 
@@ -81,6 +82,8 @@ export function EditProjectDialog({
       idea: project.idea,
       aspectRatio: project.aspectRatio,
       durationSeconds: project.durationSeconds,
+      language: project.language,
+      mute: project.mute,
       look: project.look,
       continuity: project.continuity,
     },
@@ -269,6 +272,60 @@ export function EditProjectDialog({
             <p className="text-sm font-semibold" aria-hidden="true">
               {t("projects.settings.renderOptions")}
             </p>
+            <label className="flex items-start gap-2 text-[13px]">
+              <input
+                {...register("mute")}
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-primary"
+              />
+              <span>
+                {t("projects.settings.mute")}
+                <span className="mt-0.5 block text-xs leading-5 text-faint">
+                  {t("projects.settings.muteHint")}
+                </span>
+              </span>
+            </label>
+            <div className="space-y-2">
+              <Label htmlFor={`${id}-language`}>
+                {t("projects.settings.language")}
+              </Label>
+              <Controller
+                name="language"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    disabled={pending}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <SelectTrigger
+                      id={`${id}-language`}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      aria-describedby={`${id}-language-hint`}
+                      className={SELECT_TRIGGER}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectGroup>
+                        {PROJECT_LANGUAGES.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {t(`projects.settings.languages.${value}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p
+                id={`${id}-language-hint`}
+                className="text-xs leading-5 text-faint"
+              >
+                {t("projects.settings.languageHint")}
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor={`${id}-look`}>
                 {t("projects.settings.look")}

@@ -5,7 +5,14 @@ import subprocess
 import pytest
 
 from app.core.config import Settings
-from app.rendering.ffmpeg import MergeError, find_ffmpeg, last_frame, merge, probe
+from app.rendering.ffmpeg import (
+    MergeError,
+    find_ffmpeg,
+    last_frame,
+    merge,
+    probe,
+    thumbnail,
+)
 
 FFMPEG = find_ffmpeg(Settings())
 needs_ffmpeg = pytest.mark.skipif(FFMPEG is None, reason="FFmpeg is not installed.")
@@ -38,6 +45,18 @@ def test_clips_are_joined_in_order(tmp_path):
     merge(FFMPEG, clips, output, lambda: None)
     assert 2.7 < duration(output) < 3.4
     assert not list(output.parent.glob("*.part.mp4"))
+
+
+@needs_ffmpeg
+def test_muted_merge_has_no_audio_track(tmp_path):
+    clips = [
+        clip(tmp_path / "scene-01.mp4", 1, "red"),
+        clip(tmp_path / "scene-02.mp4", 1, "blue"),
+    ]
+    output = tmp_path / "final.mp4"
+    merge(FFMPEG, clips, output, lambda: None, mute=True)
+    merged = probe(FFMPEG, output)
+    assert 1.7 < merged.seconds < 2.4 and not merged.has_audio
 
 
 @needs_ffmpeg
@@ -103,6 +122,18 @@ def test_last_frame_is_a_jpeg_of_the_clip_end(tmp_path):
     broken.write_bytes(b"not a video")
     with pytest.raises(MergeError):
         last_frame(FFMPEG, broken)
+
+
+@needs_ffmpeg
+def test_thumbnail_is_a_small_jpeg(tmp_path):
+    target = tmp_path / "stills" / "scene-01.jpg"
+    assert thumbnail(FFMPEG, clip(tmp_path / "scene-01.mp4", 2, "red"), target)
+    assert target.read_bytes()[:3] == b"\xff\xd8\xff"
+    broken = tmp_path / "broken.mp4"
+    broken.write_bytes(b"not a video")
+    assert not thumbnail(FFMPEG, broken, tmp_path / "broken.jpg")
+    assert not (tmp_path / "broken.jpg").exists()
+    assert not list(tmp_path.glob("*.part.jpg"))
 
 
 def test_missing_binary_is_a_merge_error(tmp_path):

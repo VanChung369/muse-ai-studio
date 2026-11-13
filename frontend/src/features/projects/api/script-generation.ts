@@ -1,6 +1,7 @@
 import { API_ENDPOINTS } from "@/constants/api";
 import { requestJson } from "@/lib/http";
 import { scriptGenerationTaskSchema } from "../schemas";
+import type { ScriptGenerationRequest } from "../types";
 
 export const scriptGenerationKey = (id: string) =>
   ["projects", "script-generation", id] as const;
@@ -16,12 +17,12 @@ export async function fetchScriptGeneration(id: string, signal?: AbortSignal) {
     );
 }
 
-export async function startScriptGeneration(values: {
-  projectId: string;
-  accountId: string;
-  idea: string;
-  expectedRevision: number;
-}) {
+export async function startScriptGeneration(
+  values: ScriptGenerationRequest & {
+    projectId: string;
+    expectedRevision: number;
+  },
+) {
   const { projectId, ...body } = values;
   return scriptGenerationTaskSchema.parse(
     await requestJson(

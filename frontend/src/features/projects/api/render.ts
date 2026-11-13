@@ -19,6 +19,8 @@ export const projectRenderSchema = z.object({
       durationSeconds: z.number().int().positive(),
       // Null until the scene has a clip.
       videoUrl: z.string().nullable(),
+      // A still of the clip, for the player's poster.
+      thumbnailUrl: z.string().nullable(),
       // Null until a render has been started.
       task: taskSchema.nullable(),
     }),

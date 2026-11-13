@@ -72,6 +72,10 @@ Muse must return a complete JSON script with the exact target timeline (10-secon
 
 `PATCH /api/projects/{project_id}` changes any of `name`, `idea`, `aspectRatio`, `durationSeconds`, `look`, `continuity`; only the fields sent are changed, and null is rejected. The first four can change while the project is `draft` or `ready`; after a render has started they return 409 `project_locked`. `look` (`auto`, `realistic`, `cinematic`, `documentary`, `commercial`, `animation3d`, `anime`) and `continuity` (`off`, `reference`, `seamless`) can change whenever no render is running (409 `project_busy` otherwise), so they also apply to a later "render again". A saved script adds up to the current duration: a different `durationSeconds` returns 409 `duration_locked` unless `discardScript: true` is sent, which deletes the script and returns the project to `draft`.
 
+Projects also carry `language` (`auto`, `vi`, `en`, `zh`, `ja`, `ko`, `es`, `fr`, `de`, `pt`, `th`, `id`): the language of scene titles, narration and anything spoken. It is a render option like `look`. So is `mute` (boolean): a muted project asks Muse for silent scenes (narration and language are then left out of the prompt) and its merged video has no audio track. Changing `mute` on a `completed` project merges the video again from the existing clips (status `rendering` until done); no scene is rendered again. Project summaries include `coverUrl`, a still of the first rendered scene (null until one exists).
+
+`POST /api/projects/{project_id}/script-generation` additionally accepts `language` and `look` (saved on the project), `narration` (write a voice-over line for every scene) and `direction` (up to 2,000 characters of free-form direction for the writer).
+
 ## Rendering
 
 `POST /api/projects/{project_id}/render` (HTTP 202) queues one `render_scene` task per scene, chained in order, and a final `merge_video` task. The project must be `ready` with at least one scene, and at least one enabled account must have a verified session (accounts are picked automatically, least recently used first). Otherwise it returns 409 `render_not_ready` or `account_unavailable`; nothing is queued. Starting a render sets the project to `rendering`, which locks its script.
@@ -86,6 +90,10 @@ The project status follows the chain: `completed` when every task succeeded, `ca
 
 Scene prompts carry the scene's own prompt, the shared visual style and characters, the project's `look`, and quality requirements. With `continuity` other than `off`, the last frame of the previous scene is attached to the message (extracted with FFmpeg, so FFmpeg is then needed before scene 2 is sent): `reference` asks Muse to match it, `seamless` to start on it. If the frame cannot be read or attached the scene fails with `reference_frame_failed` or `reference_upload_failed` before anything is sent.
 
-All scenes of a project are sent to one Muse conversation on one account, so the agent keeps the film's context. A new conversation is started after `MUSE_THREAD_SCENE_LIMIT` scenes (default 12), when the render moves to another account (only after a failure that points at the account), when the saved conversation can no longer be opened, and for every "render again".
+A scene's narration is sent as its voice-over, and a project `language` other than `auto` is stated for everything spoken.
+
+The script and all scenes of a project are sent to one Muse conversation on one account, so the agent keeps the film's context: a script written by Muse opens the conversation and the render continues it on the same account. A new conversation is started after `MUSE_THREAD_SCENE_LIMIT` scenes (default 12), when the render moves to another account (only after a failure that points at the account), when the saved conversation can no longer be opened, and for every "render again".
+
+`GET /api/projects/{project_id}/scenes/{number}/thumbnail` and `GET /api/projects/{project_id}/cover` serve JPEG stills (made with FFmpeg when a scene is rendered, or on first request for older clips; 404 `media_not_found` when FFmpeg is unavailable).
 
 `GET /api/projects/{project_id}/scenes/{number}/video` and `GET /api/projects/{project_id}/video` serve a scene clip and the merged video (HTTP range requests supported); `?download=true` adds a download filename. Missing media returns 404 `media_not_found`. Deleting a project removes its media folder and cancels its waiting render tasks.

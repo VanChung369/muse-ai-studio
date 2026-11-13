@@ -27,6 +27,21 @@ export const PROJECT_LOOKS = [
   "animation3d",
   "anime",
 ] as const;
+// Language of titles, narration and speech; "auto" follows the idea.
+export const PROJECT_LANGUAGES = [
+  "auto",
+  "vi",
+  "en",
+  "zh",
+  "ja",
+  "ko",
+  "es",
+  "fr",
+  "de",
+  "pt",
+  "th",
+  "id",
+] as const;
 // How a scene uses the last frame of the one before it.
 export const PROJECT_CONTINUITIES = ["reference", "seamless", "off"] as const;
 export const PROJECT_UPDATE_ERROR_CODES = [

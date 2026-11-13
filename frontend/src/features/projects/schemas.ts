@@ -5,6 +5,7 @@ import {
   PROJECT_CONTINUITIES,
   PROJECT_COVER_TONES,
   PROJECT_ERROR_CODES,
+  PROJECT_LANGUAGES,
   PROJECT_LOOKS,
   PROJECT_STATUSES,
 } from "./constants";
@@ -20,6 +21,9 @@ export const projectDraftSchema = z.object({
 export const projectSettingsSchema = projectDraftSchema.extend({
   look: z.enum(PROJECT_LOOKS),
   continuity: z.enum(PROJECT_CONTINUITIES),
+  language: z.enum(PROJECT_LANGUAGES),
+  // A film without sound.
+  mute: z.boolean(),
 });
 
 const sceneProgressIsValid = (project: {
@@ -37,6 +41,8 @@ const projectSummaryShape = projectDraftSchema.omit({ idea: true }).extend({
   currentScene: z.number().int().min(1).max(30).optional(),
   errorCode: z.enum(PROJECT_ERROR_CODES).optional(),
   coverTone: z.enum(PROJECT_COVER_TONES),
+  // A still of the first rendered scene; null until one exists.
+  coverUrl: z.string().nullable(),
 });
 
 export const projectSummarySchema =
@@ -70,6 +76,8 @@ export const projectSchema = projectSummaryShape
     idea: projectDraftSchema.shape.idea,
     look: z.enum(PROJECT_LOOKS),
     continuity: z.enum(PROJECT_CONTINUITIES),
+    language: z.enum(PROJECT_LANGUAGES),
+    mute: z.boolean(),
     characterBible: z.string().max(10000),
     visualStyle: z.string().max(3000),
     scriptRevision: z.number().int().nonnegative(),
@@ -84,6 +92,12 @@ export const projectSchema = projectSummaryShape
 export const scriptGenerationRequestSchema = z.object({
   accountId: z.string().min(1),
   idea: z.string().trim().min(1).max(12000),
+  language: z.enum(PROJECT_LANGUAGES),
+  look: z.enum(PROJECT_LOOKS),
+  // Write a voice-over line for every scene.
+  narration: z.boolean(),
+  // Free-form direction: tone, audience, pacing, must-haves.
+  direction: z.string().trim().max(2000),
 });
 
 export const scriptGenerationTaskSchema = z.object({

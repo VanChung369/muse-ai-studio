@@ -78,6 +78,10 @@ class Project(Base):
     # Render options (app/rendering/prompt.py): the film's visual look, and
     # how each scene uses a frame of the one before it.
     look: Mapped[str] = mapped_column(String(16), default="auto")
+    # Language of titles, narration and speech; `auto` follows the idea.
+    language: Mapped[str] = mapped_column(String(8), default="auto")
+    # A film without sound: asked of Muse and enforced when merging.
+    mute: Mapped[bool] = mapped_column(default=False)
     continuity: Mapped[str] = mapped_column(String(16), default="reference")
     # The Muse conversation this film is rendered in, the account that
     # owns it, and how many scenes it already holds.

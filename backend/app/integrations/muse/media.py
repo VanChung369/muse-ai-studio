@@ -2,18 +2,20 @@
 
 import base64
 import json
-import re
 import time
 from dataclasses import dataclass
-from urllib.parse import urlsplit
 from uuid import uuid4
 
 from playwright.sync_api import Error as BrowserError
 
 from app.integrations.muse.chat import (
+    ANCHOR_JS,
+    ANCHOR_WAIT,
     confirmed_session,
     fill_composer,
     open_composer,
+    settle_conversation,
+    thread_path_of,
 )
 from app.integrations.muse.client import MuseError
 
@@ -25,32 +27,13 @@ APPROVAL_CARD = '[data-testid="hatch-inline-approval-card"]'
 # The composer's upload control (reference: images are attached like a chat upload).
 FILE_INPUT = 'input[type="file"]'
 QUOTA_HINTS = ("out of credits", "usage limit", "limit reached", "token limit")
-# A real conversation, not the empty "new thread" page.
-THREAD_PATH = re.compile(r"^/thread/(?!new$)[A-Za-z0-9_-]{1,100}$")
-
-# Everything is read relative to our own message, found by the marker it
-# starts with. A conversation that already holds earlier scenes renders them
-# lazily, so "what was on the page before sending" is not a safe baseline:
-# only what follows our message in the document belongs to this request.
-_ANCHOR_JS = """
-  let anchor = null;
-  if (marker) {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node.nodeValue.includes(marker)) anchor = node;
-    }
-  }
-  const after = node => !!anchor
-    && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
-"""
-
-MEDIA_STATE_JS = f"""marker => {{
+MEDIA_STATE_JS = f"""([marker, all]) => {{
   const scrollers = [...document.querySelectorAll('*')].filter(e => {{
     const s = getComputedStyle(e);
     return (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 50;
   }});
   scrollers.forEach(e => {{ e.scrollTop = e.scrollHeight; }});
-  {_ANCHOR_JS}
+  {ANCHOR_JS}
   const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})].filter(after);
   const last = bubbles.length ? (bubbles[bubbles.length - 1].innerText || '').trim() : '';
   const attachments = [...document.querySelectorAll({json.dumps(ATTACHMENT)})].filter(after).map(a => {{
@@ -89,8 +72,8 @@ DENY_APPROVALS_JS = f"""() => {{
 }}"""
 
 # Media delivered as a link or bare <video> in the reply instead of an attachment.
-LAST_BUBBLE_LINKS_JS = f"""marker => {{
-  {_ANCHOR_JS}
+LAST_BUBBLE_LINKS_JS = f"""([marker, all]) => {{
+  {ANCHOR_JS}
   const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})].filter(after);
   const bubble = bubbles.length ? bubbles[bubbles.length - 1] : null;
   if (!bubble) return [];
@@ -156,11 +139,6 @@ def pick_video_link(links: list[str]) -> str | None:
     return None
 
 
-def thread_path_of(url: str) -> str | None:
-    path = urlsplit(url).path.rstrip("/")
-    return path if THREAD_PATH.fullmatch(path) else None
-
-
 def generate_video(
     client,
     cookies,
@@ -193,9 +171,12 @@ def generate_video(
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
     )
-    # Our message is recognised on the page by this label (see _ANCHOR_JS).
+    # Our message is recognised on the page by this label (see ANCHOR_JS).
     marker = f"shot-{uuid4().hex[:8]}"
     with open_composer(client, result, proxy, thread_path) as page:
+        continued = thread_path_of(page.url) is not None
+        if continued:
+            settle_conversation(page)
         if reference:
             _attach_reference(page, reference, result)
         point = fill_composer(
@@ -205,12 +186,13 @@ def generate_video(
             result,
             wait=60 if reference else 15,
         )
+        baseline = page.evaluate(MEDIA_STATE_JS, [None, True])
         check_cancelled()
         # Record submission BEFORE the click; refreshed cookies are already saved.
         before_send(result)
         page.mouse.click(point["x"], point["y"])
         attachment = _wait_for_video(
-            page, marker, check_cancelled, result, timeout, grace
+            page, marker, baseline, continued, check_cancelled, result, timeout, grace
         )
         fetched = page.evaluate(FETCH_MEDIA_JS, attachment["src"])
         if not fetched.get("ok") or not fetched.get("b64"):
@@ -237,7 +219,33 @@ def _attach_reference(page, image: bytes, result) -> None:
     page.wait_for_timeout(1000)
 
 
-def _wait_for_video(page, marker, check_cancelled, result, timeout, grace):
+def _read_state(page, marker, baseline, anchor_wait, sent_at):
+    """The page relative to our message: by its label when the page shows
+    it, otherwise by comparing with what was there before sending."""
+    state = page.evaluate(MEDIA_STATE_JS, [marker, False])
+    if state["sent"]:
+        return state
+    if time.monotonic() - sent_at < anchor_wait:
+        return state  # Not sent yet, as far as we can tell.
+    known = {(a["tid"], a["src"]) for a in baseline["attachments"]}
+    state = page.evaluate(MEDIA_STATE_JS, [None, True])
+    state["attachments"] = [
+        a for a in state["attachments"] if (a["tid"], a["src"]) not in known
+    ]
+    state["agentCount"] = max(0, state["agentCount"] - baseline["agentCount"])
+    if not state["agentCount"]:
+        state["lastText"] = ""
+    state["sent"], state["anchored"] = True, False
+    return state
+
+
+def _wait_for_video(
+    page, marker, baseline, continued, check_cancelled, result, timeout, grace
+):
+    # A new conversation holds nothing but this request, so the baseline
+    # comparison is safe at once; a continued one gets time to show our
+    # message first.
+    anchor_wait = ANCHOR_WAIT if continued else 0.0
     agent_count = 0
     started = time.monotonic()
     text_done_at = None
@@ -248,7 +256,7 @@ def _wait_for_video(page, marker, check_cancelled, result, timeout, grace):
             raise MuseError("generation_timeout", 504, partial=result)
         check_cancelled()
         page.wait_for_timeout(POLL_MS)
-        state = page.evaluate(MEDIA_STATE_JS, marker)
+        state = _read_state(page, marker, baseline, anchor_wait, started)
         if state["approval"]:
             page.evaluate(DENY_APPROVALS_JS)
             denied, text_done_at = True, None
@@ -293,7 +301,11 @@ def _wait_for_video(page, marker, check_cancelled, result, timeout, grace):
             asked_to_attach, text_done_at = True, None
             agent_count = state["agentCount"]
             continue
-        link = pick_video_link(page.evaluate(LAST_BUBBLE_LINKS_JS, marker))
+        link = pick_video_link(
+            page.evaluate(
+                LAST_BUBBLE_LINKS_JS, [marker, not state.get("anchored", True)]
+            )
+        )
         if link:
             return {"src": link, "kind": "video"}
         raise MuseError(

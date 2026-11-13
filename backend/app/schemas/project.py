@@ -6,6 +6,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    computed_field,
     field_validator,
     model_validator,
 )
@@ -35,6 +36,10 @@ ProjectLook = Literal[
 # How a scene uses the last frame of the previous one: not at all, as a
 # visual reference, or as its own first frame.
 ProjectContinuity = Literal["off", "reference", "seamless"]
+# Language of titles, narration and speech; `auto` follows the idea's language.
+ProjectLanguage = Literal[
+    "auto", "vi", "en", "zh", "ja", "ko", "es", "fr", "de", "pt", "th", "id"
+]
 
 
 class ProjectCreate(BaseModel):
@@ -48,6 +53,8 @@ class ProjectCreate(BaseModel):
     duration_seconds: int = Field(default=60, strict=True, ge=10, le=300, multiple_of=5)
     look: ProjectLook = "auto"
     continuity: ProjectContinuity = "reference"
+    language: ProjectLanguage = "auto"
+    mute: bool = Field(default=False, strict=True)
 
     @field_validator("name", "idea", mode="before")
     @classmethod
@@ -71,6 +78,8 @@ class ProjectUpdate(BaseModel):
     )
     look: ProjectLook | None = None
     continuity: ProjectContinuity | None = None
+    language: ProjectLanguage | None = None
+    mute: bool | None = Field(default=None, strict=True)
     # A saved script adds up to the current duration. Changing the
     # duration is refused unless the caller agrees to drop that script.
     discard_script: bool = Field(default=False, strict=True)
@@ -151,6 +160,15 @@ class ProjectSummary(CamelModel):
     completed_scenes: int = 0
     cover_tone: Literal["coffee"] = "coffee"
 
+    @computed_field
+    @property
+    def cover_url(self) -> str | None:
+        """A still of the first rendered scene; null until one exists."""
+        if self.completed_scenes < 1:
+            return None
+        # Changes whenever a scene is rendered, so a new cover is not cached away.
+        return f"/api/projects/{self.id}/cover?v={int(self.updated_at.timestamp())}"
+
     @field_validator("created_at", "updated_at")
     @classmethod
     def ensure_utc(cls, value: datetime) -> datetime:
@@ -164,6 +182,9 @@ class ProjectResponse(ProjectSummary):
     idea: str
     look: ProjectLook
     continuity: ProjectContinuity
+    language: ProjectLanguage
+    # The film has no sound.
+    mute: bool
     character_bible: str
     visual_style: str
     script_revision: int

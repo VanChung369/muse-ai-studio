@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings
+from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseClient, MuseError
 from app.integrations.muse.media import (
     generate_video,
@@ -70,13 +71,18 @@ function oldClip() {
   video.src = '/media/old.mp4';
   holder.appendChild(video);
   chat.prepend(holder);
+  const reply = document.createElement('div');
+  reply.className = 'hatch-chat-groupable-bubble hatch-agent-bubble-bg';
+  reply.innerText = 'An earlier reply in this conversation.';
+  chat.prepend(reply);
 }
 document.querySelector('button').onclick = () => {
   sent += 1;
   const mine = document.createElement('div');
   mine.className = 'user-bubble';
   mine.innerText = textarea.value;
-  chat.appendChild(mine);
+  // 'hidden': a page that does not show our message as findable text.
+  if (MODE !== 'hidden') chat.appendChild(mine);
   if (location.pathname === '/thread/new') history.pushState({}, '', '/thread/t-001');
   // An earlier scene of this conversation, rendered lazily after we sent.
   else setTimeout(oldClip, 100);
@@ -85,7 +91,8 @@ document.querySelector('button').onclick = () => {
   if (file) file.arrayBuffer().then(bytes => fetch('/__file?name=' + file.name + '&type=' + file.type, { method: 'POST', body: bytes }));
   textarea.value = '';
   setTimeout(() => {
-    if (MODE === 'video') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'video' || MODE === 'hidden') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'script') bubble('{"scenes": []}');
     if (MODE === 'approval') approval();
     if (MODE === 'quota') bubble("You've reached your usage limit for this week.");
     if (MODE === 'refuse') bubble("I can't create that.");
@@ -219,6 +226,52 @@ def test_conversation_that_is_gone_falls_back_to_a_new_one(muse):
     assert video.data == CLIP
     assert video.thread_path == "/thread/t-001"
     assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_page_that_hides_our_message_still_works_in_a_new_conversation(muse):
+    # Nothing but this request is on the page, so everything on it is ours.
+    muse.mode = "hidden"
+    video, _ = generate(muse)
+    assert video.data == CLIP
+
+
+def write_script(muse, **options):
+    client = MuseClient(
+        Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER)
+    )
+    threads = []
+    text = generate_script_text(
+        client,
+        {"hatch_sess": "media-fixture"},
+        {},
+        None,
+        "Write the script",
+        on_session=lambda result: None,
+        before_send=lambda result: None,
+        check_cancelled=lambda: None,
+        timeout=20,
+        on_thread=threads.append,
+        **options,
+    )
+    return text, threads
+
+
+@needs_browser
+def test_script_reply_is_read_and_its_conversation_reported(muse):
+    muse.mode = "script"
+    text, threads = write_script(muse)
+    assert text == '{"scenes": []}'
+    assert threads == ["/thread/t-001"]
+    assert re.fullmatch(r"\[plan-[0-9a-f]{8}\] Write the script", muse.sent[0])
+
+
+@needs_browser
+def test_script_in_a_continued_conversation_ignores_earlier_replies(muse):
+    muse.mode = "script"
+    text, threads = write_script(muse, thread_path="/thread/old-1")
+    assert text == '{"scenes": []}'
+    assert threads == ["/thread/old-1"]
 
 
 def test_only_real_conversations_are_remembered():

@@ -66,6 +66,20 @@ CONTINUITY = {
 }
 PREVIOUS_SHOT_LIMIT = 400
 
+LANGUAGES = {
+    "vi": "Vietnamese",
+    "en": "English",
+    "zh": "Chinese",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "pt": "Portuguese",
+    "th": "Thai",
+    "id": "Indonesian",
+}
+
 
 def build_scene_prompt(
     project: Project,
@@ -96,5 +110,22 @@ def build_scene_prompt(
         if previous is not None:
             summary = " ".join(previous.prompt.split())[:PREVIOUS_SHOT_LIMIT]
             parts.append("Previous shot: " + summary)
+    language = LANGUAGES.get(project.language)
+    if project.mute:
+        # A silent film: nothing is spoken, so narration and language do not apply.
+        parts.append(
+            "Audio: this is a silent video. No dialogue, voice-over, music or "
+            "sound effects."
+        )
+    elif scene.narration.strip():
+        # The line a narrator speaks over this shot.
+        spoken = f" in {language}" if language else ""
+        parts.append(
+            f'Voice-over, spoken by a narrator{spoken}: "{scene.narration.strip()}"'
+        )
+    if language and not project.mute:
+        parts.append(
+            f"Language: any speech, voice-over or singing is in {language} only."
+        )
     parts.append("Quality: " + QUALITY)
     return video_prompt("\n".join(parts), project.aspect_ratio, scene.duration_seconds)

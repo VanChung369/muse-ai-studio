@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 
@@ -79,8 +80,9 @@ def muse(monkeypatch):
 def ffmpeg(monkeypatch):
     """A merge that joins the clips' bytes, so no FFmpeg binary is needed."""
 
-    def merge(binary, clips, output, check_cancelled):
-        output.write_bytes(b"|".join(clip.read_bytes() for clip in clips))
+    def merge(binary, clips, output, check_cancelled, mute=False):
+        joined = b"|".join(clip.read_bytes() for clip in clips)
+        output.write_bytes(joined + (b" (muted)" if mute else b""))
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
     monkeypatch.setattr("app.rendering.tasks.merge", merge)
@@ -292,7 +294,7 @@ def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
     assert failed["merge"]["error"]["code"] == "ffmpeg_unavailable"
     assert all(scene["videoUrl"] for scene in failed["scenes"])
 
-    def merge(binary, clips, output, check_cancelled):
+    def merge(binary, clips, output, check_cancelled, mute=False):
         output.write_bytes(b"merged")
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
@@ -464,6 +466,150 @@ def test_a_film_is_rendered_in_one_conversation_on_one_account(client, muse, ffm
     client.post(path + "/render/restart", json={"fromScene": 1})
     wait_status(client, project["id"], "completed")
     assert muse.threads[2:] == [None, "/thread/t-2"]
+
+
+def test_script_and_scenes_share_one_conversation(client, muse, ffmpeg, monkeypatch):
+    add_account(client, "first-fixture")
+    writer = add_account(client, "writer-fixture")
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    prompts = []
+
+    def write_script(client_, cookies, expiries, proxy, prompt, **hooks):
+        prompts.append((prompt, hooks.get("thread_path")))
+        hooks["before_send"](None)
+        hooks["on_thread"]("/thread/script-1")
+        return json.dumps(
+            {
+                "characterBible": "",
+                "visualStyle": "",
+                "scenes": [
+                    {"number": 1, "title": "A", "prompt": "One", "durationSeconds": 10},
+                    {"number": 2, "title": "B", "prompt": "Two", "durationSeconds": 5},
+                ],
+            }
+        )
+
+    monkeypatch.setattr("app.planning.tasks.generate_script_text", write_script)
+    request = {
+        "accountId": writer["id"],
+        "idea": "A farmer",
+        "expectedRevision": 1,
+        "language": "vi",
+        "look": "documentary",
+        "narration": True,
+        "direction": "Slow, quiet pacing",
+    }
+    task = client.post(path + "/script-generation", json=request).json()
+    deadline = time.monotonic() + 5
+    while client.get(f"/api/tasks/{task['id']}").json()["status"] != "succeeded":
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+
+    # What was chosen in the dialog reached the writer and the project.
+    brief, thread = prompts[0]
+    assert thread is None
+    assert "Write scene titles and narration in Vietnamese." in brief
+    assert "Write a voice-over line for every scene" in brief
+    assert "Documentary look" in brief
+    assert "Additional direction from the user: Slow, quiet pacing" in brief
+    saved = client.get(path).json()
+    assert (saved["language"], saved["look"]) == ("vi", "documentary")
+
+    # A second script continues the conversation the first one opened...
+    client.post(path + "/script-generation", json=request)
+    deadline = time.monotonic() + 5
+    while len(prompts) < 2:
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+    assert prompts[1][1] == "/thread/script-1"
+
+    # ...and so does the render, on the account that owns it.
+    time.sleep(0.2)
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    assert muse.threads == ["/thread/script-1", "/thread/script-1"]
+    assert set(muse.accounts) == {"writer-fixture"}
+    assert "Language: any speech, voice-over or singing is in Vietnamese only." in muse.prompts[0]
+
+
+def test_muted_film_asks_for_silence_and_merges_without_sound(client, muse, ffmpeg):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    assert client.patch(path, json={"mute": True, "language": "vi"}).json()["mute"] is True
+    client.post(path + "/render")
+    done = wait_status(client, project["id"], "completed")
+    assert all("Audio: this is a silent video." in prompt for prompt in muse.prompts)
+    assert not any("Language: " in prompt for prompt in muse.prompts)
+    assert client.get(done["videoUrl"]).content == b"clip-1|clip-2 (muted)"
+
+    # Turning the sound back on merges again from the same clips.
+    changed = client.patch(path, json={"mute": False}).json()
+    assert changed["status"] == "rendering"
+    done = wait_status(client, project["id"], "completed")
+    assert client.get(done["videoUrl"]).content == b"clip-1|clip-2"
+    assert len(muse.prompts) == 2  # Nothing was rendered again.
+    # The same value again changes nothing.
+    assert client.patch(path, json={"mute": False}).json()["status"] == "completed"
+
+
+def test_narration_is_sent_as_a_voice_over(client, muse, ffmpeg):
+    add_account(client)
+    project = client.post(
+        "/api/projects", json={"name": "Tea", "durationSeconds": 10, "language": "en"}
+    ).json()
+    path = f"/api/projects/{project['id']}"
+    client.put(
+        path + "/script",
+        json={
+            "expectedRevision": 0,
+            "scenes": [
+                {
+                    "number": 1,
+                    "title": "Dawn",
+                    "prompt": "Mist over the hills",
+                    "durationSeconds": 10,
+                    "narration": "Every morning begins here.",
+                }
+            ],
+        },
+    )
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    assert (
+        'Voice-over, spoken by a narrator in English: "Every morning begins here."'
+        in muse.prompts[0]
+    )
+
+
+def test_cover_and_thumbnails_appear_with_the_first_clip(client, muse, ffmpeg, monkeypatch):
+    def still(binary, clip, target):
+        target.write_bytes(b"still-of-" + clip.read_bytes())
+        return True
+
+    monkeypatch.setattr("app.rendering.tasks.thumbnail", still)
+    monkeypatch.setattr("app.api.routes.render.thumbnail", still)
+    monkeypatch.setattr("app.api.routes.render.find_ffmpeg", lambda settings: "ffmpeg")
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    assert project["coverUrl"] is None
+    assert client.get(path + "/cover").status_code == 404
+    client.post(path + "/render")
+    done = wait_status(client, project["id"], "completed")
+
+    listed = client.get("/api/projects").json()["items"][0]
+    assert listed["coverUrl"].startswith(path + "/cover?v=")
+    assert client.get(listed["coverUrl"]).content == b"still-of-clip-1"
+    thumb = client.get(done["scenes"][1]["thumbnailUrl"])
+    assert thumb.content == b"still-of-clip-2"
+    assert thumb.headers["content-type"] == "image/jpeg"
+    # A clip rendered before thumbnails existed gets one on first request.
+    folder = client.app.state.settings.media_dir / "projects" / project["id"]
+    (folder / "scene-01.jpg").unlink()
+    assert client.get(path + "/scenes/1/thumbnail").content == b"still-of-clip-1"
+    assert client.get(path + "/scenes/9/thumbnail").status_code == 404
 
 
 def test_long_film_starts_a_new_conversation_at_the_limit(settings, muse, ffmpeg):

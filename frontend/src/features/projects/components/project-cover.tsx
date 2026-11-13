@@ -20,7 +20,14 @@ export function ProjectCover({
         className,
       )}
     >
-      {project.status === "draft" ? (
+      {project.coverUrl ? (
+        <img
+          src={project.coverUrl}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-contain"
+        />
+      ) : project.status === "draft" ? (
         <Clapperboard className="size-8 text-input" />
       ) : (
         <div

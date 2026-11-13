@@ -29,7 +29,15 @@ def enqueue_script(session, project_id, values):
                 Project.script_revision == values.expected_revision,
                 Project.status.in_(("draft", "ready")),
             )
-            .values(idea=values.idea)
+            .values(
+                idea=values.idea,
+                # The dialog's language and look become the project's.
+                **{
+                    name: getattr(values, name)
+                    for name in ("language", "look")
+                    if getattr(values, name, None) is not None
+                },
+            )
             .execution_options(synchronize_session=False)
         ).rowcount
         if not claimed:
@@ -69,6 +77,11 @@ def enqueue_script(session, project_id, values):
                     "idea": values.idea,
                     "durationSeconds": project.duration_seconds,
                     "aspectRatio": project.aspect_ratio,
+                    "language": project.language,
+                    "look": project.look,
+                    "mute": project.mute,
+                    "narration": bool(getattr(values, "narration", False)),
+                    "direction": getattr(values, "direction", ""),
                 },
             },
         )
@@ -120,11 +133,36 @@ def latest_script_task(session, project_id):
 def make_script_handler(app):
     def handler(context):
         context.raise_if_cancelled()
-        with app.state.database.sessions() as session:
-            project_exists = session.get(Project, context.project_id) is not None
-        if not project_exists:
-            raise TaskFailure("project_not_found")
+        database, settings = app.state.database, app.state.settings
+        with database.sessions() as session:
+            project = session.get(Project, context.project_id)
+            if project is None:
+                raise TaskFailure("project_not_found")
+            # Write the script in the film's own conversation, where its
+            # scenes are rendered later.
+            thread = (
+                project.muse_thread_path
+                if project.muse_thread_account_id == context.account_id
+                and project.muse_thread_scenes < settings.thread_scene_limit
+                else None
+            )
         account = TaskAccountSession(app, context.account_id)
+
+        def remember_thread(path):
+            if not path or path == thread:
+                return
+            with database.sessions() as session:
+                session.execute(
+                    update(Project)
+                    .where(Project.id == context.project_id)
+                    .values(
+                        muse_thread_path=path,
+                        muse_thread_account_id=context.account_id,
+                        muse_thread_scenes=0,
+                    )
+                    .execution_options(synchronize_session=False)
+                )
+                session.commit()
 
         def before_send(result):
             context.raise_if_cancelled()
@@ -140,7 +178,9 @@ def make_script_handler(app):
                 on_session=account.persist,
                 before_send=before_send,
                 check_cancelled=context.raise_if_cancelled,
-                timeout=app.state.muse_client.settings.planning_timeout,
+                timeout=settings.planning_timeout,
+                thread_path=thread,
+                on_thread=remember_thread,
             )
         except MuseError as error:
             raise account.failure(error) from None

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.models import Project
 from app.planning.tasks import PlanningRequestError, enqueue_script, latest_script_task
+from app.schemas.project import ProjectLanguage, ProjectLook
 from app.schemas.task import TaskResponse
 
 router = APIRouter(prefix="/projects", tags=["Script generation"])
@@ -21,6 +22,13 @@ class ScriptGenerationRequest(BaseModel):
     account_id: str = Field(min_length=1, max_length=36)
     expected_revision: int = Field(strict=True, ge=0)
     idea: str = Field(min_length=1, max_length=12000)
+    # Saved on the project and used for this script; omitted = keep the project's.
+    language: ProjectLanguage | None = None
+    look: ProjectLook | None = None
+    # Write a voice-over line for every scene.
+    narration: bool = Field(default=False, strict=True)
+    # Free-form direction for the writer: tone, audience, pacing, must-haves.
+    direction: str = Field(default="", max_length=2000)
 
 
 @router.post(
