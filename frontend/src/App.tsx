@@ -10,6 +10,11 @@ import { NOT_FOUND_ROUTE, ROUTES } from "@/constants/routes";
 // Feature pages that are built. Every other navigation item renders the
 // WorkspacePage placeholder. AppLayout wraps the outlet in one Suspense.
 const featurePages: Partial<Record<NavigationItem["id"], ComponentType>> = {
+  accounts: lazy(() =>
+    import("@/pages/accounts-page").then((module) => ({
+      default: module.AccountsPage,
+    })),
+  ),
   projects: lazy(() =>
     import("@/pages/projects-page").then((module) => ({
       default: module.ProjectsPage,

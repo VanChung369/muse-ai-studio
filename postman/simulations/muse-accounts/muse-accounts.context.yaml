@@ -1,0 +1,23 @@
+purpose:
+  stands_in_for: Muse web-session HTTP endpoints and Settings usage UI
+  unblocks: Local account operation integration and failure checks without real credentials
+assumptions:
+  - id: legacy-session-protocol
+    status: unknown
+    claim: The current provider continues to accept the reference session and wake protocol.
+    reason: No published Muse account API contract was found; Orbit returned unrelated providers. Signed-out Postman owner discovery was skipped.
+    verification: Reference implementation inspected; no real account credentials used.
+    source: backend/app/integrations/muse/client.py and reference ai-meeting/engine.py
+    updated_at: '2026-11-13'
+  - id: usage-ui-schema
+    status: unknown
+    claim: The current Settings panel retains the reference selectors and usage labels.
+    reason: The fixture reproduces the inspected English panel; a live account is still needed to establish provider compatibility.
+    verification: Pending local Chromium integration run.
+    source: backend/app/integrations/muse/quota.py
+    updated_at: '2026-11-13'
+fingerprints:
+  - id: local-fixture
+    date: '2026-11-13'
+    commit: null
+    cli: '1.82.0'

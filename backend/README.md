@@ -1,6 +1,6 @@
 # Muse AI Studio — Backend
 
-FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Muse integration and the task coordinator will be added later.
+FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Local Muse account management is also available. Live Muse integration and the task coordinator will be added later.
 
 ## Requirements
 
@@ -48,13 +48,13 @@ uv run alembic upgrade head
 uv run alembic check
 ```
 
-Migration `0001_baseline` initializes migration history; `0002_projects` creates the projects table and validation constraints; `0003_project_list_pagination` adds the normalized `name_key` column (backfilled for existing rows) and the indexes used by paginated project lists. `0004_project_scripts` stores shared script descriptions, revision numbers, and ordered scene rows. Existing projects keep their original data and start with an empty script at revision 0. Existing databases upgrade on startup. Future models should inherit from `app.db.base.Base` and be imported in `migrations/env.py` before generating a migration:
+Migration `0001_baseline` initializes migration history; `0002_projects` creates the projects table and validation constraints; `0003_project_list_pagination` adds the normalized `name_key` column (backfilled for existing rows) and the indexes used by paginated project lists. `0004_project_scripts` stores shared script descriptions, revision numbers, and ordered scene rows. Existing projects keep their original data and start with an empty script at revision 0. `0005_project_scene_count` stores each project's scene count (backfilled from existing scenes). `0006_accounts` adds encrypted account sessions and metadata. Existing databases upgrade on startup. Future models should inherit from `app.db.base.Base` and be imported in `migrations/env.py` before generating a migration:
 
 ```bash
 uv run alembic revision --autogenerate -m "Describe the schema change"
 ```
 
-Review generated migrations before applying them. Alembic is configured for SQLite batch migrations.
+Review generated migrations before applying them. Alembic is configured for SQLite batch migrations. Migrations run with foreign keys disabled (`Database.migration_connection`) because batch operations rebuild tables, and dropping the old `projects` table would otherwise cascade-delete its scenes; integrity is checked with `PRAGMA foreign_key_check` before commit.
 
 ## Structure
 
@@ -65,7 +65,7 @@ app/
     router.py         API route registration
     dependencies.py   Request-scoped database sessions
     routes/           Health and project endpoints
-  models/             SQLAlchemy project and scene models
+  models/             SQLAlchemy project, scene, and account models
   schemas/project.py  Request and response contracts
   repositories/       Project queries and transaction handling
   core/config.py      Environment settings and stable data paths
@@ -89,10 +89,21 @@ Scripts contain 1–30 scenes lasting 5 or 10 seconds each, totaling the project
 
 See [the API contract](api-contract.md) for payloads and errors. FastAPI's live OpenAPI schema is authoritative; `openapi.json` is its committed snapshot.
 
+## Account API and Encryption
+
+- `GET /api/accounts` and `GET /api/accounts/{id}` return public metadata only.
+- `POST /api/accounts` imports a label and write-only `cookieText`; successful imports return HTTP 201. The same `hatch_sess` cannot be imported twice (HTTP 409).
+- `PATCH /api/accounts/{id}` updates a label and/or enabled preference.
+- `DELETE /api/accounts/{id}` removes only the saved account session (HTTP 204).
+
+Imports accept whatever users paste — Cookie headers, `document.cookie`, DevTools request headers, cURL/fetch copies, extension JSON exports, Playwright storage state, `cookies.txt`, or DevTools cookie-table rows — and skip anything that is not a usable muse.ai cookie (see `api-contract.md`). Unknown fields, unsupported formats, and missing session cookies return HTTP 422 without echoing the pasted credential input. There are no upstream requests in these endpoints: all imported sessions report `sessionStatus: "unverified"`, with no assumed quota or expiry. The existing local-development API still has no authentication layer.
+
+Credentials are encrypted with Fernet before they enter SQLite. Startup creates `data/account-secret.key` automatically with mode 0600, alongside the existing database. Back up **both the database and this key** to restore imported accounts. Startup fails with an explicit message if stored accounts exist but their key is missing or does not match; it never silently replaces that key. Importing the Python module alone creates no data files. The key and database are runtime data ignored by Git. Database encryption protects the stored credential fields; the key remains on the same host and is not a replacement for host access controls.
+
 ## Validation
 
 ```bash
 uv run --locked pytest -q
 ```
 
-Tests use isolated temporary databases and cover validation, empty state, draft creation, detail lookup, restart persistence, baseline migration, model consistency, script persistence/replacement, duration and input validation, locked statuses, concurrent revision conflicts, rollback behavior, cascading project deletion, deletion status rules and concurrency, and the OpenAPI snapshot. They do not write to the development database.
+Tests use isolated temporary databases and cover validation, empty state, draft creation, detail lookup, restart persistence, baseline migration, model consistency, script persistence/replacement, duration and input validation, locked statuses, concurrent revision conflicts, rollback behavior, cascading project deletion, deletion status rules and concurrency, the OpenAPI snapshot, account CRUD and duplicate imports, credential redaction, encryption/restart persistence, and missing-key recovery. They do not write to the development database.

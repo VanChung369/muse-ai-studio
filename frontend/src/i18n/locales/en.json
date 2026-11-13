@@ -255,5 +255,153 @@
       "busy": "Stop the running operation before deleting this project.",
       "error": "Could not confirm that the project was deleted. You can try again."
     }
+  },
+  "accounts": {
+    "listLabel": "Imported accounts",
+    "filterLabel": "Filter accounts",
+    "search": "Search accounts",
+    "searchPlaceholder": "Search by account label",
+    "refresh": "Refresh accounts",
+    "verificationNote": "Test verifies the session. Keep alive refreshes it and checks the workspace. Quota reads the latest usage; unknown data stays unfilled until checked.",
+    "added": "Added {{date}}",
+    "cookieCount_one": "{{count}} cookie",
+    "cookieCount_other": "{{count}} cookies",
+    "enable": "Enable",
+    "disable": "Disable",
+    "enableFor": "Enable {{label}}",
+    "disableFor": "Disable {{label}}",
+    "filters": {
+      "all": "All accounts",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "fields": {
+      "account": "Account",
+      "label": "Account label",
+      "session": "Session",
+      "cookies": "Cookies",
+      "actions": "Actions",
+      "id": "Account ID",
+      "status": "Status",
+      "expires": "Expires",
+      "quota": "Quota",
+      "enabled": "Enabled",
+      "lastUsed": "Last used",
+      "notes": "Notes",
+      "proxy": "Proxy",
+      "connection": "Connection & usage"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "unverified": "Not verified",
+      "valid": "Valid",
+      "invalid": "Invalid"
+    },
+    "empty": {
+      "title": "Connect your first Muse account",
+      "description": "Import a session from your Muse account to start setting up your workspace.",
+      "noResults": "No matching accounts",
+      "noResultsDescription": "Try another label or clear the current filters.",
+      "clear": "Clear filters"
+    },
+    "import": {
+      "action": "Import account",
+      "title": "Import a Muse account",
+      "description": "Paste a session from your Muse account. Use Test after importing to verify it.",
+      "labelPlaceholder": "e.g. My creative account",
+      "cookies": "Session cookies",
+      "cookiePlaceholder": "hatch_sess=…; other_cookie=…",
+      "cookieHint": "Paste cookies in any form you copied them: a Cookie header, document.cookie, request headers, Copy as cURL or fetch, a cookie extension's JSON export, or cookies.txt. Other sites' cookies are ignored. hatch_sess is required. This form is cleared when closed.",
+      "importing": "Importing…",
+      "success": "Account “{{label}}” imported."
+    },
+    "rename": {
+      "title": "Rename account",
+      "description": "Choose a label that helps you recognize this account.",
+      "forAccount": "Rename {{label}}",
+      "save": "Save label",
+      "saving": "Saving…"
+    },
+    "delete": {
+      "title": "Delete this account?",
+      "description": "The saved session for “{{label}}” will be permanently removed. Your video projects will stay unchanged.",
+      "forAccount": "Delete {{label}}",
+      "confirm": "Delete account",
+      "deleting": "Deleting…",
+      "success": "Account “{{label}}” deleted."
+    },
+    "errors": {
+      "load": "Could not load accounts. Check the connection and try again.",
+      "label": "Enter a label between 1 and 100 characters.",
+      "cookies": "Paste the session cookies (up to 1 MB of text).",
+      "duplicate": "This session has already been imported. Find it in the account list.",
+      "missingSession": "Include a nonempty hatch_sess cookie.",
+      "format": "Could not find any cookies in this text. Copy the cookies again from your browser.",
+      "import": "Could not confirm that the account was imported. Your input is preserved. Check the list before retrying.",
+      "update": "Could not update the account. Please try again.",
+      "delete": "Could not confirm that the account was deleted. You can try again.",
+      "rejected": "The server rejected this input, so nothing was saved. Check the fields and try again."
+    },
+    "edit": {
+      "rename": "Rename",
+      "notes": "Edit notes",
+      "cookies": "Update cookies",
+      "proxy": "Configure proxy"
+    },
+    "actions": {
+      "test": "Test",
+      "keepAlive": "Keep alive",
+      "quota": "Quota",
+      "proxy": "Proxy"
+    },
+    "actionsFor": "Actions for {{label}}",
+    "running": "Running…",
+    "save": "Save",
+    "unknown": "Unknown",
+    "notChecked": "Not checked",
+    "neverUsed": "Never used",
+    "noNotes": "No notes",
+    "lastOperationFailed": "Last operation failed",
+    "quota": {
+      "used": "{{percent}}% weekly quota used",
+      "reset": "Resets: {{value}}"
+    },
+    "proxy": {
+      "hint": "Use an HTTP or SOCKS5 proxy URL. Leave the server empty to use a direct connection. Saved account operations use this route.",
+      "server": "Proxy server",
+      "placeholder": "http://host:port",
+      "username": "Username",
+      "password": "Password",
+      "passwordHint": "Leave blank to keep the saved password for the same server and username.",
+      "direct": "Direct",
+      "error": "Could not save this proxy. Check the URL and enter a password when changing its server or username."
+    },
+    "operationMessages": {
+      "session_valid": "Session verified.",
+      "keepalive_complete": "Session refreshed and workspace running.",
+      "quota_updated": "Quota refreshed.",
+      "session_invalid": "Session expired or invalid. Update its cookies.",
+      "workspace_not_running": "Session verified, but the workspace is not confirmed running.",
+      "upstream_timeout": "Muse timed out. Please retry.",
+      "network_error": "Could not reach Muse.",
+      "proxy_error": "Proxy connection or authentication failed. No direct fallback was used.",
+      "access_denied": "Muse denied this connection. Session validity is unchanged.",
+      "rate_limited": "Muse rate limit reached. Retry later.",
+      "upstream_error": "Muse returned an unexpected response.",
+      "invalid_response": "Muse returned an unreadable session response.",
+      "workspace_unavailable": "Muse did not assign a workspace.",
+      "quota_unavailable": "Could not read the usage panel. The previous quota is preserved.",
+      "browser_unavailable": "Quota reading needs Chrome or Chromium on the server.",
+      "browser_busy": "The quota browser is busy. Retry shortly.",
+      "account_busy": "An operation is already running for this account.",
+      "account_changed": "Account credentials changed. Reload and retry."
+    },
+    "cells": {
+      "id": "ID {{value}}",
+      "checked": "Checked {{value}}",
+      "expires": "Expires: {{value}}",
+      "lastUsed": "Last used: {{value}}"
+    }
   }
 }

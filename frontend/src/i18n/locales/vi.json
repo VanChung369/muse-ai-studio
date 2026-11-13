@@ -255,5 +255,153 @@
       "busy": "Dừng tác vụ đang chạy trước khi xóa dự án này.",
       "error": "Chưa xác nhận được dự án đã xóa. Bạn có thể thử lại."
     }
+  },
+  "accounts": {
+    "listLabel": "Tài khoản đã nhập",
+    "filterLabel": "Lọc tài khoản",
+    "search": "Tìm tài khoản",
+    "searchPlaceholder": "Tìm theo tên tài khoản",
+    "refresh": "Làm mới tài khoản",
+    "verificationNote": "Kiểm tra xác thực phiên. Duy trì phiên làm mới cookie và kiểm tra workspace. Quota đọc mức sử dụng mới nhất; dữ liệu chưa biết sẽ để trống đến khi kiểm tra.",
+    "added": "Đã thêm {{date}}",
+    "cookieCount_one": "{{count}} cookie",
+    "cookieCount_other": "{{count}} cookie",
+    "enable": "Bật",
+    "disable": "Tắt",
+    "enableFor": "Bật {{label}}",
+    "disableFor": "Tắt {{label}}",
+    "filters": {
+      "all": "Tất cả",
+      "enabled": "Đã bật",
+      "disabled": "Đã tắt"
+    },
+    "fields": {
+      "account": "Tài khoản",
+      "label": "Tên tài khoản",
+      "session": "Phiên đăng nhập",
+      "cookies": "Cookie",
+      "actions": "Thao tác",
+      "id": "ID tài khoản",
+      "status": "Trạng thái",
+      "expires": "Hết hạn",
+      "quota": "Quota",
+      "enabled": "Bật",
+      "lastUsed": "Dùng lần cuối",
+      "notes": "Ghi chú",
+      "proxy": "Proxy",
+      "connection": "Kết nối & sử dụng"
+    },
+    "status": {
+      "enabled": "Đã bật",
+      "disabled": "Đã tắt",
+      "unverified": "Chưa kiểm tra",
+      "valid": "Hợp lệ",
+      "invalid": "Không hợp lệ"
+    },
+    "empty": {
+      "title": "Kết nối tài khoản Muse đầu tiên",
+      "description": "Nhập phiên từ tài khoản Muse của bạn để bắt đầu thiết lập không gian làm việc.",
+      "noResults": "Không có tài khoản phù hợp",
+      "noResultsDescription": "Thử tên khác hoặc xóa bộ lọc hiện tại.",
+      "clear": "Xóa bộ lọc"
+    },
+    "import": {
+      "action": "Nhập tài khoản",
+      "title": "Nhập tài khoản Muse",
+      "description": "Dán phiên từ tài khoản Muse của bạn. Dùng Kiểm tra sau khi nhập để xác thực phiên.",
+      "labelPlaceholder": "Ví dụ: Tài khoản sáng tạo của tôi",
+      "cookies": "Cookie phiên đăng nhập",
+      "cookiePlaceholder": "hatch_sess=…; other_cookie=…",
+      "cookieHint": "Dán cookie theo bất kỳ cách nào bạn đã copy: Cookie header, document.cookie, request headers, Copy as cURL hoặc fetch, file JSON từ extension cookie, hoặc cookies.txt. Cookie của trang khác sẽ được bỏ qua. Cần có hatch_sess. Nội dung form được xóa khi đóng.",
+      "importing": "Đang nhập…",
+      "success": "Đã nhập tài khoản “{{label}}”."
+    },
+    "rename": {
+      "title": "Đổi tên tài khoản",
+      "description": "Chọn tên giúp bạn nhận biết tài khoản này.",
+      "forAccount": "Đổi tên {{label}}",
+      "save": "Lưu tên",
+      "saving": "Đang lưu…"
+    },
+    "delete": {
+      "title": "Xóa tài khoản này?",
+      "description": "Phiên đã lưu của “{{label}}” sẽ bị xóa vĩnh viễn. Các dự án video của bạn vẫn được giữ nguyên.",
+      "forAccount": "Xóa {{label}}",
+      "confirm": "Xóa tài khoản",
+      "deleting": "Đang xóa…",
+      "success": "Đã xóa tài khoản “{{label}}”."
+    },
+    "errors": {
+      "load": "Không tải được tài khoản. Kiểm tra kết nối và thử lại.",
+      "label": "Nhập tên từ 1 đến 100 ký tự.",
+      "cookies": "Dán cookie phiên đăng nhập (tối đa 1 MB văn bản).",
+      "duplicate": "Phiên này đã được nhập. Hãy tìm trong danh sách tài khoản.",
+      "missingSession": "Cần có cookie hatch_sess với giá trị không rỗng.",
+      "format": "Không tìm thấy cookie nào trong nội dung này. Hãy copy lại cookie từ trình duyệt.",
+      "import": "Chưa xác nhận được tài khoản đã nhập. Nội dung vẫn được giữ. Kiểm tra danh sách trước khi thử lại.",
+      "update": "Không cập nhật được tài khoản. Vui lòng thử lại.",
+      "delete": "Chưa xác nhận được tài khoản đã xóa. Bạn có thể thử lại.",
+      "rejected": "Máy chủ đã từ chối dữ liệu này nên chưa có gì được lưu. Kiểm tra lại các trường rồi thử lại."
+    },
+    "edit": {
+      "rename": "Đổi tên",
+      "notes": "Sửa ghi chú",
+      "cookies": "Cập nhật cookie",
+      "proxy": "Cấu hình proxy"
+    },
+    "actions": {
+      "test": "Kiểm tra",
+      "keepAlive": "Duy trì phiên",
+      "quota": "Quota",
+      "proxy": "Proxy"
+    },
+    "actionsFor": "Thao tác với {{label}}",
+    "running": "Đang chạy…",
+    "save": "Lưu",
+    "unknown": "Không rõ",
+    "notChecked": "Chưa kiểm tra",
+    "neverUsed": "Chưa sử dụng",
+    "noNotes": "Chưa có ghi chú",
+    "lastOperationFailed": "Thao tác gần nhất thất bại",
+    "quota": {
+      "used": "Đã dùng {{percent}}% quota tuần",
+      "reset": "Đặt lại: {{value}}"
+    },
+    "proxy": {
+      "hint": "Dùng URL proxy HTTP hoặc SOCKS5. Để trống máy chủ để kết nối trực tiếp. Các thao tác tài khoản sẽ dùng kết nối đã lưu.",
+      "server": "Máy chủ proxy",
+      "placeholder": "http://host:port",
+      "username": "Tên đăng nhập",
+      "password": "Mật khẩu",
+      "passwordHint": "Để trống để giữ mật khẩu đã lưu nếu máy chủ và tên đăng nhập không đổi.",
+      "direct": "Trực tiếp",
+      "error": "Không lưu được proxy. Kiểm tra URL và nhập mật khẩu khi đổi máy chủ hoặc tên đăng nhập."
+    },
+    "operationMessages": {
+      "session_valid": "Phiên đăng nhập hợp lệ.",
+      "keepalive_complete": "Đã làm mới phiên và xác nhận workspace đang chạy.",
+      "quota_updated": "Đã cập nhật quota.",
+      "session_invalid": "Phiên hết hạn hoặc không hợp lệ. Hãy cập nhật cookie.",
+      "workspace_not_running": "Phiên hợp lệ nhưng chưa xác nhận workspace đang chạy.",
+      "upstream_timeout": "Muse phản hồi quá lâu. Hãy thử lại.",
+      "network_error": "Không kết nối được Muse.",
+      "proxy_error": "Kết nối hoặc xác thực proxy thất bại. Không chuyển sang kết nối trực tiếp.",
+      "access_denied": "Muse từ chối kết nối này. Trạng thái phiên được giữ nguyên.",
+      "rate_limited": "Muse đang giới hạn yêu cầu. Hãy thử lại sau.",
+      "upstream_error": "Muse trả về phản hồi không mong đợi.",
+      "invalid_response": "Không đọc được phản hồi phiên từ Muse.",
+      "workspace_unavailable": "Muse chưa cấp workspace.",
+      "quota_unavailable": "Không đọc được bảng sử dụng. Quota cũ được giữ nguyên.",
+      "browser_unavailable": "Máy chủ cần Chrome hoặc Chromium để đọc quota.",
+      "browser_busy": "Trình duyệt đọc quota đang bận. Hãy thử lại sau.",
+      "account_busy": "Tài khoản đang có thao tác chạy.",
+      "account_changed": "Thông tin kết nối đã thay đổi. Tải lại và thử lại."
+    },
+    "cells": {
+      "id": "ID {{value}}",
+      "checked": "Kiểm tra {{value}}",
+      "expires": "Hết hạn: {{value}}",
+      "lastUsed": "Dùng lần cuối: {{value}}"
+    }
   }
 }

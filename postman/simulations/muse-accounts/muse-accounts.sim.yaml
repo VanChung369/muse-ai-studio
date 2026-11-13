@@ -1,0 +1,7 @@
+simulation: muse-accounts
+routing: path
+mocks:
+  - name: Muse web session
+    routeKey: muse
+    origin: muse.ai
+    path: postman/mocks/muse-session

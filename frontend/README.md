@@ -1,6 +1,6 @@
 # Muse AI Studio — Frontend
 
-React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list connected to the FastAPI backend and SQLite. Other feature pages remain placeholders.
+React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list connected to the FastAPI backend and SQLite. Muse account management is also available; other feature pages remain placeholders.
 
 ## Development
 
@@ -95,6 +95,18 @@ Open a project, then select **Write script** (or **Edit script** for a saved scr
 - Successful saves refresh list summaries, scene counts, and featured scene titles while preserving the existing server pagination and filters.
 
 `use-script-editor.ts` owns form and mutation behavior. `lib/project-script.ts` builds outlines and form values; UI text stays in the English and Vietnamese locale files.
+
+## Muse Accounts
+
+Open `/accounts` from the shared navigation.
+
+- Import one account at a time with a label and session cookies. Supported formats are a Cookie header, a flat JSON cookie object, or a browser cookie JSON array. Include a nonempty `hatch_sess` cookie.
+- Search labels without case or accents, filter enabled/disabled accounts, rename a label, enable/disable an account, or delete its stored session with confirmation. Deleting an account leaves video projects unchanged.
+- Imported sessions remain **Not verified**. Enabling an account saves a preference and does not establish session health or eligibility for generation. Live session checks, quota synchronization, proxies, browser-extension import, and automatic script generation are future steps.
+- Cookie input exists only in the import form and request; it is cleared on close or success. It is never saved to browser storage, a TanStack query, or mutation variables. Failed imports keep input for correction or retry while the form remains open.
+- Account responses contain public metadata only. No cookie reveal or export action is exposed.
+
+`src/features/accounts/` keeps API parsing, list helpers, hooks, and UI components separate. API paths live in `src/constants/api.ts`; interface text lives in both locale files.
 
 ## Code Conventions
 

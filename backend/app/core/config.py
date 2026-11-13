@@ -15,6 +15,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    upstream_url: str = "https://muse.ai"
+    browser_path: str | None = None
+    upstream_timeout: float = 12
+
+    @field_validator("upstream_url")
+    @classmethod
+    def validate_upstream(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(value)
+        if value.rstrip("/") == "https://muse.ai":
+            return value.rstrip("/")
+        if (
+            parsed.scheme == "http"
+            and parsed.hostname in ("127.0.0.1", "localhost", "::1")
+            and not parsed.username
+            and not parsed.query
+            and not parsed.fragment
+        ):
+            return value.rstrip("/")
+        raise ValueError("Use the Muse origin or a loopback HTTP simulation origin.")
+
     app_name: str = "Muse AI Studio"
     data_dir: Path = PROJECT_DIR / "data"
     cors_origins: list[str] = [
@@ -26,7 +48,9 @@ class Settings(BaseSettings):
     @classmethod
     def resolve_data_dir(cls, value: Path) -> Path:
         value = value.expanduser()
-        return value.resolve() if value.is_absolute() else (PROJECT_DIR / value).resolve()
+        return (
+            value.resolve() if value.is_absolute() else (PROJECT_DIR / value).resolve()
+        )
 
     @property
     def database_path(self) -> Path:
