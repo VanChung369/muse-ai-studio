@@ -27,6 +27,8 @@ export function accountErrorKey<
         return "accounts.errors.format" as const;
       case "account_busy":
         return "accounts.operationMessages.account_busy" as const;
+      case "account_changed":
+        return "accounts.errors.changed" as const;
     }
     if (error.kind === "http" && error.status >= 400 && error.status < 500)
       return rejected;

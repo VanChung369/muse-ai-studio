@@ -23,6 +23,13 @@ def upgrade() -> None:
         batch.add_column(sa.Column("name_key", sa.String(200), nullable=False, server_default=""))
 
     # Backfill existing rows with the same normalization the model applies.
+    # It runs in Python (accent stripping has no SQLite equivalent), so it
+    # cannot be rendered as SQL; fail clearly instead of writing wrong keys.
+    if op.get_context().as_sql:
+        raise RuntimeError(
+            "0003_project_list_pagination backfills name_key in Python and cannot run with --sql. "
+            "Run it online (alembic upgrade head, or start the app), or generate SQL from 0003 onward."
+        )
     connection = op.get_bind()
     projects = sa.table("projects", sa.column("id", sa.String), sa.column("name", sa.String), sa.column("name_key", sa.String))
     for project_id, name in connection.execute(sa.select(projects.c.id, projects.c.name)).all():

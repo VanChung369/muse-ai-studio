@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -11,6 +12,8 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # Separate key roles: Fernet encrypts secrets; this HKDF subkey only keys the
 # session fingerprint HMAC used for duplicate detection.
+# urlsafe base64 of 32 bytes.
+FERNET_KEY_LENGTH = 44
 FINGERPRINT_KEY_INFO = b"muse-ai-studio/session-fingerprint/v1"
 
 
@@ -50,7 +53,7 @@ class AccountVault:
             finally:
                 temporary.unlink(missing_ok=True)
         try:
-            key = self.key_path.read_bytes()
+            key = self._read_key()
             self._fernet = Fernet(key)
             self._fingerprint_key = HKDF(
                 algorithm=hashes.SHA256(),
@@ -64,6 +67,17 @@ class AccountVault:
             raise RuntimeError(
                 "Account encryption key is invalid or does not match the stored accounts."
             ) from None
+
+    def _read_key(self) -> bytes:
+        # The exclusive-create fallback publishes the file before writing it.
+        # Another process starting at the same moment can see it empty or
+        # partial; wait briefly for the complete key instead of failing.
+        deadline = time.monotonic() + 2
+        while True:
+            key = self.key_path.read_bytes().strip()
+            if len(key) >= FERNET_KEY_LENGTH or time.monotonic() >= deadline:
+                return key
+            time.sleep(0.05)
 
     def _create_exclusive(self, key: bytes) -> None:
         try:

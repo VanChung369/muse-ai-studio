@@ -89,7 +89,12 @@ export async function editAccount(
             ? {
                 server: values.server,
                 username: values.username,
-                ...(values.password ? { password: values.password } : {}),
+                // Omitted password = keep the saved one; "" = remove it.
+                ...(values.clearPassword
+                  ? { password: "" }
+                  : values.password
+                    ? { password: values.password }
+                    : {}),
               }
             : null,
         };

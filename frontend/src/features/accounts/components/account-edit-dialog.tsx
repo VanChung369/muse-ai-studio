@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,12 +15,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ApiError } from "@/lib/http";
 import { accountKeys } from "../api/query-keys";
 import { editAccount } from "../api/accounts";
 import { accountErrorKey } from "../lib/account-errors";
 import { accountEditSchema } from "../schemas";
 import { CookieTextarea } from "./cookie-textarea";
-import type { Account, AccountEditMode, AccountEditValues } from "../types";
+import type {
+  Account,
+  AccountEditMode,
+  AccountEditValues,
+  AccountList,
+} from "../types";
 
 export function AccountEditDialog({
   account,
@@ -38,6 +44,7 @@ export function AccountEditDialog({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<AccountEditValues>({
     resolver: zodResolver(accountEditSchema(mode)),
@@ -48,18 +55,33 @@ export function AccountEditDialog({
       server: account.proxy?.server ?? "",
       username: account.proxy?.username ?? "",
       password: "",
+      clearPassword: false,
     },
   });
+  const clearPassword = useWatch({ control, name: "clearPassword" });
 
   async function submit(values: AccountEditValues) {
     setError(null);
     try {
       // Credentials stay form-local and never become mutation-cache variables.
-      await editAccount(account.id, mode, values);
-      void client.invalidateQueries({ queryKey: accountKeys.list });
+      const updated = await editAccount(account.id, mode, values);
+      // The response is the updated account: show it now, no refetch needed.
+      client.setQueryData<AccountList>(
+        accountKeys.list,
+        (previous) =>
+          previous && {
+            ...previous,
+            items: previous.items.map((item) =>
+              item.id === updated.id ? updated : item,
+            ),
+          },
+      );
       onClose();
     } catch (error) {
       setError(error);
+      // Another operation changed the account: load its current version.
+      if (error instanceof ApiError && error.code === "account_changed")
+        void client.invalidateQueries({ queryKey: accountKeys.list });
     }
   }
 
@@ -169,7 +191,18 @@ export function AccountEditDialog({
                     id={`${id}-password`}
                     type="password"
                     autoComplete="new-password"
+                    disabled={clearPassword}
                   />
+                  {account.proxy?.hasPassword && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        {...register("clearPassword")}
+                        type="checkbox"
+                        className="size-4 accent-primary"
+                      />
+                      {t("accounts.proxy.clearPassword")}
+                    </label>
+                  )}
                   <p className="text-xs leading-5 text-faint">
                     {t("accounts.proxy.passwordHint")}
                   </p>

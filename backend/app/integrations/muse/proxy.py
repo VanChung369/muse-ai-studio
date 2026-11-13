@@ -4,12 +4,29 @@ from __future__ import annotations
 
 import base64
 from contextlib import contextmanager
+import hmac
 import ipaddress
+import secrets
 import select
 import socket
 import socketserver
 import threading
 from urllib.parse import quote, unquote, urlsplit
+
+
+class ProxyConfigError(ValueError):
+    """A saved proxy cannot be used, e.g. credentials outside Latin-1."""
+
+
+def encode_credential(value: str) -> bytes:
+    # HTTP Basic proxy auth (also inside requests/urllib3) and SOCKS5
+    # username/password are sent as Latin-1 bytes.
+    try:
+        return value.encode("latin-1")
+    except UnicodeEncodeError:
+        raise ProxyConfigError(
+            "Proxy credentials must use Latin-1 characters."
+        ) from None
 
 
 def normalize_server(value: str) -> str:
@@ -53,12 +70,16 @@ def split_proxy_url(value: dict) -> dict:
         if parsed.username is None and parsed.password is None:
             return value
         origin = parsed._replace(netloc=parsed.netloc.rsplit("@", 1)[-1]).geturl()
-        return {
+        result = {
             **value,
             "server": normalize_server(origin),
             "username": unquote(parsed.username or "", errors="strict"),
-            "password": unquote(parsed.password or "", errors="strict"),
         }
+        # `user@host` without a password must not erase the saved password:
+        # only a password actually present in the URL replaces the field.
+        if parsed.password is not None:
+            result["password"] = unquote(parsed.password, errors="strict")
+        return result
     except (ValueError, UnicodeError):
         raise ValueError(
             "Invalid proxy URL; use http://user:password@host:port or socks5://user:password@host:port"
@@ -80,6 +101,10 @@ def request_proxies(proxy: dict | None) -> dict:
         return {}
     parsed = urlsplit(proxy["server"])
     auth = ""
+    # requests encodes proxy credentials as Latin-1 at send time; fail early
+    # with a typed error instead of an unhandled UnicodeEncodeError.
+    encode_credential(proxy.get("username", ""))
+    encode_credential(proxy.get("password", ""))
     if proxy.get("username") or proxy.get("password"):
         auth = (
             quote(proxy.get("username", ""), safe="")
@@ -97,7 +122,7 @@ def request_proxy_context(proxy: dict | None):
     if proxy and urlsplit(proxy["server"]).scheme in ("socks5", "socks5h"):
         relay = HTTPProxyRelay(proxy)
         try:
-            yield {"proxies": {"http": relay.url, "https": relay.url}}
+            yield {"proxies": {"http": relay.client_url, "https": relay.client_url}}
         finally:
             relay.close()
     else:
@@ -133,6 +158,15 @@ class _RelayHandler(socketserver.BaseRequestHandler):
                 if len(head) > 65536:
                     return
             lines = bytes(head[:-4]).split(b"\r\n")
+            if not relay.authorized(lines[1:]):
+                # The relay listens on loopback with the upstream proxy's
+                # credentials attached; other local processes must not use it.
+                client.sendall(
+                    b"HTTP/1.1 407 Proxy Authentication Required\r\n"
+                    b'Proxy-Authenticate: Basic realm="muse-relay"\r\n'
+                    b"Connection: close\r\nContent-Length: 0\r\n\r\n"
+                )
+                return
             method, target, version = lines[0].split(b" ", 2)
             if (
                 method != b"CONNECT"
@@ -178,13 +212,22 @@ class _RelayHandler(socketserver.BaseRequestHandler):
                 upstream.sendall(b"\r\n".join([lines[0], *headers]) + b"\r\n\r\n")
             client.settimeout(30)
             upstream.settimeout(30)
-            while not relay.closed:
-                readable, _, _ = select.select([client, upstream], [], [], 1)
+            open_sources = [client, upstream]
+            while open_sources and not relay.closed:
+                readable, _, _ = select.select(open_sources, [], [], 1)
                 for source in readable:
+                    target = upstream if source is client else client
                     data = source.recv(65536)
-                    if not data:
-                        return
-                    (upstream if source is client else client).sendall(data)
+                    if data:
+                        target.sendall(data)
+                        continue
+                    # EOF on one side (possibly a half-close): pass it on and
+                    # keep relaying the other direction until it ends too.
+                    open_sources.remove(source)
+                    try:
+                        target.shutdown(socket.SHUT_WR)
+                    except OSError:
+                        open_sources.clear()
         except (OSError, ValueError, UnicodeError):
             # A failed proxy must never trigger a direct connection.
             try:
@@ -207,17 +250,15 @@ class HTTPProxyRelay:
         parsed = urlsplit(normalize_server(proxy["server"]))
         self.address = (parsed.hostname, parsed.port)
         self.scheme = parsed.scheme
-        self.username = proxy.get("username", "").encode("latin-1")
-        self.password = proxy.get("password", "").encode("latin-1")
+        self.username = encode_credential(proxy.get("username", ""))
+        self.password = encode_credential(proxy.get("password", ""))
         if self.scheme in ("socks5", "socks5h") and (
             len(self.username) > 255 or len(self.password) > 255
         ):
-            raise ValueError("SOCKS5 credentials must not exceed 255 bytes")
+            raise ProxyConfigError("SOCKS5 credentials must not exceed 255 bytes")
         self.authorization = None
         if proxy.get("username") or proxy.get("password"):
-            credentials = (
-                proxy.get("username", "") + ":" + proxy.get("password", "")
-            ).encode("latin-1")
+            credentials = self.username + b":" + self.password
             self.authorization = b"Basic " + base64.b64encode(credentials)
         self.closed = False
         self._sockets = set()
@@ -225,10 +266,35 @@ class HTTPProxyRelay:
         self.server = _RelayServer(("127.0.0.1", 0), _RelayHandler)
         self.server.relay = self
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        # Random per-relay credentials for local clients (Chromium via
+        # Playwright's proxy auth, requests via the proxy URL).
+        self.client_username = secrets.token_hex(8)
+        self.client_password = secrets.token_hex(16)
+        self.client_url = (
+            f"http://{self.client_username}:{self.client_password}"
+            f"@127.0.0.1:{self.server.server_address[1]}"
+        )
+        self._expected_authorization = b"Basic " + base64.b64encode(
+            f"{self.client_username}:{self.client_password}".encode("ascii")
+        )
         self.thread = threading.Thread(
             target=self.server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True
         )
         self.thread.start()
+
+    def authorized(self, header_lines) -> bool:
+        for line in header_lines:
+            name, _, value = line.partition(b":")
+            if name.strip().lower() == b"proxy-authorization":
+                return hmac.compare_digest(value.strip(), self._expected_authorization)
+        return False
+
+    def browser_proxy(self) -> dict:
+        return {
+            "server": self.url,
+            "username": self.client_username,
+            "password": self.client_password,
+        }
 
     @staticmethod
     def _read_exact(sock, size):

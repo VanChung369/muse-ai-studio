@@ -341,7 +341,8 @@
       "import": "Chưa xác nhận được tài khoản đã nhập. Nội dung vẫn được giữ. Kiểm tra danh sách trước khi thử lại.",
       "update": "Không cập nhật được tài khoản. Vui lòng thử lại.",
       "delete": "Chưa xác nhận được tài khoản đã xóa. Bạn có thể thử lại.",
-      "rejected": "Máy chủ đã từ chối dữ liệu này nên chưa có gì được lưu. Kiểm tra lại các trường rồi thử lại."
+      "rejected": "Máy chủ đã từ chối dữ liệu này nên chưa có gì được lưu. Kiểm tra lại các trường rồi thử lại.",
+      "changed": "Tài khoản vừa thay đổi trong lúc bạn sửa (ví dụ một lần kiểm tra đã làm mới cookie). Danh sách đã được tải lại; hãy thử lại."
     },
     "edit": {
       "rename": "Đổi tên",
@@ -375,7 +376,8 @@
       "password": "Mật khẩu",
       "passwordHint": "Để trống để giữ mật khẩu đã lưu nếu máy chủ và tên đăng nhập không đổi.",
       "direct": "Trực tiếp",
-      "error": "Không lưu được proxy. Kiểm tra URL và nhập mật khẩu khi đổi máy chủ hoặc tên đăng nhập."
+      "error": "Không lưu được proxy này. Kiểm tra URL, dùng ký tự Latin cho tên đăng nhập và mật khẩu, và nhập mật khẩu khi đổi máy chủ hoặc tên đăng nhập.",
+      "clearPassword": "Xoá mật khẩu đã lưu"
     },
     "operationMessages": {
       "session_valid": "Phiên đăng nhập hợp lệ.",

@@ -41,7 +41,7 @@ class AccountPatch(BaseModel):
         if not self.model_fields_set or any(
             getattr(self, name) is None for name in self.model_fields_set
         ):
-            raise ValueError("Provide a label or enabled flag.")
+            raise ValueError("Provide a label, notes, or enabled flag.")
         return self
 
 
@@ -94,7 +94,33 @@ class ProxyInput(BaseModel):
     def validate_username(cls, value):
         if ":" in value or any(ord(char) < 32 for char in value):
             raise ValueError("Invalid proxy username.")
+        return _require_latin1(value)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value):
+        if value is not None:
+            _require_latin1(value.get_secret_value())
         return value
+
+    @model_validator(mode="after")
+    def validate_socks_lengths(self):
+        # SOCKS5 username/password auth stores each length in one byte.
+        if self.server.startswith(("socks5://", "socks5h://")):
+            password = self.password.get_secret_value() if self.password else ""
+            if len(self.username.encode("latin-1")) > 255 or len(password.encode("latin-1")) > 255:
+                raise ValueError("SOCKS5 credentials must not exceed 255 bytes.")
+        return self
+
+
+def _require_latin1(value: str) -> str:
+    # Proxies receive credentials as Latin-1 bytes (HTTP Basic and SOCKS5);
+    # reject others when saving instead of failing on every later operation.
+    try:
+        value.encode("latin-1")
+    except UnicodeEncodeError:
+        raise ValueError("Proxy credentials must use Latin-1 characters.") from None
+    return value
 
 
 class ProxyUpdate(BaseModel):

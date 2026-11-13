@@ -64,6 +64,7 @@ export function accountEditSchema(mode: string) {
       server: z.string().trim().max(2048),
       username: z.string().max(256),
       password: z.string().max(1024),
+      clearPassword: z.boolean(),
     })
     .superRefine((values, context) => {
       if (mode === "cookies" && !values.cookieText)

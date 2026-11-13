@@ -14,6 +14,7 @@ from app.core.account_cookies import (
     CookieImportError,
     parse_cookie_bundle,
     account_expiry,
+    limit_cookies,
 )
 from app.core.account_operations import AccountBusyError
 from app.integrations.muse.client import MuseError
@@ -88,6 +89,16 @@ router = APIRouter(prefix="/accounts", tags=["Accounts"], route_class=AccountRou
 DatabaseSession = Annotated[Session, Depends(get_session)]
 
 
+def account_changed() -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "account_changed",
+            "message": "Account credentials changed. Reload and retry.",
+        },
+    )
+
+
 def not_found() -> HTTPException:
     return HTTPException(
         status_code=404,
@@ -122,18 +133,10 @@ def import_account(
         raise HTTPException(
             status_code=422, detail={"code": error.code, "message": str(error)}
         ) from None
-    try:
-        account = accounts.import_account(
-            session, request.app.state.account_vault, values.label, cookies, expiries
-        )
-    except accounts.DuplicateAccountError:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "account_exists",
-                "message": "This session has already been imported.",
-            },
-        ) from None
+    # DuplicateAccountError becomes the 409 in AccountRoute.
+    account = accounts.import_account(
+        session, request.app.state.account_vault, values.label, cookies, expiries
+    )
     response.headers["Location"] = str(
         request.url_for("get_account", account_id=account.id)
     )
@@ -252,13 +255,7 @@ def update_proxy(
             version,
         )
         if account is None:
-            raise HTTPException(
-                409,
-                detail={
-                    "code": "account_changed",
-                    "message": "Account credentials changed. Reload and retry.",
-                },
-            )
+            raise account_changed()
         return accounts.public_account(account, vault)
 
 
@@ -296,18 +293,26 @@ def run_operation(
                 failure.code if failure else (None if result.ok else result.code)
             ),
         }
-        if action == "keep-alive":
+        if action == "keep-alive" and failure is None:
+            # Only a keep-alive that reached the workspace counts as one.
             updates["last_keepalive_at"] = now
-        if result is not None:
+        # A partial result whose hatch_sess expired (e.g. during keep-alive)
+        # cannot be stored: keep the previous credentials, record the failure.
+        if result is not None and result.cookies.get("hatch_sess"):
+            # Muse can grow the jar past the stored limit; keep the session.
+            stored_cookies, stored_expiries = limit_cookies(result.cookies, result.expiries)
             updates.update(
-                encrypted_cookies=vault.encrypt(result.cookies),
-                session_fingerprint=vault.fingerprint(result.cookies["hatch_sess"]),
-                cookie_count=len(result.cookies),
-                cookie_expiries=json.dumps(result.expiries),
-                expires_at=account_expiry(result.expiries),
-                session_status="valid",
+                encrypted_cookies=vault.encrypt(stored_cookies),
+                session_fingerprint=vault.fingerprint(stored_cookies["hatch_sess"]),
+                cookie_count=len(stored_cookies),
+                cookie_expiries=json.dumps(stored_expiries),
+                expires_at=account_expiry(stored_expiries),
                 credential_version=version + 1,
             )
+            if result.verified:
+                # Rotated cookies from a failed check are kept, but only a
+                # confirmed session marks the account valid.
+                updates["session_status"] = "valid"
             if result.quota is not None:
                 updates.update(
                     quota_json=json.dumps(result.quota), quota_checked_at=now
@@ -316,13 +321,7 @@ def run_operation(
             updates["session_status"] = "invalid"
         account = accounts.update_values(session, account_id, updates, version)
         if account is None:
-            raise HTTPException(
-                409,
-                detail={
-                    "code": "account_changed",
-                    "message": "Account credentials changed. Reload and retry.",
-                },
-            )
+            raise account_changed()
         public = accounts.public_account(account, vault)
         if failure:
             if failure.code == "session_invalid":

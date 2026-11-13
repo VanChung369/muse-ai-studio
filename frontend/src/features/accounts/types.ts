@@ -24,4 +24,6 @@ export type AccountEditValues = {
   server: string;
   username: string;
   password: string;
+  // Send an empty password to remove the saved one (same server/username).
+  clearPassword: boolean;
 };

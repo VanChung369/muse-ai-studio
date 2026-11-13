@@ -7,17 +7,24 @@ class AccountBusyError(Exception):
 
 
 class AccountOperations:
+    """At most one remote or credential operation per account at a time.
+
+    Tracks busy IDs rather than keeping a Lock per account, so nothing is
+    retained after an operation ends (including for deleted or unknown IDs).
+    """
+
     def __init__(self):
         self._guard = Lock()
-        self._locks: dict[str, Lock] = {}
+        self._busy: set[str] = set()
 
     @contextmanager
     def acquire(self, account_id: str):
         with self._guard:
-            lock = self._locks.setdefault(account_id, Lock())
-        if not lock.acquire(blocking=False):
-            raise AccountBusyError
+            if account_id in self._busy:
+                raise AccountBusyError
+            self._busy.add(account_id)
         try:
             yield
         finally:
-            lock.release()
+            with self._guard:
+                self._busy.discard(account_id)

@@ -46,7 +46,14 @@ if context.is_offline_mode():
         literal_binds=True,
         render_as_batch=True,
     )
+    # Generated SQL gets the same protection as online migrations: batch
+    # operations rebuild tables, and with foreign keys on, dropping the old
+    # `projects` table would cascade-delete every scene. The pragma must run
+    # outside the transaction to take effect.
+    context.execute("PRAGMA foreign_keys=OFF")
     with context.begin_transaction():
         context.run_migrations()
+    context.execute("PRAGMA foreign_key_check")
+    context.execute("PRAGMA foreign_keys=ON")
 else:
     run_migrations_online()

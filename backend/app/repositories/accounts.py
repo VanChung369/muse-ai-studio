@@ -1,12 +1,14 @@
 import json
 from datetime import UTC, datetime
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.account_vault import AccountVault
 from app.core.account_cookies import account_expiry
+from app.integrations.muse.proxy import public_proxy
 from app.models.account import Account
 from app.schemas.account import AccountPatch, AccountResponse, AccountQuota, ProxyPublic
 
@@ -97,11 +99,8 @@ def delete_account(session: Session, account_id: str) -> bool:
 def public_account(account: Account, vault: AccountVault) -> AccountResponse:
     response = AccountResponse.model_validate(account)
     if account.encrypted_proxy:
-        proxy = vault.decrypt(account.encrypted_proxy)
-        response.proxy = ProxyPublic(
-            server=proxy["server"],
-            username=proxy.get("username", ""),
-            has_password=bool(proxy.get("password")),
+        response.proxy = ProxyPublic.model_validate(
+            public_proxy(vault.decrypt(account.encrypted_proxy))
         )
     if account.quota_json:
         response.quota = AccountQuota.model_validate_json(account.quota_json)
@@ -117,9 +116,14 @@ def refresh_fingerprints(session: Session, vault: AccountVault) -> int:
     changed = 0
     try:
         for account in session.scalars(select(Account)):
-            fingerprint = vault.fingerprint(
-                vault.decrypt(account.encrypted_cookies)["hatch_sess"]
-            )
+            try:
+                cookies = vault.decrypt(account.encrypted_cookies)
+            except InvalidToken:
+                raise RuntimeError(
+                    f"Account {account.id} cannot be decrypted with account-secret.key. "
+                    "Restore the matching key from the database backup."
+                ) from None
+            fingerprint = vault.fingerprint(cookies["hatch_sess"])
             if account.session_fingerprint != fingerprint:
                 account.session_fingerprint = fingerprint
                 changed += 1
@@ -162,9 +166,11 @@ def update_values(session, account_id, values, version=None):
         session.commit()
         session.expire_all()
         return get_account(session, account_id)
-    except IntegrityError:
+    except IntegrityError as error:
         session.rollback()
-        raise DuplicateAccountError from None
+        if "session_fingerprint" in str(error.orig):
+            raise DuplicateAccountError from None
+        raise  # e.g. a CHECK constraint: a real bug, not a duplicate session.
     except Exception:
         session.rollback()
         raise
