@@ -28,8 +28,11 @@ def generate_script_text(
     """Send once in a new browser context. Never resend on timeout."""
     result = client.session(cookies, expiries, proxy, wake=True)
     on_session(result)
-    if not result.ok:
-        raise MuseError(result.code, partial=result)
+    if not result.verified:
+        raise MuseError(result.code, partial=result, detail=result.detail)
+    # A failed or unconfirmed wake is not fatal: the chat page connects the
+    # workspace itself (reference behavior). Composer/reply errors below
+    # still report a workspace that really cannot be used.
     check_cancelled()
     if not client.browser_lock.acquire(blocking=False):
         raise MuseError("browser_busy", 409, partial=result)

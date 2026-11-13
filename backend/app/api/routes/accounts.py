@@ -334,7 +334,7 @@ def run_operation(
                 failure.status,
                 detail={
                     "code": failure.code,
-                    "message": "The account operation could not be completed.",
+                    "message": failure.detail or "The account operation could not be completed.",
                 },
             ) from None
         return AccountActionResponse(

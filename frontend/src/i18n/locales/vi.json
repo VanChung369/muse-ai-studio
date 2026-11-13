@@ -294,7 +294,8 @@
         "reply_timeout": "Muse chưa hoàn tất trong thời gian chờ. Kiểm tra Muse trước khi thử lại.",
         "composer_unavailable": "Không tìm được ô gửi tin nhắn Muse.",
         "workspace_not_running": "Workspace Muse chưa chạy. Thử Duy trì phiên ở tài khoản.",
-        "account_changed": "Thông tin tài khoản đã thay đổi trong lần tạo này. Xác thực tài khoản rồi thử lại."
+        "account_changed": "Thông tin tài khoản đã thay đổi trong lần tạo này. Xác thực tài khoản rồi thử lại.",
+        "wake_failed": "Phiên vẫn hợp lệ nhưng Muse từ chối yêu cầu đánh thức workspace. Việc tạo nội dung vẫn có thể tự kết nối workspace; hãy thử Duy trì phiên lại sau."
       }
     }
   },
@@ -439,7 +440,8 @@
       "browser_unavailable": "Máy chủ cần Chrome hoặc Chromium để đọc quota.",
       "browser_busy": "Trình duyệt đọc quota đang bận. Hãy thử lại sau.",
       "account_busy": "Tài khoản đang có thao tác chạy.",
-      "account_changed": "Thông tin kết nối đã thay đổi. Tải lại và thử lại."
+      "account_changed": "Thông tin kết nối đã thay đổi. Tải lại và thử lại.",
+      "wake_failed": "Phiên vẫn hợp lệ nhưng Muse từ chối yêu cầu đánh thức workspace. Việc tạo nội dung vẫn có thể tự kết nối workspace; hãy thử Duy trì phiên lại sau."
     },
     "cells": {
       "id": "ID {{value}}",

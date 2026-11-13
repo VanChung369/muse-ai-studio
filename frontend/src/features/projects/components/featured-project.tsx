@@ -75,7 +75,7 @@ export function FeaturedProject({
             {t("projects.featured.hint")}
           </p>
         )}
-        <ActionBar className="mt-1">
+        <ActionBar className="mt-1 justify-start">
           <Button onClick={() => onOpen(project.id)}>
             {t(
               project.status === "ready"

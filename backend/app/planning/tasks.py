@@ -215,7 +215,7 @@ def make_script_handler(app):
                 if error.code == "session_invalid"
                 else "check_proxy" if error.code == "proxy_error" else "retry"
             )
-            raise TaskFailure(error.code, suggested_action=hint) from None
+            raise TaskFailure(error.code, error.detail, suggested_action=hint) from None
         try:
             script = parse_script_reply(
                 text,

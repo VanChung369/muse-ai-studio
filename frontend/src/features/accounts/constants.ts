@@ -15,6 +15,7 @@ export const ACCOUNT_OPERATION_CODES = [
   "quota_updated",
   "session_invalid",
   "workspace_not_running",
+  "wake_failed",
   "upstream_timeout",
   "network_error",
   "proxy_error",

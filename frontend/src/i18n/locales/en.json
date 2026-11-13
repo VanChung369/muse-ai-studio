@@ -294,7 +294,8 @@
         "reply_timeout": "Muse did not finish in time. Check Muse before trying again.",
         "composer_unavailable": "Could not find the Muse message composer.",
         "workspace_not_running": "The Muse workspace is not running yet. Try Keep alive on the account.",
-        "account_changed": "Account credentials changed during this attempt. Verify the account and try again."
+        "account_changed": "Account credentials changed during this attempt. Verify the account and try again.",
+        "wake_failed": "The session is valid, but Muse refused the workspace wake request. Generation can still connect the workspace; try Keep alive again later."
       }
     }
   },
@@ -439,7 +440,8 @@
       "browser_unavailable": "Quota reading needs Chrome or Chromium on the server.",
       "browser_busy": "The quota browser is busy. Retry shortly.",
       "account_busy": "An operation is already running for this account.",
-      "account_changed": "Account credentials changed. Reload and retry."
+      "account_changed": "Account credentials changed. Reload and retry.",
+      "wake_failed": "The session is valid, but Muse refused the workspace wake request. Generation can still connect the workspace; try Keep alive again later."
     },
     "cells": {
       "id": "ID {{value}}",

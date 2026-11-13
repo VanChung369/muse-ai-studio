@@ -43,9 +43,12 @@ QUOTA_FIELDS = (
 
 
 class MuseError(Exception):
-    def __init__(self, code: str, status: int = 502, partial=None):
+    def __init__(self, code: str, status: int = 502, partial=None, detail: str = ""):
         super().__init__(code)
         self.code, self.status, self.partial = code, status, partial
+        # Which step failed, e.g. "POST /api/hatch/vm/wake returned HTTP 403".
+        # Never contains cookies, proxy credentials, or response bodies.
+        self.detail = detail
 
 
 @dataclass
@@ -56,6 +59,8 @@ class SessionResult:
     code: str = "session_valid"
     ok: bool = True
     quota: dict | None = None
+    # Why ok is False, when a step failed softly (e.g. the wake request).
+    detail: str = ""
     # True once /api/session confirmed an assigned workspace. Partial results
     # attached to earlier failures carry rotated cookies but prove nothing.
     verified: bool = True
@@ -81,6 +86,12 @@ class MuseClient:
                     "Origin": f"{urlsplit(self.base).scheme}://{urlsplit(self.base).netloc}",
                     "Referer": self.base + "/thread/new",
                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+                    # Same-origin fetch metadata, as the muse.ai page sends it.
+                    # Without it Muse rejects state-changing POSTs such as
+                    # /api/hatch/vm/wake with HTTP 403 (GETs still pass).
+                    "Sec-Fetch-Site": "same-origin",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Dest": "empty",
                 },
                 timeout=self.settings.upstream_timeout,
                 allow_redirects=False,
@@ -88,18 +99,20 @@ class MuseClient:
                 **kwargs,
             )
         except requests.Timeout:
-            raise MuseError("upstream_timeout", 504) from None
-        except requests.RequestException:
+            raise MuseError("upstream_timeout", 504, detail=f"{method} {path} timed out") from None
+        except requests.RequestException as error:
             raise MuseError(
-                "proxy_error" if options.get("proxies") else "network_error"
+                "proxy_error" if options.get("proxies") else "network_error",
+                detail=f"{method} {path} failed: {type(error).__name__}",
             ) from None
+        detail = f"{method} {path} returned HTTP {response.status_code}"
         if response.status_code == 401:
-            raise MuseError("session_invalid", 401)
+            raise MuseError("session_invalid", 401, detail=detail)
         if response.status_code != 200:
             code = {403: "access_denied", 407: "proxy_error", 429: "rate_limited"}.get(
                 response.status_code, "upstream_error"
             )
-            raise MuseError(code)
+            raise MuseError(code, detail=detail)
         return response
 
     def _merge_cookies(self, response, cookies, expiries):
@@ -182,10 +195,17 @@ class MuseClient:
                     if result.vm_state != "RUNNING":
                         result.ok, result.code = False, "workspace_not_running"
                 except MuseError as error:
-                    error.partial = result
-                    raise
+                    if error.code in ("session_invalid", "proxy_error", "network_error", "upstream_timeout"):
+                        error.partial = result
+                        raise
+                    # Muse refused or garbled the wake itself (403, 429, 5xx).
+                    # The session is still confirmed and the chat UI connects
+                    # the workspace on its own (as the reference app does), so
+                    # report it instead of failing the whole operation.
+                    result.ok, result.code, result.detail = False, "wake_failed", error.detail
                 except ValueError:
-                    raise MuseError("invalid_response", partial=result) from None
+                    result.ok, result.code = False, "wake_failed"
+                    result.detail = "GET /api/session after wake returned non-JSON"
         if not cookies.get("hatch_sess"):
             raise MuseError("session_invalid", 401)
         return result
