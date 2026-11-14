@@ -135,7 +135,12 @@ export function LibraryBrowser({
         <Select
           value={filters.source}
           onValueChange={(value) => {
-            if (value === "all" || value === "studio" || value === "upload") {
+            if (
+              value === "all" ||
+              value === "studio" ||
+              value === "upload" ||
+              value === "quick"
+            ) {
               onFiltersChange({ ...filters, source: value });
             }
           }}

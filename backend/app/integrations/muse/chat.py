@@ -201,33 +201,85 @@ def open_composer(client, result, proxy, thread_path=None):
 FILE_INPUT = 'input[type="file"]'
 
 
-def attach_files(page, files, result) -> None:
+# What the composer holds: `shown` is how many attachments it displays (each
+# has a preview and a remove button above the message box), `pending` how
+# many files still sit in the upload control (the composer empties it once it
+# has taken a file).
+ATTACHED_JS = """(selector) => {
+    const textarea = [...document.querySelectorAll('textarea')].find(node => node.getClientRects().length > 0);
+    const control = document.querySelector(selector);
+    const pending = control && control.files ? control.files.length : 0;
+    if (!textarea) return {shown: 0, pending};
+    let composer = textarea.parentElement;
+    for (let parent = composer; parent && parent !== document.body; parent = parent.parentElement) {
+        composer = parent;
+        if (parent.querySelectorAll('button').length >= 2 || parent.matches('form,main,[role=main]')) break;
+    }
+    const removers = [...composer.querySelectorAll('button')].filter(button =>
+        /remove|delete|移除|删除|刪除|削除/i.test(button.getAttribute('aria-label') || button.title || ''));
+    const previews = [...composer.querySelectorAll('img,video')].filter(media =>
+        /^(blob|data):/.test(media.currentSrc || media.src || ''));
+    return {shown: Math.max(removers.length, previews.length), pending};
+}"""
+# How long one file may take to appear in the composer, and how long to
+# watch after handing it over before handing it over again.
+ATTACH_WAIT = 30.0
+ATTACH_TRY = 2.5
+
+
+def attach_files(page, files, result) -> int:
     """Attach files to the message being written, one at a time (the
-    control takes a single file per change, as the reference client does).
-    `files` are paths or Playwright file payloads. If one cannot be
-    attached nothing is sent, so no generation is spent without it."""
+    control takes a single file per change, as the reference client does),
+    and return how many attachments the composer then shows.
+    `files` are paths or Playwright file payloads.
+
+    A file only counts once the composer displays it. Right after the page
+    opens the upload control exists but nothing listens to it yet, so a file
+    given then is silently dropped: it is given again until it appears. If
+    one cannot be attached nothing is sent, so no generation is spent
+    without it."""
     control = page.locator(FILE_INPUT).first
     try:
         control.wait_for(state="attached", timeout=10000)
+        shown = page.evaluate(ATTACHED_JS, FILE_INPUT)["shown"]
         for file in files:
-            control.set_input_files(file)
-            # Let the composer register the file before the next one.
-            page.wait_for_timeout(1000)
+            deadline = time.monotonic() + ATTACH_WAIT
+            state = {"shown": shown, "pending": 1}
+            while state["shown"] <= shown:
+                if time.monotonic() >= deadline:
+                    raise MuseError("reference_upload_failed", partial=result)
+                # Still in the control: the composer never took it. Taken
+                # but not displayed yet: keep watching, a second copy would
+                # be attached twice.
+                if state["pending"]:
+                    control.set_input_files(file)
+                watch = min(deadline, time.monotonic() + ATTACH_TRY)
+                while True:
+                    page.wait_for_timeout(200)
+                    state = page.evaluate(ATTACHED_JS, FILE_INPUT)
+                    if state["shown"] > shown or time.monotonic() >= watch:
+                        break
+            shown = state["shown"]
+        return shown
     except BrowserError:
         raise MuseError("reference_upload_failed", partial=result) from None
 
 
-def fill_composer(page, prompt, check_cancelled, result, wait=15):
+def fill_composer(page, prompt, check_cancelled, result, wait=15, attached=0):
     """Type `prompt` and return the send button's click point (not clicked yet).
 
     The button stays disabled while an attachment uploads; `wait` is how
-    long to give it."""
+    long to give it. `attached` is how many attachments the message must
+    carry (what `attach_files` returned): if the composer lost one in the
+    meantime the message is not sent."""
     page.locator("textarea:visible").first.fill(prompt)
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
         check_cancelled()
         point = page.evaluate(SEND_BUTTON_JS)
         if point:
+            if attached and page.evaluate(ATTACHED_JS, FILE_INPUT)["shown"] < attached:
+                raise MuseError("reference_upload_failed", partial=result)
             return point
         page.wait_for_timeout(200)
     raise MuseError("composer_unavailable", partial=result)
@@ -274,18 +326,20 @@ def generate_script_text(
     marker = f"plan-{uuid4().hex[:8]}"
     with open_composer(client, result, proxy, thread_path) as page:
         continued = thread_path_of(page.url) is not None
+        attached = 0
         if continued:
             settle_conversation(page)
         elif attachments:
             # Reference material opens the conversation; later messages
             # in it rely on the agent having seen it.
-            attach_files(page, [str(path) for path in attachments], result)
+            attached = attach_files(page, [str(path) for path in attachments], result)
         point = fill_composer(
             page,
             f"[{marker}] {prompt}",
             check_cancelled,
             result,
             wait=120 if attachments and not continued else 15,
+            attached=attached,
         )
         baseline = page.evaluate(REPLY_STATE_JS, [None, True])
         check_cancelled()

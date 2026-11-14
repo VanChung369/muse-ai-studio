@@ -19,6 +19,8 @@ from app.core.config import Settings
 from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseClient, MuseError
 from app.integrations.muse.media import (
+    generate_image,
+    generate_images,
     generate_video,
     pick_video_link,
     thread_path_of,
@@ -54,6 +56,14 @@ async function attach() {
   holder.appendChild(video);
   chat.appendChild(holder);
 }
+function attachImage(index = 0) {
+  const holder = document.createElement('div');
+  holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-image-' + index);
+  const image = document.createElement('img');
+  image.src = URL.createObjectURL(new Blob([index ? 'test image bytes ' + index : 'test image bytes'], { type: 'image/png' }));
+  holder.appendChild(image);
+  chat.appendChild(holder);
+}
 function approval() {
   const card = document.createElement('div');
   card.setAttribute('data-testid', 'hatch-inline-approval-card');
@@ -64,6 +74,45 @@ function approval() {
   chat.appendChild(card);
 }
 if (location.pathname === '/thread/gone') location.replace('/thread/new');
+if (location.pathname === '/thread/new' && MODE === 'image-auto-thread') history.replaceState({}, '', '/thread/auto-created');
+// Like the real composer: a file it has taken is shown inside the composer
+// with a thumbnail and a remove button, and the upload control is emptied.
+function preview(file, bytes) {
+  const holder = document.createElement('div');
+  holder.setAttribute('data-testid', 'hatch-composer-attachment');
+  const image = document.createElement('img');
+  image.src = URL.createObjectURL(new Blob([bytes], {type: file.type}));
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', 'Remove attachment');
+  holder.append(image, remove);
+  document.querySelector('form').appendChild(holder);
+}
+const held = [];
+if (MODE === 'image-auto-thread' || MODE === 'image-reference') {
+  document.querySelector('input[type=file]').onchange = async event => {
+    const file = event.target.files[0];
+    const send = document.querySelector('button');
+    send.disabled = true;
+    const bytes = await file.arrayBuffer();
+    await fetch('/__file?name=' + file.name + '&type=' + file.type, {method: 'POST', body: bytes});
+    preview(file, bytes);
+    event.target.value = '';
+    setTimeout(() => { send.disabled = false; }, 1200);
+  };
+} else if (MODE !== 'deaf-composer') {
+  // 'slow-composer': as on the real page, nothing listens to the upload
+  // control for a moment after loading, and a file given then is dropped.
+  setTimeout(() => {
+    document.querySelector('input[type=file]').onchange = async event => {
+      const file = event.target.files[0];
+      const bytes = await file.arrayBuffer();
+      held.push([file, bytes]);
+      preview(file, bytes);
+      event.target.value = '';
+    };
+  }, MODE === 'slow-composer' ? 1500 : 0);
+}
 function oldClip() {
   const holder = document.createElement('div');
   holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video-0');
@@ -86,12 +135,18 @@ document.querySelector('button').onclick = () => {
   if (location.pathname === '/thread/new') history.pushState({}, '', '/thread/t-001');
   // An earlier scene of this conversation, rendered lazily after we sent.
   else setTimeout(oldClip, 100);
-  const file = document.querySelector('input[type=file]').files[0];
   fetch('/__sent', { method: 'POST', body: textarea.value });
-  if (file) file.arrayBuffer().then(bytes => fetch('/__file?name=' + file.name + '&type=' + file.type, { method: 'POST', body: bytes }));
+  held.splice(0).forEach(([file, bytes]) => fetch('/__file?name=' + file.name + '&type=' + file.type, { method: 'POST', body: bytes }));
+  document.querySelectorAll('[data-testid="hatch-composer-attachment"]').forEach(node => node.remove());
   textarea.value = '';
   setTimeout(() => {
-    if (MODE === 'video' || MODE === 'hidden') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'video' || MODE === 'hidden' || MODE === 'slow-composer') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'image') { bubble("Here's your image."); setTimeout(attachImage, 300); }
+    if (MODE === 'images') {
+      bubble("Here are your four images.");
+      for (let i = 0; i < 4; i++) setTimeout(() => attachImage(i), 150 + i * 200);
+    }
+    if (MODE === 'image-auto-thread' || MODE === 'image-reference') { bubble("Here's your image."); setTimeout(attachImage, 300); }
     if (MODE === 'script') bubble('{"scenes": []}');
     if (MODE === 'approval') approval();
     if (MODE === 'quota') bubble("You've reached your usage limit for this week.");
@@ -107,6 +162,7 @@ class FakeMuse:
         self.mode = "video"
         self.sent = []
         self.files = []  # (request path, bytes) of every uploaded attachment.
+        self.events = []
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -140,8 +196,10 @@ class FakeMuse:
             def do_POST(self):
                 body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
                 if self.path == "/__sent":
+                    fake.events.append("send")
                     fake.sent.append(body.decode())
                 if self.path.startswith("/__file"):
+                    fake.events.append("upload")
                     fake.files.append((self.path, body))
                 self.reply(b"{}")
 
@@ -195,6 +253,79 @@ def generate(muse, **overrides):
         client, {"hatch_sess": "media-fixture"}, {}, None, prompt, **options
     )
     return video, events
+
+
+@needs_browser
+def test_image_attachment_is_downloaded_from_the_page(muse):
+    muse.mode = "image"
+    events = []
+    client = MuseClient(Settings(
+        _env_file=None, upstream_url=muse.origin, browser_path=BROWSER
+    ))
+    image = generate_image(
+        client, {"hatch_sess": "media-fixture"}, {}, None,
+        "Generate exactly one image of a garden, aspect ratio 1:1.",
+        on_session=lambda result: events.append("session"),
+        before_send=lambda result: events.append("send"),
+        check_cancelled=lambda: None, timeout=20, grace=1.0,
+    )
+    assert image.data == b"test image bytes"
+    assert image.mime == "image/png"
+    assert events == ["session", "send"]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_four_images_are_downloaded_after_one_message_in_one_thread(muse):
+    muse.mode = "images"
+    client = MuseClient(Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER))
+    outputs, threads = [], []
+    images = generate_images(
+        client, {"hatch_sess": "media-fixture"}, {}, None,
+        "Generate exactly 4 separate images of a garden.", count=4,
+        on_session=lambda result: None, before_send=lambda result: None,
+        check_cancelled=lambda: None, on_media=outputs.append, on_thread=threads.append,
+        timeout=20, grace=1.0,
+    )
+    assert len(images) == len(outputs) == 4
+    assert len({image.data for image in images}) == 4
+    assert {image.thread_path for image in images} == {"/thread/t-001"}
+    assert threads == ["/thread/t-001"]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+@pytest.mark.parametrize("thread", [None, "/thread/old-1"])
+def test_reference_upload_finishes_before_image_prompt_even_when_new_page_has_thread_id(muse, thread):
+    muse.mode = "image-auto-thread" if thread is None else "image-reference"
+    client = MuseClient(Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER))
+    image = generate_image(
+        client, {"hatch_sess": "media-fixture"}, {}, None,
+        "Create one image using the attached visual reference.",
+        on_session=lambda result: None, before_send=lambda result: None,
+        check_cancelled=lambda: None, thread_path=thread,
+        attach_on_continue=True,
+        attachments=[{"name": "reference.png", "mimeType": "image/png", "buffer": b"reference bytes"}],
+        timeout=20, grace=1.0,
+    )
+    assert image.data == b"test image bytes"  # The output, not the composer's reference preview.
+    assert muse.events == ["upload", "send"]
+    assert muse.files == [("/__file?name=reference.png&type=image/png", b"reference bytes")]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_required_batch_conversation_never_sends_into_a_replacement_thread(muse):
+    client = MuseClient(Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER))
+    with pytest.raises(MuseError) as failed:
+        generate_images(
+            client, {"hatch_sess": "media-fixture"}, {}, None, "Generate 4 images.", count=4,
+            on_session=lambda result: None, before_send=lambda result: None,
+            check_cancelled=lambda: None, thread_path="/thread/gone", require_thread=True,
+            timeout=20, grace=1.0,
+        )
+    assert failed.value.code == "conversation_unavailable"
+    assert muse.sent == []
 
 
 @needs_browser
@@ -287,6 +418,45 @@ def test_reference_frame_is_attached_to_the_message(muse):
     video, _ = generate(muse, reference=frame)
     assert video.data == CLIP
     assert muse.files == [("/__file?name=previous-shot.jpg&type=image/jpeg", frame)]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_a_file_the_composer_dropped_at_first_is_given_again(muse):
+    # Right after the page loads the real composer ignores the upload
+    # control; the message used to go out without its file.
+    muse.mode = "slow-composer"
+    frame = b"\xff\xd8\xff\xe0 fake jpeg"
+    video, _ = generate(muse, reference=frame)
+    assert video.data == CLIP
+    # Attached once, not once per try.
+    assert muse.files == [("/__file?name=previous-shot.jpg&type=image/jpeg", frame)]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_a_file_the_composer_never_shows_stops_before_sending(muse, monkeypatch):
+    monkeypatch.setattr("app.integrations.muse.chat.ATTACH_WAIT", 3.0)
+    muse.mode = "deaf-composer"
+    with pytest.raises(MuseError) as failed:
+        generate(muse, reference=b"frame")
+    assert failed.value.code == "reference_upload_failed"
+    assert muse.sent == [] and muse.files == []
+
+
+@needs_browser
+def test_reference_material_reaches_the_script_request(muse, tmp_path):
+    muse.mode = "script"
+    brief, sketch = tmp_path / "brief.txt", tmp_path / "sketch.png"
+    brief.write_bytes(b"the brief")
+    sketch.write_bytes(b"the sketch")
+    client = MuseClient(Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER))
+    generate_script_text(
+        client, {"hatch_sess": "media-fixture"}, {}, None, "Write the script",
+        on_session=lambda result: None, before_send=lambda result: None,
+        check_cancelled=lambda: None, timeout=20, attachments=[brief, sketch],
+    )
+    assert sorted(body for _, body in muse.files) == [b"the brief", b"the sketch"]
     assert len(muse.sent) == 1
 
 

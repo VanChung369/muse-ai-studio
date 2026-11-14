@@ -52,7 +52,7 @@ class LibraryItem(CamelModel):
     role: Literal["upload", "scene", "film"]
     kind: Kind
     # Scenes and films are made in Video Studio and stay in their project.
-    source: Literal["studio", "upload"]
+    source: Literal["studio", "upload", "quick"]
     # The file's name, the scene's title, or the project's name for a film.
     title: str
     project_id: str | None
@@ -120,7 +120,7 @@ def list_library(
     request: Request,
     session: DatabaseSession,
     kind: Kind | None = None,
-    source: Literal["studio", "upload"] | None = None,
+    source: Literal["studio", "upload", "quick"] | None = None,
     q: Annotated[str, Query(max_length=200)] = "",
     limit: Annotated[int, Query(ge=1, le=200)] = PAGE_SIZE,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -134,8 +134,15 @@ def list_library(
     ]
     session.rollback()
     of_kind = [item for item in found if kind is None or item.kind == kind]
+    shown = []
+    for item in of_kind[offset : offset + limit]:
+        try:
+            shown.append(describe(item))
+        except OSError:
+            # Deleted since it was listed a moment ago.
+            continue
     return LibraryPage(
-        items=[describe(item) for item in of_kind[offset : offset + limit]],
+        items=shown,
         total=len(of_kind),
         counts=LibraryCounts(
             all=len(found),
@@ -275,11 +282,17 @@ def download_archive(
         for item in items:
             name = Path(item.file_name)
             stem = "".join("_" if char in '\\/:*?"<>|' else char for char in name.stem)
+            # Never an entry called "." or "..".
+            stem = stem if stem.strip(". ") else "file"
             unique, number = f"{stem}{name.suffix}", 2
             while unique.lower() in taken:
                 unique, number = f"{stem} ({number}){name.suffix}", number + 1
             taken.add(unique.lower())
-            archive.write(item.path, unique)
+            try:
+                archive.write(item.path, unique)
+            except OSError:
+                # Deleted since it was found: the others still download.
+                continue
     return FileResponse(
         handle.name,
         media_type="application/zip",

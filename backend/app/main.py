@@ -16,13 +16,14 @@ from app.tasks.coordinator import TaskCoordinator
 from app.integrations.muse.client import MuseClient
 from app.planning.tasks import PLANNING_KIND, make_script_handler
 from app.rendering.music import make_music_handler
+from app.rendering.quick_create import make_quick_handler
 from app.rendering.tasks import (
     make_listener,
     make_merge_handler,
     make_scene_handler,
     sync_active_projects,
 )
-from app.tasks.kinds import GENERATE_MUSIC, MERGE_VIDEO, RENDER_SCENE
+from app.tasks.kinds import GENERATE_MUSIC, MERGE_VIDEO, RENDER_SCENE, QUICK_KINDS
 from app.db.session import Database
 from app.models.account import Account
 
@@ -70,6 +71,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     coordinator.register(RENDER_SCENE, make_scene_handler(app), render_settled)
     coordinator.register(MERGE_VIDEO, make_merge_handler(app), render_settled)
     coordinator.register(GENERATE_MUSIC, make_music_handler(app))
+    for kind in QUICK_KINDS:
+        coordinator.register(kind, make_quick_handler(app))
     refresher = SessionRefresher(
         app,
         timedelta(minutes=settings.session_refresh_minutes),

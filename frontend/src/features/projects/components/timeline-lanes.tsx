@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { MAX_AUDIO_FADE } from "../lib/clip-effects";
 import {
   audioSeconds,
   CAPTION_LENGTH,
@@ -22,6 +23,7 @@ import {
   toTenth,
 } from "../lib/project-timeline";
 import {
+  CAPTION_FONTS,
   CAPTION_POSITIONS,
   CAPTION_SIZES,
   type CaptionStyle,
@@ -94,8 +96,9 @@ function Handle({
 function LaneBlock({
   at,
   length,
-  span,
+    span,
   limit,
+  snaps,
   selected,
   editable,
   label,
@@ -110,6 +113,8 @@ function LaneBlock({
   span: number;
   // The latest time the block may start at.
   limit: number;
+  // Times in the film its start or end is drawn to when dragged close.
+  snaps?: readonly number[];
   selected: boolean;
   editable: boolean;
   label: string;
@@ -148,7 +153,17 @@ function LaneBlock({
         const from = drag.current;
         if (!from || from.width <= 0) return;
         const moved = ((event.clientX - from.x) / from.width) * span;
-        const next = Math.min(Math.max(toTenth(from.at + moved), 0), limit);
+        let next = toTenth(from.at + moved);
+        // Within a few pixels of a cut, sit exactly on it, by either end.
+        const reach = (8 / from.width) * span;
+        for (const point of snaps ?? []) {
+          if (Math.abs(next - point) <= reach) next = toTenth(point);
+          else if (Math.abs(next + length - point) <= reach)
+            next = toTenth(point - length);
+          else continue;
+          break;
+        }
+        next = Math.min(Math.max(next, 0), limit);
         if (next !== at) onShift(next);
       }}
       onPointerUp={() => (drag.current = null)}
@@ -200,8 +215,9 @@ export function AudioLanes({
   span,
   selected,
   editable,
-  onSelect,
+    onSelect,
   onChange,
+  snaps,
 }: {
   tracks: TimelineAudio[];
   // Length of the film: audio stops where it ends.
@@ -211,6 +227,7 @@ export function AudioLanes({
   editable: boolean;
   onSelect: (key: string) => void;
   onChange: (key: string, patch: Partial<TimelineAudio>) => void;
+  snaps?: readonly number[];
 }) {
   // The piece as it was when an edge drag began, with how much of it showed.
   const origin = useRef<(TimelineAudio & { shown: number }) | null>(null);
@@ -224,6 +241,7 @@ export function AudioLanes({
             length={audioSeconds(track, total)}
             span={span}
             limit={Math.max(toTenth(total - 0.5), 0)}
+            snaps={snaps}
             selected={selected === track.key}
             editable={editable}
             label={track.name}
@@ -463,9 +481,23 @@ export function AudioEditor({
         <VolumeField
           id={`${id}-volume`}
           label={t("projects.timeline.audio.volume")}
-          value={track.volume}
-          onChange={(volume) => onChange({ volume })}
+        value={track.volume}
+        onChange={(volume) => onChange({ volume })}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <SecondsRange
+          label={t("projects.timeline.audio.fadeIn")}
+          value={track.fadeIn}
+          max={MAX_AUDIO_FADE}
+          onChange={(fadeIn) => onChange({ fadeIn })}
         />
+        <SecondsRange
+          label={t("projects.timeline.audio.fadeOut")}
+          value={track.fadeOut}
+          max={MAX_AUDIO_FADE}
+          onChange={(fadeOut) => onChange({ fadeOut })}
+        />
+      </div>
       </div>
       <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border bg-background/50 p-3 text-[13px]">
         <input
@@ -502,8 +534,10 @@ export function CaptionLane({
   span,
   selected,
   editable,
-  onSelect,
+    onSelect,
   onChange,
+  snaps,
+  tone = "bg-primary-soft text-primary",
 }: {
   captions: TimelineCaption[];
   span: number;
@@ -511,6 +545,9 @@ export function CaptionLane({
   editable: boolean;
   onSelect: (index: number) => void;
   onChange: (index: number, patch: Partial<TimelineCaption>) => void;
+  snaps?: readonly number[];
+  // Colours of the blocks, so a lane of titles reads apart from captions.
+  tone?: string;
 }) {
   // The caption as it was when an edge drag began.
   const origin = useRef<(TimelineCaption & { index: number }) | null>(null);
@@ -524,7 +561,9 @@ export function CaptionLane({
           at={caption.start}
           length={caption.end - caption.start}
           span={span}
-          limit={3600}
+          // The whole block stays inside the longest film the server takes.
+          limit={Math.max(toTenth(3600 - (caption.end - caption.start)), 0)}
+          snaps={snaps}
           selected={selected === index}
           editable={editable}
           label={caption.text}
@@ -554,15 +593,18 @@ export function CaptionLane({
                       ),
                     }
                   : {
-                      end: Math.max(
-                        toTenth(from.end + seconds),
-                        toTenth(from.start + 0.2),
+                      end: Math.min(
+                        Math.max(
+                          toTenth(from.end + seconds),
+                          toTenth(from.start + 0.2),
+                        ),
+                        3600,
                       ),
                     },
               );
             },
           }}
-          className="bg-primary-soft text-primary"
+          className={tone}
         >
           <span className="min-w-0 truncate">{caption.text || "…"}</span>
         </LaneBlock>
@@ -689,7 +731,7 @@ export function CaptionEditor({
               <span>{t("projects.timeline.captions.text")}</span>
               <span className="w-7.5" />
             </div>
-            <ol className="max-h-[26rem] divide-y overflow-y-auto">
+            <ol className="scroll-subtle max-h-[26rem] divide-y overflow-y-auto">
               {captions.map((caption, index) => (
                 <li
                   key={index}
@@ -950,6 +992,12 @@ function CaptionStyleFields({
       </div>
       <div className="space-y-3">
         <Choice
+          label={t("projects.timeline.captions.style.font")}
+          options={CAPTION_FONTS.map((value) => ({ value, label: value }))}
+          value={style.font}
+          onChange={(font) => onChange({ font })}
+        />
+        <Choice
           label={t("projects.timeline.captions.style.size")}
           options={CAPTION_SIZES.map((value) => ({
             value,
@@ -1001,5 +1049,70 @@ function CaptionStyleFields({
         </label>
       </div>
     </div>
+  );
+}
+
+// A length of time picked on a slider, shown in seconds beside its label.
+function SecondsRange({
+  label,
+  value,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  onChange: (seconds: number) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="flex items-center justify-between text-xs">
+        {label}
+        <span className="font-mono text-muted-foreground">
+          {secondsLabel(value)}
+        </span>
+      </Label>
+      <input
+        id={id}
+        type="range"
+        min={0}
+        max={max}
+        step={0.1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full accent-primary disabled:opacity-50"
+      />
+    </div>
+  );
+}
+
+// Whether added audio steps back while the clips' own sound is heard.
+export function DuckField({
+  duck,
+  editable,
+  onChange,
+}: {
+  duck: boolean;
+  editable: boolean;
+  onChange: (duck: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <label className="flex items-start gap-2 text-[13px]">
+      <input
+        type="checkbox"
+        checked={duck}
+        disabled={!editable}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-primary"
+      />
+      <span>
+        {t("projects.timeline.audio.duck")}
+        <span className="block text-xs leading-5 text-faint">
+          {t("projects.timeline.audio.duckHint")}
+        </span>
+      </span>
+    </label>
   );
 }

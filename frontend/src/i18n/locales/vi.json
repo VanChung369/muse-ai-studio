@@ -482,7 +482,7 @@
     "timeline": {
       "title": "Dòng thời gian",
       "total": "Độ dài phim: {{time}}",
-      "hint": "Kéo clip để đổi chỗ, kéo hai mép để cắt; đoạn âm thanh và phụ đề cũng kéo được như vậy. Chọn một mục rồi nhấn Delete để gỡ. Kéo video, ảnh, âm thanh của bạn từ mục Tư liệu vào. Khi áp dụng, phim được ghép lại từ những gì đã có; không render lại.",
+      "hint": "Kéo clip để đổi chỗ, kéo hai mép để cắt; âm thanh, phụ đề và chữ cũng kéo được như vậy. Phím cách để phát, S cắt đôi clip đang chọn, Delete để gỡ, Ctrl+Z để hoàn tác. Xem thử cho thấy chỉnh sửa trước khi áp dụng; áp dụng thì phim được ghép lại mà không render gì.",
       "locked": "Dòng thời gian chỉnh được khi phim đã hoàn tất.",
       "merging": "Đang ghép lại phim…",
       "apply": "Áp dụng và ghép lại",
@@ -502,7 +502,8 @@
         "invalid_timeline": "Chỉnh sửa này không khớp với các clip và tệp. Hãy hoàn tác rồi thử lại.",
         "project_not_found": "Dự án này không còn tồn tại.",
         "unknown": "Không lưu được dòng thời gian. Vui lòng thử lại.",
-        "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề. Hãy tắt “In phụ đề vào video” rồi thử lại."
+        "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề. Hãy tắt “In phụ đề vào video” rồi thử lại.",
+        "preview_failed": "Không dựng được bản xem thử. Hãy kiểm tra lại chỉnh sửa rồi thử lại."
       },
       "shown": "Hiển thị (giây)",
       "speed": "Tốc độ",
@@ -521,7 +522,11 @@
         "volume": "Âm lượng",
         "loop": "Lặp lại đến hết phim",
         "loopHint": "Dùng cho nhạc ngắn, ví dụ bản do Muse tạo.",
-        "empty": "Chưa có âm thanh. Kéo một tệp âm thanh từ mục Tư liệu bên dưới vào đây."
+        "empty": "Chưa có âm thanh. Kéo một tệp âm thanh từ mục Tư liệu bên dưới vào đây.",
+        "fadeIn": "Nhỏ dần vào",
+        "fadeOut": "Nhỏ dần ra",
+        "duck": "Tự hạ âm thanh thêm vào khi clip có tiếng",
+        "duckHint": "Hợp khi dùng nhạc nền dưới lời nói."
       },
       "captions": {
         "title": "Phụ đề",
@@ -557,14 +562,144 @@
           "color": "Màu chữ",
           "outline": "Màu viền",
           "bold": "Chữ đậm",
-          "box": "Nền tối sau chữ"
+          "box": "Nền tối sau chữ",
+          "font": "Phông chữ"
         },
         "count_one": "{{count}} phụ đề",
         "count_other": "{{count}} phụ đề"
       },
       "filmSpeed": "Tốc độ cả phim",
       "filmSpeedMixed": "Các clip đang có tốc độ khác nhau.",
-      "removeSelected": "Gỡ mục đang chọn"
+      "removeSelected": "Gỡ mục đang chọn",
+      "unsaved": "Chưa áp dụng",
+      "restored": "Đã khôi phục các chỉnh sửa chưa áp dụng từ lần trước.",
+      "undo": "Hoàn tác",
+      "redo": "Làm lại",
+      "split": "Cắt đôi",
+      "splitHint": "Cắt đôi clip đang chọn tại vị trí đang phát (S)",
+      "followClips": "Phụ đề và chữ chạy theo clip",
+      "preview": {
+        "action": "Xem thử",
+        "building": "Đang dựng bản xem thử…",
+        "note": "Bản xem thử nhanh, chất lượng thấp của các chỉnh sửa chưa áp dụng.",
+        "stale": "Bạn đã chỉnh thêm sau khi tạo bản xem thử này.",
+        "close": "Quay lại phim",
+        "error": "Không dựng được bản xem thử. Vui lòng thử lại."
+      },
+      "zoom": {
+        "label": "Thu phóng timeline",
+        "in": "Phóng to",
+        "out": "Thu nhỏ",
+        "fit": "Vừa khung"
+      },
+      "panels": {
+        "media": "Tư liệu của bạn",
+        "captions": "Phụ đề",
+        "titles": "Chữ & logo",
+        "output": "Xuất phim"
+      },
+      "effects": {
+        "title": "Hiệu ứng",
+        "look": "Bộ lọc màu",
+        "names": {
+          "none": "Không",
+          "mono": "Đen trắng",
+          "sepia": "Nâu cổ điển",
+          "warm": "Ấm",
+          "cool": "Lạnh",
+          "vivid": "Rực rỡ",
+          "vintage": "Phim cũ",
+          "blur": "Làm mờ",
+          "vignette": "Tối bốn góc"
+        },
+        "zoom": "Zoom chậm",
+        "zooms": {
+          "none": "Không",
+          "in": "Tiến gần",
+          "out": "Lùi xa"
+        },
+        "flip": "Lật ngang",
+        "fadeIn": "Mờ dần vào từ đen",
+        "fadeOut": "Mờ dần ra đen",
+        "seconds": "{{seconds}} giây",
+        "fadeAll": "Mờ dần giữa mọi clip",
+        "fadeNone": "Bỏ hết mờ dần"
+      },
+      "titles": {
+        "title": "Chữ trên hình",
+        "add": "Thêm chữ",
+        "empty": "Chưa có chữ. Thêm chữ hiện trên hình: tiêu đề, tên, lời kêu gọi.",
+        "emptyLane": "Chưa có chữ.",
+        "placeholder": "Tiêu đề, tên, lời kêu gọi…",
+        "remove": "Xóa chữ",
+        "position": "Vị trí",
+        "positions": {
+          "top-left": "Trên trái",
+          "top": "Trên",
+          "top-right": "Trên phải",
+          "left": "Trái",
+          "center": "Giữa",
+          "right": "Phải",
+          "bottom-left": "Dưới trái",
+          "bottom": "Dưới",
+          "bottom-right": "Dưới phải"
+        },
+        "style": "Kiểu của chữ này",
+        "count_one": "{{count}} chữ",
+        "count_other": "{{count}} chữ"
+      },
+      "logo": {
+        "title": "Logo",
+        "hint": "Một ảnh trong Tư liệu được giữ ở góc suốt cả phim.",
+        "choose": "Dùng {{name}} làm logo",
+        "noImages": "Chưa có ảnh nào trong Tư liệu. Hãy tải ảnh lên trước.",
+        "corner": "Góc",
+        "corners": {
+          "top-left": "Trên trái",
+          "top-right": "Trên phải",
+          "bottom-left": "Dưới trái",
+          "bottom-right": "Dưới phải"
+        },
+        "size": "Kích thước",
+        "opacity": "Độ rõ",
+        "remove": "Bỏ logo"
+      },
+      "outputSettings": {
+        "title": "Xuất phim",
+        "hint": "Áp dụng ở lần ghép phim kế tiếp.",
+        "aspect": "Khung hình",
+        "aspects": {
+          "source": "Giữ như các cảnh ({{ratio}})",
+          "wide": "Ngang 16:9",
+          "tall": "Dọc 9:16",
+          "square": "Vuông 1:1"
+        },
+        "fit": "Khi đổi khung hình",
+        "fits": {
+          "contain": "Giữ trọn hình (viền đen)",
+          "cover": "Lấp đầy khung (cắt mép)"
+        },
+        "height": "Độ phân giải",
+        "heights": {
+          "source": "Như các cảnh",
+          "p480": "480p",
+          "p720": "720p",
+          "p1080": "1080p"
+        },
+        "quality": "Chất lượng",
+        "qualities": {
+          "high": "Cao",
+          "medium": "Vừa",
+          "small": "Tệp nhẹ"
+        },
+        "qualityHint": "Chất lượng thấp hơn cho tệp nhẹ hơn."
+      },
+      "cover": {
+        "set": "Đặt khung hình này làm ảnh bìa",
+        "done": "Đã đổi ảnh bìa.",
+        "reset": "Dùng lại ảnh bìa tự động",
+        "error": "Không đổi được ảnh bìa. Vui lòng thử lại."
+      }
     },
     "output": {
       "open": "Thành phẩm",
@@ -889,7 +1024,9 @@
       "render_scene": "Render cảnh",
       "merge_video": "Ghép video",
       "other": "Tác vụ",
-      "generate_music": "Tạo nhạc"
+      "generate_music": "Tạo nhạc",
+      "generate_image": "Tạo ảnh",
+      "generate_video": "Tạo video ngắn"
     },
     "fields": {
       "task": "Tác vụ",
@@ -1033,12 +1170,16 @@
       "scene_missing": "Thiếu video của một cảnh nên chưa ghép được.",
       "ffmpeg_unavailable": "Máy chủ chưa cài FFmpeg nên chưa ghép được các cảnh. Cài FFmpeg rồi bấm tiếp tục.",
       "merge_failed": "FFmpeg không ghép được các cảnh.",
-      "reference_upload_failed": "Không đính kèm được khung hình của cảnh trước nên chưa gửi gì tới Muse. Thử lại, hoặc tắt liền mạch trong phần chỉnh dự án.",
+      "reference_upload_failed": "Không đính kèm được ảnh hoặc tệp tham chiếu nên chưa gửi gì tới Muse. Hãy thử lại. Với phim, bạn cũng có thể tắt liền mạch trong phần chỉnh dự án.",
       "reference_frame_failed": "Không đọc được khung hình cuối của cảnh trước. Thử lại, hoặc tạo lại từ cảnh đó.",
       "timeline_empty": "Mọi cảnh đều đang bị bỏ khỏi dòng thời gian. Giữ ít nhất một cảnh rồi ghép lại.",
       "music_missing": "Muse trả về clip không có tiếng nên không có nhạc để giữ. Hãy thử lại, có thể với mô tả đơn giản hơn.",
       "media_missing": "Một tệp dùng trong phim không còn trên máy chủ. Hãy gỡ nó khỏi timeline rồi áp dụng lại.",
-      "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề vào video."
+      "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề vào video.",
+      "reference_missing": "Ảnh tham chiếu không còn trong Thư viện. Hãy chọn lại ảnh trước khi tạo.",
+      "too_many_files": "Thư viện đã đầy. Hãy xóa bớt tệp hoặc chờ các tác vụ đang tạo hoàn tất.",
+      "image_count_mismatch": "Muse chưa trả đủ số ảnh đã yêu cầu. Những ảnh đã nhận được giữ lại; thử lại để tạo phần còn thiếu.",
+      "conversation_unavailable": "Không mở được cuộc hội thoại đã dùng cho lượt tạo này trên tài khoản ban đầu. Kiểm tra lại tài khoản và cuộc hội thoại rồi thử lại."
     },
     "refresh": "Làm mới",
     "autoUpdate": "Tự cập nhật mỗi 5 giây khi tab đang hiển thị. Tiến độ chỉ xuất hiện khi Muse báo về.",
@@ -1080,7 +1221,8 @@
     "sources": {
       "all": "Mọi nguồn",
       "studio": "Video Studio",
-      "upload": "Tải lên"
+      "upload": "Tải lên",
+      "quick": "Tạo nhanh"
     },
     "searchLabel": "Tìm tư liệu",
     "searchPlaceholder": "Tìm theo tên hoặc dự án",
@@ -1099,6 +1241,7 @@
     "selected_one": "Đã chọn {{count}}",
     "selected_other": "Đã chọn {{count}}",
     "download": "Tải xuống",
+    "downloadLimit": "Mỗi lần tải được tối đa {{count}} tệp.",
     "delete": "Xóa",
     "deselect": "Bỏ chọn",
     "deleteNote": "Chỉ xóa được tệp bạn tải lên. Video tạo ở Video Studio thuộc về dự án của nó.",
@@ -1136,5 +1279,58 @@
         "unknown": "Không thêm được tệp. Vui lòng thử lại."
       }
     }
+  },
+  "quickCreate": {
+    "description": "Một prompt, một kết quả. Tạo ảnh hoặc video ngắn một cảnh; video nhiều cảnh làm trong Video Studio.",
+    "configuration": "Cấu hình tạo nhanh",
+    "contentType": "Loại nội dung",
+    "kinds": {
+      "image": "Ảnh",
+      "video": "Video ngắn"
+    },
+    "prompt": "Prompt",
+    "imagePlaceholder": "Mô tả hình ảnh bạn muốn tạo…",
+    "videoPlaceholder": "Mô tả cảnh quay, chuyển động và âm thanh bạn muốn…",
+    "ratio": "Tỉ lệ",
+    "quantity": "Số lượng",
+    "moreThanFour": "Hơn 4",
+    "imageCount": "{{count}} ảnh",
+    "customQuantity": "Nhập số ảnh muốn tạo",
+    "quantityHint": "Nhập số nguyên từ 5 đến {{max}} ảnh. Cả lượt tạo dùng chung một cuộc hội thoại.",
+    "duration": "Thời lượng",
+    "videoDuration": "~10 giây (theo giới hạn của Muse)",
+    "shortDuration": "~10 giây",
+    "reference": "Ảnh tham chiếu",
+    "startFrame": "Ảnh khởi đầu",
+    "optional": "không bắt buộc",
+    "dropImage": "Kéo thả hoặc bấm để chọn ảnh",
+    "removeReference": "Bỏ ảnh tham chiếu",
+    "fileHint": "JPG, PNG hoặc WebP · tối đa 20 MB",
+    "fileErrors": {
+      "type": "Chọn ảnh JPG, PNG hoặc WebP.",
+      "size": "Ảnh tối đa 20 MB. Hãy chọn ảnh nhỏ hơn."
+    },
+    "account": "Tài khoản Muse",
+    "automatic": "Tự động",
+    "createImages": "Tạo {{count}} ảnh",
+    "createVideo": "Tạo video",
+    "submitting": "Đang gửi…",
+    "recent": "Kết quả gần đây",
+    "openLibrary": "Mở Thư viện",
+    "allTasks": "Xem tất cả tác vụ",
+    "emptyTitle": "Khung hình đầu tiên bắt đầu ở đây",
+    "emptyDescription": "Nhập prompt, chọn tỉ lệ rồi bắt đầu tạo. Kết quả sẽ hiện tại đây và được lưu vào Thư viện.",
+    "historyError": "Không tải được kết quả gần đây. Hãy thử lại.",
+    "referenceMissing": "Ảnh tham chiếu không còn trong Thư viện. Hãy chọn lại ảnh trước khi tạo.",
+    "invalidRequest": "Kiểm tra prompt, số lượng và ảnh tham chiếu rồi thử lại.",
+    "completed": "Đã hoàn tất {{done}}/{{count}}",
+    "preview": "Xem lớn",
+    "fileRemoved": "Tệp đã được xóa khỏi Thư viện.",
+    "reusePrompt": "Dùng lại prompt",
+    "downloadAll": "Tải tất cả",
+    "dismissBatch": "Gỡ cả khối kết quả khỏi danh sách",
+    "dismissed": "Đã gỡ lượt tạo khỏi danh sách. Các tệp vẫn được giữ trong Thư viện.",
+    "undoDismiss": "Hoàn tác",
+    "dismissError": "Không cập nhật được danh sách. Vui lòng thử lại."
   }
 }

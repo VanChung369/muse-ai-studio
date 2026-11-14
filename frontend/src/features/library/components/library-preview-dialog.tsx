@@ -13,7 +13,7 @@ import {
 import { formatBytes } from "@/features/projects/lib/project-media";
 import { useLanguage } from "@/hooks/use-language";
 import { useNow } from "@/hooks/use-now";
-import type { LibraryItem } from "../api/library";
+import { type LibraryItem, libraryDownloadHref } from "../api/library";
 import { libraryItemMeta, libraryItemTitle } from "../lib/library";
 
 export function LibraryPreviewDialog({
@@ -98,7 +98,7 @@ export function LibraryPreviewDialog({
 
             <div className="mt-auto flex flex-col gap-2">
               <Button asChild>
-                <a href={item.url} download>
+                <a href={libraryDownloadHref(item.url)} download>
                   <Download aria-hidden="true" />
                   {t("library.download")}
                 </a>

@@ -24,13 +24,32 @@ export const CAPTION_LENGTH = 300;
 /** The part of the timeline the editor changes. */
 export type TimelineDraft = Pick<
   ProjectTimeline,
-  "items" | "audio" | "volume" | "captions" | "burnCaptions" | "captionStyle"
+  | "items"
+  | "audio"
+  | "volume"
+  | "duck"
+  | "captions"
+  | "burnCaptions"
+  | "captionStyle"
+  | "titles"
+  | "logo"
+  | "output"
 >;
+
+// A clip as it comes: no look, no zoom, no fades.
+const PLAIN_LOOK = {
+  effect: "none",
+  zoom: "none",
+  flip: false,
+  fadeIn: 0,
+  fadeOut: 0,
+} as const;
 
 export const EMPTY_DRAFT: TimelineDraft = {
   items: [],
   audio: [],
   volume: 1,
+  duck: false,
   captions: [],
   burnCaptions: true,
   captionStyle: {
@@ -40,14 +59,27 @@ export const EMPTY_DRAFT: TimelineDraft = {
     position: "bottom",
     bold: false,
     box: false,
+    font: "Arial",
   },
+  titles: [],
+  logo: null,
+  output: { aspect: "source", fit: "contain", height: 0, quality: "high" },
 };
 
 export function draftOf(timeline: ProjectTimeline | undefined): TimelineDraft {
   if (!timeline) return EMPTY_DRAFT;
-  const { items, audio, volume, captions, burnCaptions, captionStyle } =
-    timeline;
-  return { items, audio, volume, captions, burnCaptions, captionStyle };
+  return {
+    items: timeline.items,
+    audio: timeline.audio,
+    volume: timeline.volume,
+    duck: timeline.duck,
+    captions: timeline.captions,
+    burnCaptions: timeline.burnCaptions,
+    captionStyle: timeline.captionStyle,
+    titles: timeline.titles,
+    logo: timeline.logo,
+    output: timeline.output,
+  };
 }
 
 /** What the server stores: the edit without what it derives itself. */
@@ -55,17 +87,23 @@ export function timelinePayload(draft: TimelineDraft): TimelinePayload {
   return {
     items: draft.items.map((item) => {
       const cut = {
+        key: item.key,
         start: item.start,
         end: item.end,
         enabled: item.enabled,
         speed: item.speed,
+        effect: item.effect,
+        zoom: item.zoom,
+        flip: item.flip,
+        fadeIn: item.fadeIn,
+        fadeOut: item.fadeOut,
       };
       return item.mediaId === null
         ? { scene: item.scene ?? 0, ...cut }
-        : { mediaId: item.mediaId, key: item.key, ...cut };
+        : { mediaId: item.mediaId, ...cut };
     }),
     audio: draft.audio.map(
-      ({ mediaId, key, offset, start, end, volume, loop }) => ({
+      ({ mediaId, key, offset, start, end, volume, loop, fadeIn, fadeOut }) => ({
         mediaId,
         key,
         offset,
@@ -73,14 +111,25 @@ export function timelinePayload(draft: TimelineDraft): TimelinePayload {
         end,
         volume,
         loop,
+        fadeIn,
+        fadeOut,
       }),
     ),
     volume: draft.volume,
+    duck: draft.duck,
     captions: draft.captions
       .filter((caption) => caption.text.trim())
       .map(({ start, end, text }) => ({ start, end, text })),
     burnCaptions: draft.burnCaptions,
     captionStyle: draft.captionStyle,
+    titles: draft.titles.filter((title) => title.text.trim()),
+    logo: draft.logo && {
+      mediaId: draft.logo.mediaId,
+      corner: draft.logo.corner,
+      size: draft.logo.size,
+      opacity: draft.logo.opacity,
+    },
+    output: draft.output,
   };
 }
 
@@ -111,13 +160,14 @@ export function audioSeconds(track: TimelineAudio, total: number) {
 export function isTimelineValid(draft: TimelineDraft) {
   const long = (piece: { start: number; end: number }) =>
     piece.end - piece.start >= MIN_CUT_SECONDS - 1e-6;
+  const shown = (piece: { start: number; end: number; text: string }) =>
+    !piece.text.trim() || piece.end - piece.start >= 0.2;
   return (
     draft.items.some((item) => item.enabled) &&
     draft.items.every(long) &&
     draft.audio.every(long) &&
-    draft.captions.every(
-      (caption) => !caption.text.trim() || caption.end - caption.start >= 0.2,
-    )
+    draft.captions.every(shown) &&
+    draft.titles.every(shown)
   );
 }
 
@@ -174,6 +224,7 @@ export function clipFromMedia(media: ProjectMedia): TimelineItem {
     end: picture ? STILL_SECONDS : clipSeconds,
     enabled: true,
     speed: 1,
+    ...PLAIN_LOOK,
     videoUrl: picture ? null : media.url,
     thumbnailUrl: media.thumbnailUrl,
   };
@@ -192,9 +243,124 @@ export function audioFromMedia(media: ProjectMedia): TimelineAudio {
     end: clipSeconds,
     volume: 1,
     loop: false,
+    fadeIn: 0,
+    fadeOut: 0,
     url: media.url,
     waveformUrl: `${media.url}/waveform`,
   };
+}
+
+/**
+ * The pieces after cutting one in two at `at` seconds into its clip, or null
+ * when either half would be shorter than the shortest piece. The first half
+ * keeps the fade in, the second the fade out.
+ */
+export function splitItem(items: TimelineItem[], key: string, at: number) {
+  const index = items.findIndex((item) => item.key === key);
+  const item = items[index];
+  if (!item || item.kind === "image") return null;
+  const cut = toTenth(at);
+  if (
+    cut - item.start < MIN_CUT_SECONDS - EPSILON ||
+    item.end - cut < MIN_CUT_SECONDS - EPSILON
+  )
+    return null;
+  const second = {
+    ...item,
+    key: newKey(item.scene === null ? "m" : `scene-${item.scene}`),
+    start: cut,
+    fadeIn: 0,
+  };
+  return {
+    items: [
+      ...items.slice(0, index),
+      { ...item, end: cut, fadeOut: 0 },
+      second,
+      ...items.slice(index + 1),
+    ],
+    second: second.key,
+  };
+}
+
+/** Whether a piece may be taken out altogether, rather than only left out. */
+export function isRemovable(items: TimelineItem[], item: TimelineItem) {
+  // A scene must keep one piece in the timeline; added media need none.
+  return (
+    item.mediaId !== null ||
+    items.filter((other) => other.scene === item.scene).length > 1
+  );
+}
+
+type Placed = { key: string; offset: number; length: number };
+
+/** Where each kept piece sits in the film. */
+export function filmLayout(items: TimelineItem[]): Placed[] {
+  let offset = 0;
+  return items
+    .filter((item) => item.enabled)
+    .map((item) => {
+      const placed = { key: item.key, offset, length: itemSeconds(item) };
+      offset += placed.length;
+      return placed;
+    });
+}
+
+/** Times in the film worth snapping to: where each piece begins and ends. */
+export function snapPoints(items: TimelineItem[]) {
+  const layout = filmLayout(items);
+  return [0, ...layout.map((piece) => piece.offset + piece.length)];
+}
+
+/**
+ * Captions or titles moved along with the pieces they sit on: each stays on
+ * the piece that was playing when it started, as far into it as before.
+ * One whose piece is gone, or that was past the end of the film, stays put.
+ */
+export function followClips<T extends { start: number; end: number }>(
+  timed: T[],
+  before: TimelineItem[],
+  after: TimelineItem[],
+): T[] {
+  const old = filmLayout(before);
+  const known = new Set(before.map((item) => item.key));
+  const kept = after.filter((item) => item.enabled);
+  const now = new Map<string, Placed>();
+  let offset = 0;
+  kept.forEach((item, index) => {
+    const placed = { key: item.key, offset, length: itemSeconds(item) };
+    offset += placed.length;
+    // A piece just cut in two plays exactly as before: its halves count as
+    // the one piece, so what sat on the second half is not pulled back.
+    const half = kept[index + 1];
+    if (
+      half &&
+      known.has(item.key) &&
+      !known.has(half.key) &&
+      half.kind !== "image" &&
+      half.scene === item.scene &&
+      half.mediaId === item.mediaId &&
+      half.speed === item.speed &&
+      Math.abs(half.start - item.end) < EPSILON
+    )
+      placed.length += itemSeconds(half);
+    now.set(item.key, placed);
+  });
+  return timed.map((entry) => {
+    const from = old.find(
+      (piece) =>
+        entry.start >= piece.offset - EPSILON &&
+        entry.start < piece.offset + piece.length - EPSILON,
+    );
+    const to = from && now.get(from.key);
+    if (!from || !to) return entry;
+    // The same share of the way into the piece, so a trim or a new speed
+    // keeps the words on the same moment.
+    const share = from.length > 0 ? (entry.start - from.offset) / from.length : 0;
+    const start = toTenth(to.offset + share * to.length);
+    return start === entry.start
+      ? entry
+      : { ...entry, start, end: toTenth(start + entry.end - entry.start) };
+  });
 }
 
 /** One caption per kept scene that has narration, placed where it plays. */
@@ -203,6 +369,7 @@ export function captionsFromNarration(
   items: TimelineItem[],
 ): TimelineCaption[] {
   const captions: TimelineCaption[] = [];
+  const told = new Set<number>();
   let offset = 0;
   for (const item of items) {
     if (!item.enabled) continue;
@@ -210,12 +377,15 @@ export function captionsFromNarration(
     const narration = project.scenes
       .find((scene) => scene.number === item.scene)
       ?.narration.trim();
-    if (narration)
+    // A scene cut in pieces is narrated once, over its first piece.
+    if (narration && item.scene !== null && !told.has(item.scene)) {
+      told.add(item.scene);
       captions.push({
         start: toTenth(offset),
         end: toTenth(offset + length),
         text: narration.slice(0, CAPTION_LENGTH),
       });
+    }
     offset += length;
   }
   return captions;

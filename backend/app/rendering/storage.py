@@ -7,6 +7,10 @@ from pathlib import Path
 from app.core.config import Settings
 
 FINAL_FILE = "final.mp4"
+# A quick, rough version of an edit that is not saved yet.
+PREVIEW_FILE = "preview.mp4"
+# A frame the user picked to stand for the film.
+COVER_FILE = "cover.jpg"
 EXTENSIONS = {
     "video/mp4": ".mp4",
     "video/webm": ".webm",

@@ -1,6 +1,7 @@
 import os
 import tempfile
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -9,13 +10,13 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
 from app.models import Account, Project, Scene, Task
 from app.rendering import storage
-from app.rendering.ffmpeg import find_ffmpeg, thumbnail
+from app.rendering.ffmpeg import find_ffmpeg, frame_at, thumbnail
 from app.rendering.tasks import (
     RenderRequestError,
     cancel_render,
@@ -380,9 +381,20 @@ def download_scenes(project_id: str, request: Request, session: DatabaseSession)
     responses={404: {"description": "Project not found, or nothing rendered yet"}},
 )
 def get_project_cover(project_id: str, request: Request, session: DatabaseSession):
-    """A still of the first scene that has a clip."""
+    """The frame the user picked as the cover, or a still of the first
+    scene that has a clip."""
     if session.get(Project, project_id) is None:
         raise not_found()
+    chosen = (
+        storage.project_dir(request.app.state.settings, project_id)
+        / storage.COVER_FILE
+    )
+    if chosen.is_file():
+        session.rollback()
+        # Its address never changes: always ask whether it did.
+        return FileResponse(
+            chosen, media_type="image/jpeg", headers={"Cache-Control": "no-cache"}
+        )
     name = session.scalar(
         select(Scene.video_file)
         .where(Scene.project_id == project_id, Scene.video_file.is_not(None))
@@ -407,3 +419,76 @@ def get_project_video(
     name = project.video_file
     session.rollback()
     return _file(request, project_id, name, "video" if download else "")
+
+
+def _cover_changed(session: Session, project_id: str) -> None:
+    """The cover's address carries the project's last change, so a new
+    cover is not hidden behind the copy a browser kept of the old one."""
+    session.execute(
+        update(Project)
+        .where(Project.id == project_id)
+        .values(updated_at=datetime.now(UTC))
+    )
+    session.commit()
+
+
+class CoverRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+    # Seconds into the finished film.
+    seconds: float = Field(ge=0, le=36000)
+
+
+@router.post(
+    "/{project_id}/cover",
+    status_code=204,
+    responses={
+        404: {"description": "Project not found, or it has no finished film"},
+        409: {"description": "FFmpeg is missing"},
+        422: {"description": "No frame at that time"},
+    },
+)
+def set_project_cover(
+    project_id: str, values: CoverRequest, request: Request, session: DatabaseSession
+):
+    """Use the finished film's frame at `seconds` as the project's cover."""
+    project = session.get(Project, project_id)
+    if project is None:
+        raise not_found()
+    name = project.video_file
+    session.rollback()
+    settings = request.app.state.settings
+    folder = storage.project_dir(settings, project_id)
+    film = folder / Path(name).name if name else None
+    if film is None or not film.is_file():
+        raise HTTPException(
+            404, detail={"code": "media_not_found", "message": "No video yet."}
+        )
+    ffmpeg = find_ffmpeg(settings)
+    if ffmpeg is None:
+        raise HTTPException(
+            409,
+            detail={"code": "ffmpeg_unavailable", "message": "FFmpeg is needed."},
+        )
+    if not frame_at(ffmpeg, film, values.seconds, folder / storage.COVER_FILE):
+        raise HTTPException(
+            422,
+            detail={"code": "cover_failed", "message": "No frame at that time."},
+        )
+    _cover_changed(session, project_id)
+
+
+@router.delete(
+    "/{project_id}/cover",
+    status_code=204,
+    responses={404: {"description": "Project not found"}},
+)
+def clear_project_cover(project_id: str, request: Request, session: DatabaseSession):
+    """Go back to the cover picked automatically."""
+    if session.get(Project, project_id) is None:
+        raise not_found()
+    session.rollback()
+    folder = storage.project_dir(request.app.state.settings, project_id)
+    chosen = folder / storage.COVER_FILE
+    if chosen.is_file():
+        chosen.unlink(missing_ok=True)
+        _cover_changed(session, project_id)

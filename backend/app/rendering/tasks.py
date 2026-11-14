@@ -14,19 +14,12 @@ from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import generate_video
 from app.models import Account, Project, Scene, Task
-from app.rendering import storage, timeline
+from app.rendering import film, storage, timeline
 from app.rendering.ffmpeg import (
-    Caption,
     CaptionError,
-    CaptionStyle,
     MergeError,
-    Segment,
-    Soundtrack,
-    compose,
     find_ffmpeg,
     last_frame,
-    merge,
-    probe,
     thumbnail,
 )
 from app.rendering.prompt import build_scene_prompt
@@ -594,92 +587,25 @@ def make_merge_handler(app):
             project = session.get(Project, context.project_id)
             if project is None:
                 raise TaskFailure("project_not_found")
-            files = [scene.video_file for scene in project.scenes]
-            mute = project.mute
-            by_scene = {scene.number: scene.video_file for scene in project.scenes}
-            added = {media.id: (media.kind, media.file) for media in project.media}
-            # The film's edit: order, trims, speed, pieces left out, added
-            # media, the soundtrack and captions.
+            source = film.sources(project)
+            # The film's edit: order, trims, speed and looks, pieces left out,
+            # added media, the soundtrack, captions, titles and the logo.
             edit = timeline.load(project)
-        kept = [cut for cut in edit.cuts if cut.enabled]
-        folder = storage.project_dir(settings, context.project_id)
-        media_folder = storage.media_dir(settings, context.project_id)
-        clips = [folder / name for name in files if name]
-        if len(clips) != len(files) or not all(clip.is_file() for clip in clips):
-            raise TaskFailure("scene_missing", suggested_action="retry")
-        if not kept:
-            raise TaskFailure("timeline_empty", suggested_action="retry")
         ffmpeg = find_ffmpeg(settings)
         if ffmpeg is None:
             raise TaskFailure("ffmpeg_unavailable", suggested_action="retry")
-        segments = [
-            Segment(folder / by_scene[cut.scene], cut.start, cut.end, cut.speed)
-            if cut.media is None
-            else Segment(
-                media_folder / added[cut.media][1],
-                cut.start,
-                cut.end,
-                cut.speed,
-                still=added[cut.media][0] == "image",
-            )
-            for cut in kept
-        ]
-        soundtracks = [
-            Soundtrack(
-                media_folder / added[track.media][1],
-                track.offset,
-                track.start,
-                track.end,
-                track.volume,
-                track.loop,
-            )
-            for track in edit.tracks
-        ]
-        if not all(item.path.is_file() for item in [*segments, *soundtracks]):
-            raise TaskFailure("media_missing", suggested_action="retry")
-        output = folder / storage.FINAL_FILE
+        folder = storage.project_dir(settings, context.project_id)
         try:
-            if edit.plain:
-                # Only scenes at normal speed: joined, without re-encoding
-                # when nothing is trimmed.
-                merge(
-                    ffmpeg,
-                    [segment.path for segment in segments],
-                    output,
-                    context.raise_if_cancelled,
-                    mute=mute,
-                    cuts=[(cut.start, cut.end) for cut in kept],
-                )
-            else:
-                # The film keeps the frame of its scenes, whatever shape an
-                # added video or picture has.
-                frame = probe(ffmpeg, clips[0])
-                compose(
-                    ffmpeg,
-                    segments,
-                    output,
-                    context.raise_if_cancelled,
-                    mute=mute,
-                    volume=edit.volume,
-                    soundtracks=soundtracks,
-                    captions=[
-                        Caption(cue.start, cue.end, cue.text)
-                        for cue in edit.captions
-                    ]
-                    if edit.burn_captions
-                    else [],
-                    caption_style=CaptionStyle(
-                        size=timeline.CAPTION_SIZES.get(
-                            edit.caption_style["size"], 0.06
-                        ),
-                        color=edit.caption_style["color"],
-                        outline=edit.caption_style["outline"],
-                        position=edit.caption_style["position"],
-                        bold=edit.caption_style["bold"],
-                        box=edit.caption_style["box"],
-                    ),
-                    frame=(frame.width, frame.height),
-                )
+            pieces = film.build(
+                settings,
+                ffmpeg,
+                source,
+                edit,
+                folder / storage.FINAL_FILE,
+                context.raise_if_cancelled,
+            )
+        except film.FilmError as problem:
+            raise TaskFailure(problem.code, suggested_action="retry") from None
         except CaptionError:
             raise TaskFailure("captions_unavailable") from None
         except MergeError:
@@ -696,6 +622,6 @@ def make_merge_handler(app):
                 .execution_options(synchronize_session=False)
             )
             session.commit()
-        return {"projectId": context.project_id, "scenes": len(segments)}
+        return {"projectId": context.project_id, "scenes": pieces}
 
     return handler

@@ -45,7 +45,8 @@ export const PROJECT_LANGUAGES = [
 // How a scene uses the last frame of the one before it.
 export const PROJECT_CONTINUITIES = ["reference", "seamless", "off"] as const;
 // Reference material: what the server accepts (see references.py).
-export const REFERENCE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime";
+export const REFERENCE_ACCEPT =
+  "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime";
 export const REFERENCE_MAX_FILES = 6;
 export const REFERENCE_MAX_BYTES = 50 * 1024 * 1024;
 export const REFERENCE_ERROR_CODES = [
@@ -94,6 +95,7 @@ export const TIMELINE_ERROR_CODES = [
   "ffmpeg_unavailable",
   "invalid_timeline",
   "captions_unavailable",
+  "preview_failed",
   "project_not_found",
 ] as const;
 

@@ -6,6 +6,9 @@ RENDER_SCENE = "render_scene"
 MERGE_VIDEO = "merge_video"
 # A piece of background music for a project, made by Muse.
 GENERATE_MUSIC = "generate_music"
+GENERATE_IMAGE = "generate_image"
+GENERATE_VIDEO = "generate_video"
+QUICK_KINDS = (GENERATE_IMAGE, GENERATE_VIDEO)
 # One chain per project: every scene in order, then the merge.
 RENDER_KINDS = (RENDER_SCENE, MERGE_VIDEO)
 

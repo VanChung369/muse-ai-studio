@@ -67,6 +67,10 @@ export const TASK_ERROR_CODES = [
   "timeline_empty",
   "music_missing",
   "media_missing",
+  "reference_missing",
+  "image_count_mismatch",
+  "conversation_unavailable",
+  "too_many_files",
   "captions_unavailable",
 ] as const;
 
@@ -75,6 +79,8 @@ export const TASK_KINDS = [
   "render_scene",
   "merge_video",
   "generate_music",
+  "generate_image",
+  "generate_video",
 ] as const;
 
 export const TASK_STATUS_CLASSES = {

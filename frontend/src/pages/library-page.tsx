@@ -13,7 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  ARCHIVE_LIMIT,
   libraryArchiveHref,
+  libraryDownloadHref,
   type LibraryFilters,
   type LibraryItem,
 } from "@/features/library/api/library";
@@ -111,8 +113,10 @@ export function LibraryPage() {
     selectedItems.every((item) => item.deletable && item.assetId !== null);
   const downloadHref =
     selectedItems.length === 1
-      ? selectedItems[0].url
+      ? libraryDownloadHref(selectedItems[0].url)
       : libraryArchiveHref(selectedIds);
+  // One archive holds a limited number of files.
+  const canDownload = selectedIds.length <= ARCHIVE_LIMIT;
 
   async function handleConfirmDelete() {
     const assetIds = selectedItems
@@ -210,12 +214,25 @@ export function LibraryPage() {
             {t("library.selected", { count: selected.size })}
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={downloadHref} download>
+            {canDownload ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={downloadHref} download>
+                  <Download aria-hidden="true" />
+                  {t("library.download")}
+                </a>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled
+                title={t("library.downloadLimit", { count: ARCHIVE_LIMIT })}
+              >
                 <Download aria-hidden="true" />
                 {t("library.download")}
-              </a>
-            </Button>
+              </Button>
+            )}
             <Button
               type="button"
               variant="destructive"

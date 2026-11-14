@@ -345,6 +345,16 @@ class Segment:
     # 2.0 plays twice as fast (and takes half as long). Ignored for a still.
     speed: float = 1.0
     still: bool = False
+    # A colour look: a key of EFFECTS, or "none".
+    effect: str = "none"
+    # A slow push "in" or pull "out" over the piece's length.
+    zoom: str = "none"
+    # Mirrored left to right.
+    flip: bool = False
+    # Seconds it takes to come up from black, and to go to black; its
+    # sound fades with it.
+    fade_in: float = 0.0
+    fade_out: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -360,6 +370,8 @@ class Soundtrack:
     volume: float = 1.0
     # Repeat that part until the film ends.
     loop: bool = False
+    fade_in: float = 0.0
+    fade_out: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -384,6 +396,70 @@ class CaptionStyle:
     bold: bool = False
     # A dark box behind the words instead of an outline around them.
     box: bool = False
+    font: str = "Arial"
+
+
+@dataclass(frozen=True)
+class Title:
+    """Words placed on the picture for a while."""
+
+    # Seconds into the film.
+    start: float
+    end: float
+    text: str
+    size: float = 0.08
+    color: str = "#FFFFFF"
+    # One of nine places: "top-left", "top", ... "center" ... "bottom-right".
+    position: str = "center"
+    bold: bool = True
+    box: bool = False
+
+
+@dataclass(frozen=True)
+class Logo:
+    """A picture kept in a corner for the whole film."""
+
+    path: Path
+    corner: str = "top-right"
+    # Width as a share of the frame's width.
+    size: float = 0.14
+    opacity: float = 1.0
+
+
+# Colour looks, as filters applied to a piece once it fills the frame.
+EFFECTS = {
+    "mono": "hue=s=0",
+    "sepia": "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131",
+    "warm": "colorbalance=rs=.12:gs=.03:bs=-.12:rm=.08:bm=-.08",
+    "cool": "colorbalance=rs=-.10:bs=.12:rm=-.06:bm=.08",
+    "vivid": "eq=contrast=1.15:saturation=1.45",
+    "vintage": "curves=preset=vintage,eq=saturation=0.85,vignette=PI/5",
+    "blur": "gblur=sigma=8",
+    "vignette": "vignette=PI/4",
+}
+# How far a slow zoom goes: 12% closer by the end (or at the start).
+ZOOM = 0.12
+# Constant rate factors for H.264: lower is better and bigger.
+QUALITIES = {"high": 18, "medium": 23, "small": 28}
+PREVIEW_HEIGHT = 360
+
+
+def output_frame(
+    base: tuple[int, int], aspect: str = "source", short_side: int = 0
+) -> tuple[int, int]:
+    """The film's frame: the scenes' own (`base`) unless another shape or
+    size is asked for. `short_side` is the frame's shorter edge in pixels
+    ("720p"), 0 keeping that of the scenes."""
+    width, height = base
+    ratio = (
+        width / height
+        if aspect == "source"
+        else {"16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1.0}[aspect]
+    )
+    short = short_side or min(width, height)
+    wide, tall = (short * ratio, short) if ratio >= 1 else (short, short / ratio)
+    # H.264 with yuv420p needs even dimensions.
+    return int(round(wide / 2)) * 2, int(round(tall / 2)) * 2
 
 
 def compose(
@@ -395,19 +471,31 @@ def compose(
     mute: bool = False,
     volume: float = 1.0,
     soundtracks: list[Soundtrack] | tuple[Soundtrack, ...] = (),
+    duck: bool = False,
     captions: list[Caption] | tuple[Caption, ...] = (),
     caption_style: CaptionStyle | None = None,
+    titles: list[Title] | tuple[Title, ...] = (),
+    logo: Logo | None = None,
     frame: tuple[int, int] | None = None,
+    fit: str = "contain",
+    quality: str = "high",
+    preview: bool = False,
 ) -> None:
     """Build the film from `segments` in order, always re-encoding.
 
     This is the general form of `merge`, for a film that needs more than
-    joining: stills, a changed speed, audio laid over it, captions drawn
-    into the picture. `mute` and `volume` apply to the sound the clips came
-    with; soundtracks keep their own volume and still play when muted.
-    `frame` is the film's frame size (default: the first clip's).
+    joining: stills, a changed speed, looks and fades, audio laid over it,
+    captions, titles and a logo drawn into the picture. `mute` and `volume`
+    apply to the sound the clips came with; soundtracks keep their own
+    volume and still play when muted, and with `duck` they are lowered while
+    the clips' sound is heard.
+
+    `frame` is the film's frame size (default: the first clip's); a piece of
+    another shape is shown whole with bars (`fit` "contain") or fills the
+    frame with its edges cropped ("cover"). `preview` makes a small, quick,
+    rough version of the same film.
     """
-    if captions and not can_caption(ffmpeg):
+    if (captions or titles) and not can_caption(ffmpeg):
         raise CaptionError
     parts = []  # (segment, start, seconds of source used, has audio)
     for segment in segments:
@@ -420,6 +508,9 @@ def compose(
         parts.append((segment, start, end - start, clip.has_audio))
         frame = frame or (clip.width, clip.height)
     width, height = frame or (1280, 720)
+    if preview and min(width, height) > PREVIEW_HEIGHT:
+        scale = PREVIEW_HEIGHT / min(width, height)
+        width, height = round(width * scale), round(height * scale)
     # H.264 with yuv420p needs even dimensions.
     width, height = width - width % 2, height - height % 2
     lengths = [
@@ -439,9 +530,12 @@ def compose(
         return count - 1
 
     filters, pads = [], []
-    fit = (
-        f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p"
+    place = (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}"
+        if fit == "cover"
+        else f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
     )
     for index, ((segment, start, used, has_audio), length) in enumerate(
         zip(parts, lengths, strict=True)
@@ -451,14 +545,42 @@ def compose(
                 "-loop", "1", "-framerate", "30", "-t", f"{used:.3f}",
                 "-i", str(segment.path),
             )  # fmt: skip
-            pace = ""
+            steps = []
         else:
             # Seeking on the input while decoding is frame accurate.
             source = add(
                 "-ss", f"{start:.3f}", "-t", f"{used:.3f}", "-i", str(segment.path)
             )
-            pace = "" if segment.speed == 1 else f"setpts=PTS/{segment.speed:.4f},"
-        filters.append(f"[{source}:v]{pace}{fit}[v{index}]")
+            steps = [] if segment.speed == 1 else [f"setpts=PTS/{segment.speed:.4f}"]
+        steps += [place, "setsar=1", "fps=30"]
+        if segment.flip:
+            steps.append("hflip")
+        if segment.effect in EFFECTS:
+            steps.append(EFFECTS[segment.effect])
+        if segment.zoom in ("in", "out"):
+            frames = max(round(length * 30), 1)
+            # Each frame is cut out of a larger copy, a little tighter (or
+            # looser) than the last; the larger copy keeps the motion smooth.
+            grow = 1 if preview else 2
+            zoom = (
+                f"1+{ZOOM}*on/{frames}"
+                if segment.zoom == "in"
+                else f"{1 + ZOOM}-{ZOOM}*on/{frames}"
+            )
+            steps += [
+                f"scale={width * grow}:{height * grow}",
+                f"zoompan=z='{zoom}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                f":s={width}x{height}:fps=30",
+            ]
+        # Fades never overlap: each gets at most half the piece.
+        fade_in = min(max(segment.fade_in, 0.0), length / 2)
+        fade_out = min(max(segment.fade_out, 0.0), length / 2)
+        if fade_in > 0.01:
+            steps.append(f"fade=t=in:st=0:d={fade_in:.3f}")
+        if fade_out > 0.01:
+            steps.append(f"fade=t=out:st={length - fade_out:.3f}:d={fade_out:.3f}")
+        steps.append("format=yuv420p")
+        filters.append(f"[{source}:v]{','.join(steps)}[v{index}]")
         pads.append(f"[v{index}]")
         if not keep_sound:
             continue
@@ -471,8 +593,14 @@ def compose(
                 "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             )  # fmt: skip
             sound, tempo = f"{silent}:a", ""
+        tail = ""
+        if fade_in > 0.01:
+            tail += f",afade=t=in:st=0:d={fade_in:.3f}"
+        if fade_out > 0.01:
+            tail += f",afade=t=out:st={length - fade_out:.3f}:d={fade_out:.3f}"
         filters.append(
-            f"[{sound}]{tempo}aresample=44100,aformat=channel_layouts=stereo[a{index}]"
+            f"[{sound}]{tempo}aresample=44100,aformat=channel_layouts=stereo{tail}"
+            f"[a{index}]"
         )
         pads.append(f"[a{index}]")
     filters.append(
@@ -481,13 +609,13 @@ def compose(
         + ("[sound]" if keep_sound else "")
     )
 
-    mix = []
+    own = None  # The sound the clips came with, at its volume.
     if keep_sound:
-        if volume == 1:
-            mix.append("[sound]")
-        else:
+        own = "[sound]"
+        if volume != 1:
             filters.append(f"[sound]volume={volume:.3f}[level]")
-            mix.append("[level]")
+            own = "[level]"
+    music = []
     for index, track in enumerate(soundtracks):
         room = total - track.offset
         info = inspect(ffmpeg, track.path)
@@ -495,10 +623,10 @@ def compose(
             raise MergeError
         end = min(track.end if track.end is not None else info.seconds, info.seconds)
         start = max(0.0, min(track.start, end))
-        own = end - start
-        if room <= 0.05 or own <= 0.05:
+        length = end - start
+        if room <= 0.05 or length <= 0.05:
             continue  # Starts after the film ends, or nothing of it is used.
-        play = room if track.loop else min(own, room)
+        play = room if track.loop else min(length, room)
         source = add("-i", str(track.path))
         steps = [
             "aresample=44100",
@@ -507,20 +635,43 @@ def compose(
             "asetpts=PTS-STARTPTS",
         ]
         if track.loop:
-            steps.append(f"aloop=loop=-1:size={int(own * 44100)}")
+            steps.append(f"aloop=loop=-1:size={int(length * 44100)}")
         steps += [f"atrim=duration={play:.3f}", f"volume={track.volume:.3f}"]
-        if play > 2 and (track.loop or own > room):
+        fade_in = min(max(track.fade_in, 0.0), play / 2)
+        fade_out = min(max(track.fade_out, 0.0), play / 2)
+        if fade_out <= 0.01 and play > 2 and (track.loop or length > room):
             # Cut off by the film's end: let it fade rather than stop dead.
-            steps.append(f"afade=t=out:st={play - 1.5:.3f}:d=1.5")
+            fade_out = 1.5
+        if fade_in > 0.01:
+            steps.append(f"afade=t=in:st=0:d={fade_in:.3f}")
+        if fade_out > 0.01:
+            steps.append(f"afade=t=out:st={play - fade_out:.3f}:d={fade_out:.3f}")
         if track.offset > 0:
             steps.append(f"adelay={int(track.offset * 1000)}:all=1")
         filters.append(f"[{source}:a]{','.join(steps)}[m{index}]")
-        mix.append(f"[m{index}]")
+        music.append(f"[m{index}]")
+    if duck and own and music:
+        # The clips' sound is heard and also listened to: while it is loud
+        # the added audio is pressed down, and let back up after.
+        if len(music) > 1:
+            filters.append(
+                "".join(music)
+                + f"amix=inputs={len(music)}:duration=longest:dropout_transition=0"
+                ":normalize=0[bed]"
+            )
+            music = ["[bed]"]
+        filters.append(f"{own}asplit=2[heard][key]")
+        filters.append(
+            f"{music[0]}[key]sidechaincompress=threshold=0.03:ratio=8:attack=30"
+            ":release=600[ducked]"
+        )
+        own, music = "[heard]", ["[ducked]"]
+    mix = ([own] if own else []) + music
     audio = None
-    if len(mix) == 1 and keep_sound:
+    if len(mix) == 1 and own:
         audio = mix[0]
     elif mix:
-        if not keep_sound:
+        if not own:
             # The mix is as long as its first input: silence of the film's length.
             bed = add(
                 "-f", "lavfi", "-t", f"{total:.3f}",
@@ -534,30 +685,56 @@ def compose(
         )
         audio = "[mixed]"
 
+    picture = "[joined]"
+    if logo is not None:
+        mark = add(
+            "-loop", "1", "-framerate", "30", "-t", f"{total:.3f}", "-i", str(logo.path)
+        )
+        wide = max(round(width * min(max(logo.size, 0.02), 0.6) / 2) * 2, 2)
+        margin = round(width * 0.03)
+        across = (
+            str(margin) if logo.corner.endswith("left") else f"main_w-overlay_w-{margin}"
+        )
+        down = (
+            str(margin) if logo.corner.startswith("top") else f"main_h-overlay_h-{margin}"
+        )
+        filters.append(
+            f"[{mark}:v]scale={wide}:-2,format=rgba,"
+            f"colorchannelmixer=aa={min(max(logo.opacity, 0.0), 1.0):.3f}[mark]"
+        )
+        filters.append(f"{picture}[mark]overlay={across}:{down}:format=auto[marked]")
+        picture = "[marked]"
+
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(output.stem + ".part.mp4")
     try:
         with tempfile.TemporaryDirectory() as folder:
-            picture = "[joined]"
-            if captions:
+            if captions or titles:
                 # Read by a relative name with the folder as working directory:
                 # a Windows path cannot be written safely inside a filter.
                 (Path(folder) / CAPTION_FILE).write_text(
                     caption_script(
-                        captions, caption_style or CaptionStyle(), width, height
+                        captions, caption_style or CaptionStyle(), width, height, titles
                     ),
                     encoding="utf-8",
                 )
-                filters.append(f"[joined]subtitles={CAPTION_FILE}[drawn]")
+                filters.append(f"{picture}subtitles={CAPTION_FILE}[drawn]")
                 picture = "[drawn]"
+            if picture != "[joined]":
+                filters.append(f"{picture}format=yuv420p[film]")
+                picture = "[film]"
             command = [
                 ffmpeg, "-y", "-v", "error", *inputs,
                 "-filter_complex", ";".join(filters), "-map", picture,
             ]  # fmt: skip
             if audio:
-                command += ["-map", audio, "-c:a", "aac", "-b:a", "192k"]
+                command += [
+                    "-map", audio, "-c:a", "aac", "-b:a", "96k" if preview else "192k"
+                ]  # fmt: skip
             command += [
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                "-c:v", "libx264",
+                "-preset", "ultrafast" if preview else "veryfast",
+                "-crf", "30" if preview else str(QUALITIES.get(quality, 18)),
                 "-t", f"{total:.3f}", "-movflags", "+faststart",
                 str(temporary.resolve()),
             ]  # fmt: skip
@@ -633,10 +810,12 @@ def extract_audio(ffmpeg: str, source: Path, target: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def caption_script(captions, style: CaptionStyle, width: int, height: int) -> str:
-    """The captions as an ASS script for a frame of this size. Written in
-    full rather than styled through the filter, so sizes are in the film's
-    own pixels and the position means the same in every FFmpeg build."""
+def caption_script(
+    captions, style: CaptionStyle, width: int, height: int, titles=()
+) -> str:
+    """The captions and titles as an ASS script for a frame of this size.
+    Written in full rather than styled through the filter, so sizes are in
+    the film's own pixels and positions mean the same in every FFmpeg build."""
 
     def colour(value: str, alpha: str = "00") -> str:
         red, green, blue = value[1:3], value[3:5], value[5:7]
@@ -648,15 +827,39 @@ def caption_script(captions, style: CaptionStyle, width: int, height: int) -> st
         minutes, rest = divmod(rest, 6_000)
         return f"{hours}:{minutes:02d}:{rest // 100:02d}.{rest % 100:02d}"
 
-    size = max(round(height * style.size), 8)
-    # A box is drawn as a thick, half-transparent "outline" in black.
-    border = (
-        f"3,{round(size * 0.22, 1)},0"
-        if style.box
-        else f"1,{round(size * 0.07, 1)},{round(size * 0.03, 1)}"
-    )
-    edge = colour("#000000", "70") if style.box else colour(style.outline)
-    alignment = {"bottom": 2, "middle": 5, "top": 8}.get(style.position, 2)
+    def look(name, font, share, color, outline, alignment, bold, box) -> str:
+        size = max(round(height * share), 8)
+        # A box is drawn as a thick, half-transparent "outline" in black.
+        border = (
+            f"3,{round(size * 0.22, 1)},0"
+            if box
+            else f"1,{round(size * 0.07, 1)},{round(size * 0.03, 1)}"
+        )
+        edge = colour("#000000", "70") if box else colour(outline)
+        # A font name ends at the comma that separates the fields.
+        return (
+            f"Style: {name},{font.replace(',', ' ')},{size},{colour(color)},"
+            f"&H000000FF,{edge},&H80000000,{-1 if bold else 0},0,0,0,100,100,0,0,"
+            f"{border},{alignment},{round(width * 0.05)},{round(width * 0.05)},"
+            f"{round(height * 0.06)},1"
+        )
+
+    def words(text: str) -> str:
+        # Braces and backslashes start style overrides in the renderer.
+        rows = [
+            row.strip()
+            for row in text.replace("{", "(")
+            .replace("}", ")")
+            .replace("\\", "/")
+            .splitlines()
+        ]
+        return "\\N".join(row for row in rows if row)
+
+    places = {
+        "bottom-left": 1, "bottom": 2, "bottom-right": 3,
+        "left": 4, "center": 5, "right": 6,
+        "top-left": 7, "top": 8, "top-right": 9,
+    }  # fmt: skip
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -670,27 +873,48 @@ def caption_script(captions, style: CaptionStyle, width: int, height: int) -> st
         "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, "
         "ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, "
         "MarginR, MarginV, Encoding",
-        f"Style: Default,Arial,{size},{colour(style.color)},&H000000FF,{edge},"
-        f"&H80000000,{-1 if style.bold else 0},0,0,0,100,100,0,0,{border},"
-        f"{alignment},{round(width * 0.05)},{round(width * 0.05)},"
-        f"{round(height * 0.06)},1",
+        look(
+            "Default",
+            style.font,
+            style.size,
+            style.color,
+            style.outline,
+            {"bottom": 2, "middle": 5, "top": 8}.get(style.position, 2),
+            style.bold,
+            style.box,
+        ),
+    ]
+    # Every title has a look of its own.
+    lines += [
+        look(
+            f"Title{number}",
+            style.font,
+            title.size,
+            title.color,
+            "#000000",
+            places.get(title.position, 5),
+            title.bold,
+            title.box,
+        )
+        for number, title in enumerate(titles)
+    ]
+    lines += [
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
     for caption in sorted(captions, key=lambda c: c.start):
-        # Braces and backslashes start style overrides in the renderer.
-        rows = [
-            row.strip()
-            for row in caption.text.replace("{", "(")
-            .replace("}", ")")
-            .replace("\\", "/")
-            .splitlines()
-        ]
-        text = "\\N".join(row for row in rows if row)
+        text = words(caption.text)
         if text:
             lines.append(
                 f"Dialogue: 0,{stamp(caption.start)},{stamp(caption.end)},Default,,0,0,0,,{text}"
+            )
+    for number, title in enumerate(titles):
+        text = words(title.text)
+        if text:
+            # Above the captions when both are on screen.
+            lines.append(
+                f"Dialogue: 1,{stamp(title.start)},{stamp(title.end)},Title{number},,0,0,0,,{text}"
             )
     return "\n".join(lines) + "\n"
 
@@ -718,3 +942,29 @@ def waveform(ffmpeg: str, source: Path, target: Path) -> bool:
         return False
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def frame_at(ffmpeg: str, clip: Path, seconds: float, target: Path) -> bool:
+    """Write the clip's frame at `seconds` to `target` as a small JPEG. False
+    when it could not be made (past the clip's end, for one)."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + ".part.jpg")
+    try:
+        subprocess.run(  # noqa: S603 - fixed arguments, no shell
+            [
+                ffmpeg, "-y", "-v", "error", "-ss", f"{max(seconds, 0.0):.3f}",
+                "-i", str(clip), "-frames:v", "1", "-vf", "scale=640:-2",
+                "-q:v", "4", str(temporary),
+            ],  # fmt: skip
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=60,
+        )
+        if temporary.is_file() and temporary.stat().st_size > 0:
+            os.replace(temporary, target)
+            return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    finally:
+        temporary.unlink(missing_ok=True)
+    return False

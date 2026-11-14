@@ -23,6 +23,7 @@ import {
   SPEEDS,
 } from "../lib/project-timeline";
 import type { TimelineItem } from "../types";
+import { ClipEffectsFields } from "./clip-effects-fields";
 
 const secondsLabel = (value: number) => `${value.toFixed(1)}s`;
 const speedLabel = (speed: number) => `${speed}×`;
@@ -52,8 +53,9 @@ export function TimelineStrip({
   onSelect,
   onMove,
     onTrim,
-  onDropMedia,
+    onDropMedia,
   onRemove,
+  canRemove,
 }: {
   items: TimelineItem[];
   span: number;
@@ -65,8 +67,10 @@ export function TimelineStrip({
   // A video or picture dragged in from the media library, with the
   // position among `items` it was dropped at.
   onDropMedia?: (media: ProjectMedia, index: number) => void;
-  // Take a piece the user added out of the film.
+  // Take a piece out of the film: one the user added, or a part of a
+  // scene that still has another part in it.
   onRemove?: (key: string) => void;
+  canRemove?: (item: TimelineItem) => boolean;
 }) {
   const { t } = useTranslation();
   const track = useRef<HTMLOListElement>(null);
@@ -248,7 +252,7 @@ export function TimelineStrip({
                   </span>
                 </span>
               </button>
-              {editable && onRemove && item.mediaId !== null && (
+              {editable && onRemove && (canRemove?.(item) ?? item.mediaId !== null) && (
                 // Only what the user added can go; a scene is left out instead.
                 <button
                   type="button"
@@ -473,6 +477,9 @@ export function TimelineCutEditor({
         />
         {t("projects.timeline.include")}
       </label>
+      <div className="border-t pt-3">
+        <ClipEffectsFields item={item} onChange={onChange} />
+      </div>
       <div className="grid grid-cols-2 gap-2 border-t pt-4">
         <Button
           type="button"

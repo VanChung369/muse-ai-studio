@@ -394,3 +394,206 @@ def test_waveform_draws_the_sound_of_a_file(tmp_path):
     # A picture has no sound to draw.
     assert not waveform(FFMPEG, still(tmp_path / "logo.png"), tmp_path / "none.png")
     assert not (tmp_path / "none.png").exists()
+
+
+def pixels(path, at, size="320x180"):
+    """One frame of the film as rows of (red, green, blue)."""
+    width, height = (int(part) for part in size.split("x"))
+    raw = subprocess.run(
+        [
+            FFMPEG, "-v", "error", "-ss", str(at), "-i", str(path),
+            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+        ],  # fmt: skip
+        capture_output=True,
+    ).stdout
+    assert len(raw) == width * height * 3, len(raw)
+    return [
+        [tuple(raw[(row * width + column) * 3 :][:3]) for column in range(width)]
+        for row in range(height)
+    ]
+
+
+@needs_ffmpeg
+def test_compose_applies_looks_fades_and_mirroring(tmp_path):
+    from app.rendering.ffmpeg import EFFECTS, Segment, compose
+
+    scene = clip(tmp_path / "scene-01.mp4", 3, "red")
+    output = tmp_path / "final.mp4"
+    # Black and white, coming up from black and going back to it.
+    compose(
+        FFMPEG,
+        [Segment(scene, effect="mono", fade_in=1.0, fade_out=1.0)],
+        output,
+        lambda: None,
+    )
+    assert 2.7 < probe(FFMPEG, output).seconds < 3.4
+    first, middle, last = (pixels(output, at)[90][160] for at in (0.05, 1.5, 2.9))
+    assert max(first) < 40 and max(last) < 60  # Still close to black.
+    assert max(middle) > 60 and max(middle) - min(middle) < 12  # Grey, not red.
+
+    # Every look, a slow zoom either way and mirroring make a film as long
+    # as its clip.
+    for effect in EFFECTS:
+        compose(
+            FFMPEG, [Segment(scene, end=1.0, effect=effect)], output, lambda: None,
+            preview=True,
+        )  # fmt: skip
+        assert 0.7 < probe(FFMPEG, output).seconds < 1.4, effect
+    compose(
+        FFMPEG,
+        [
+            Segment(scene, end=1.0, zoom="in", flip=True),
+            Segment(still(tmp_path / "photo.png"), end=1.0, still=True, zoom="out"),
+        ],
+        output,
+        lambda: None,
+    )
+    made = probe(FFMPEG, output)
+    assert 1.7 < made.seconds < 2.4 and (made.width, made.height) == (320, 180)
+
+
+@needs_ffmpeg
+def test_compose_fits_the_frame_and_previews(tmp_path):
+    from app.rendering.ffmpeg import Segment, compose, output_frame
+
+    assert output_frame((1280, 720)) == (1280, 720)
+    assert output_frame((1280, 720), "9:16") == (720, 1280)
+    assert output_frame((1280, 720), "1:1", 480) == (480, 480)
+    assert output_frame((720, 1280), "source", 1080) == (1080, 1920)
+    assert output_frame((1280, 720), "16:9", 1080) == (1920, 1080)
+
+    scene = clip(tmp_path / "scene-01.mp4", 2, "red")  # 320x180
+    output = tmp_path / "final.mp4"
+    # A tall frame from a wide clip: bars above and below, or cropped sides.
+    compose(FFMPEG, [Segment(scene)], output, lambda: None, frame=(180, 320))
+    rows = pixels(output, 1, "180x320")
+    assert max(rows[10][90]) < 40 and rows[160][90][0] > 150
+    compose(
+        FFMPEG, [Segment(scene)], output, lambda: None, frame=(180, 320), fit="cover"
+    )
+    rows = pixels(output, 1, "180x320")
+    assert rows[10][90][0] > 150 and rows[310][90][0] > 150
+
+    # A preview is the same film, small and rough.
+    large = clip(tmp_path / "large.mp4", 2, "blue")
+    compose(FFMPEG, [Segment(large)], output, lambda: None, frame=(1280, 720))
+    full = output.stat().st_size
+    compose(
+        FFMPEG, [Segment(large)], output, lambda: None, frame=(1280, 720), preview=True
+    )
+    made = probe(FFMPEG, output)
+    assert (made.width, made.height) == (640, 360) and 1.7 < made.seconds < 2.4
+    assert output.stat().st_size < full
+    # Smaller quality settings make smaller files.
+    sizes = []
+    noisy = tmp_path / "noisy.mp4"
+    subprocess.run(
+        [
+            FFMPEG, "-y", "-v", "error", "-f", "lavfi",
+            "-i", "testsrc2=s=320x180:r=24:d=2", "-pix_fmt", "yuv420p", str(noisy),
+        ],  # fmt: skip
+        check=True,
+    )
+    for quality in ("high", "medium", "small"):
+        compose(FFMPEG, [Segment(noisy)], output, lambda: None, quality=quality)
+        sizes.append(output.stat().st_size)
+    assert sizes[0] > sizes[1] > sizes[2]
+
+
+@needs_ffmpeg
+def test_compose_draws_titles_and_a_logo(tmp_path):
+    from app.rendering.ffmpeg import (
+        Logo,
+        Segment,
+        Title,
+        can_caption,
+        caption_script,
+        CaptionStyle,
+        compose,
+    )
+
+    scene = clip(tmp_path / "scene-01.mp4", 3, "black")
+    output = tmp_path / "final.mp4"
+    logo = still(tmp_path / "logo.png", "white", "200x200")
+    compose(
+        FFMPEG,
+        [Segment(scene)],
+        output,
+        lambda: None,
+        logo=Logo(logo, corner="bottom-right", size=0.25, opacity=1.0),
+    )
+    rows = pixels(output, 1)
+    # A white square in the bottom right corner and nowhere else.
+    assert min(rows[150][280]) > 180 and max(rows[20][20]) < 40 and max(rows[150][20]) < 40
+
+    script = caption_script(
+        [],
+        CaptionStyle(font="Tahoma"),
+        320,
+        180,
+        [Title(0.0, 2.0, "MỞ ĐẦU", size=0.2, color="#00E5FF", position="top-left")],
+    )
+    assert "Style: Default,Tahoma," in script
+    assert "Style: Title0,Tahoma,36,&H00FFE500," in script and ",7,16,16,11,1\n" in script
+    assert "Dialogue: 1,0:00:00.00,0:00:02.00,Title0,,0,0,0,,MỞ ĐẦU\n" in script
+    if not can_caption(FFMPEG):
+        pytest.skip("This FFmpeg has no caption renderer.")
+    compose(
+        FFMPEG,
+        [Segment(scene)],
+        output,
+        lambda: None,
+        titles=[Title(0.0, 2.0, "MMMM", size=0.25, position="top-left")],
+    )
+    shown, gone = pixels(output, 1), pixels(output, 2.6)
+    left = max(max(pixel) for row in shown[:70] for pixel in row[:160])
+    right = max(max(pixel) for row in shown[110:] for pixel in row[160:])
+    assert left > 180 and right < 60  # Letters top left only...
+    assert max(max(pixel) for row in gone for pixel in row) < 60  # ...and only for a while.
+
+
+@needs_ffmpeg
+def test_compose_fades_and_ducks_added_audio(tmp_path):
+    from app.rendering.ffmpeg import Segment, Soundtrack, compose
+
+    # Three seconds of silence, then three of a loud tone, in the clip itself.
+    scene = tmp_path / "scene-01.mp4"
+    subprocess.run(
+        [
+            FFMPEG, "-y", "-v", "error",
+            "-f", "lavfi", "-i", "color=c=black:s=320x180:r=24:d=6",
+            "-f", "lavfi", "-i", "sine=frequency=300:duration=6",
+            "-af", "volume='if(lt(t,3),0,4)':eval=frame", "-shortest", str(scene),
+        ],  # fmt: skip
+        check=True,
+    )
+    music = tone(tmp_path / "music.mp3", 6, 1200)
+    output = tmp_path / "final.mp4"
+
+    def music_level(start):
+        """How loud the 1200 Hz music is in a stretch, apart from the tone."""
+        report = subprocess.run(
+            [
+                FFMPEG, "-hide_banner", "-ss", str(start), "-t", "0.8", "-i", str(output),
+                "-af", "highpass=f=900,volumedetect", "-vn", "-f", "null", "-",
+            ],  # fmt: skip
+            capture_output=True,
+            text=True,
+        ).stderr
+        return float(report.split("mean_volume:")[1].split("dB")[0])
+
+    compose(FFMPEG, [Segment(scene)], output, lambda: None, soundtracks=[Soundtrack(music)])
+    plain = music_level(4.5)
+    compose(
+        FFMPEG, [Segment(scene)], output, lambda: None,
+        soundtracks=[Soundtrack(music)], duck=True,
+    )  # fmt: skip
+    # Under the clip's own tone the music is pressed down; before it, it is not.
+    assert music_level(4.5) < plain - 6
+    assert abs(music_level(1.0) - plain) < 6
+
+    compose(
+        FFMPEG, [Segment(scene)], output, lambda: None, mute=True,
+        soundtracks=[Soundtrack(music, fade_in=2.0, fade_out=2.0)],
+    )  # fmt: skip
+    assert music_level(0.0) < music_level(2.6) - 6 and music_level(5.2) < music_level(2.6) - 6

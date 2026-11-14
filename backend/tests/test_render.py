@@ -112,10 +112,10 @@ def ffmpeg(monkeypatch):
         output.write_bytes(("|".join(parts) + extras + (" (muted)" if options.get("mute") else "")).encode())
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
-    monkeypatch.setattr("app.rendering.tasks.merge", merge)
-    monkeypatch.setattr("app.rendering.tasks.compose", compose)
+    monkeypatch.setattr("app.rendering.film.merge", merge)
+    monkeypatch.setattr("app.rendering.film.compose", compose)
     monkeypatch.setattr(
-        "app.rendering.tasks.probe",
+        "app.rendering.film.probe",
         lambda binary, path: Clip(path, 10.0, 1280, 720, True),
     )
     monkeypatch.setattr(
@@ -330,7 +330,7 @@ def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
         output.write_bytes(b"merged")
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
-    monkeypatch.setattr("app.rendering.tasks.merge", merge)
+    monkeypatch.setattr("app.rendering.film.merge", merge)
     client.post(path + "/resume")
     done = wait_status(client, project["id"], "completed")
     assert client.get(done["videoUrl"]).content == b"merged"
@@ -1230,9 +1230,9 @@ def test_caption_style_is_saved_and_used_and_audio_gets_a_waveform(
 
     monkeypatch.setattr("app.api.routes.media.waveform", waveform)
     styles = []
-    compose = __import__("app.rendering.tasks", fromlist=["compose"]).compose
+    compose = __import__("app.rendering.film", fromlist=["compose"]).compose
     monkeypatch.setattr(
-        "app.rendering.tasks.compose",
+        "app.rendering.film.compose",
         lambda *args, **options: (styles.append(options["caption_style"]), compose(*args, **options)),
     )
     add_account(client)
@@ -1254,11 +1254,11 @@ def test_caption_style_is_saved_and_used_and_audio_gets_a_waveform(
     start = client.get(timeline).json()
     assert start["captionStyle"] == {
         "size": "medium", "color": "#FFFFFF", "outline": "#000000",
-        "position": "bottom", "bold": False, "box": False,
+        "position": "bottom", "bold": False, "box": False, "font": "Arial",
     }
     items = [{"scene": 1, "start": 0, "end": 10}, {"scene": 2, "start": 0, "end": 5}]
     caption = [{"start": 0, "end": 2, "text": "Hello"}]
-    for invalid in ({"size": "huge"}, {"color": "yellow"}, {"position": "left"}, {"font": "Arial"}):
+    for invalid in ({"size": "huge"}, {"color": "yellow"}, {"position": "left"}, {"font": "Comic Sans MS"}, {"shadow": True}):
         refused = client.put(timeline, json={"items": items, "captions": caption, "captionStyle": invalid})
         assert refused.status_code == 422, invalid
 
@@ -1272,7 +1272,7 @@ def test_caption_style_is_saved_and_used_and_audio_gets_a_waveform(
     body = saved.json()
     assert body["captionStyle"] == {
         "size": "large", "color": "#FFE000", "outline": "#000000",
-        "position": "top", "bold": True, "box": False,
+        "position": "top", "bold": True, "box": False, "font": "Arial",
     }
     assert body["audio"][0]["waveformUrl"] == song["waveformUrl"]
     wait_status(client, pid, "completed")
@@ -1428,3 +1428,159 @@ def test_a_project_takes_copies_of_library_files(
     assert over.status_code == 409 and over.json()["detail"]["code"] == "too_many_files"
     folder = settings.data_dir / "projects" / target["id"] / "media"
     assert len(list(folder.iterdir())) == 30
+
+
+def test_timeline_cuts_scenes_in_two_and_dresses_the_film(client, muse, ffmpeg, media_tools, monkeypatch):
+    built = []
+    compose = __import__("app.rendering.film", fromlist=["compose"]).compose
+    monkeypatch.setattr(
+        "app.rendering.film.compose",
+        lambda binary, segments, *rest, **options: (
+            built.append((segments, options)),
+            compose(binary, segments, *rest, **options),
+        ),
+    )
+    add_account(client)
+    project = add_project(client)
+    pid = project["id"]
+    timeline = f"/api/projects/{pid}/timeline"
+    logo = upload(client, pid, "logo.png", "image/png").json()
+    song = upload(client, pid, "song.mp3", "audio/mpeg").json()
+    client.post(f"/api/projects/{pid}/render")
+    wait_status(client, pid, "completed")
+
+    first = {"scene": 1, "start": 0, "end": 4}
+    second = {"scene": 2, "start": 0, "end": 5}
+    for invalid in (
+        {"items": [first]},  # Scene 2 is missing.
+        {"items": [first, second, {"scene": 3, "start": 0, "end": 5}]},  # Not rendered.
+        {"items": [{**first, "key": "a"}, {**second, "key": "a"}]},  # One key twice.
+        {"items": [{**first, "effect": "glow"}, second]},
+        {"items": [{**first, "fadeIn": 3}, second]},
+        {"items": [first, second], "logo": {"mediaId": song["id"]}},  # Not a picture.
+        {"items": [first, second], "output": {"height": 999}},
+        {"items": [first, second], "titles": [{"start": 1, "end": 1.1, "text": "Too short"}]},
+        {"items": [first, second], "titles": [{"start": 0, "end": 2, "text": "x", "position": "middle"}]},
+    ):
+        assert client.put(timeline, json=invalid).status_code == 422, invalid
+
+    saved = client.put(
+        timeline,
+        json={
+            "items": [
+                # Scene 1 cut in two around its middle, scene 2 between the halves.
+                {**first, "effect": "mono", "fadeIn": 0.5},
+                {**second, "zoom": "in", "flip": True},
+                {"scene": 1, "key": "scene-1-b", "start": 6, "end": 10, "fadeOut": 1},
+            ],
+            "audio": [{"mediaId": song["id"], "end": 20, "fadeIn": 2, "fadeOut": 3}],
+            "duck": True,
+            "titles": [
+                {"start": 4, "end": 6, "text": "Kết"},
+                {"start": 0, "end": 2, "text": " Mở đầu ", "position": "top-left", "color": "#ffe000"},
+                {"start": 7, "end": 8, "text": "  "},
+            ],
+            "logo": {"mediaId": logo["id"], "corner": "bottom-right", "size": 20, "opacity": 0.5},
+            "output": {"aspect": "9:16", "fit": "cover", "height": 720, "quality": "small"},
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert [(i["key"], i["scene"], i["start"], i["end"]) for i in body["items"]] == [
+        ("scene-1", 1, 0, 4), ("scene-2", 2, 0, 5), ("scene-1-b", 1, 6, 10),
+    ]
+    assert [(i["effect"], i["zoom"], i["flip"], i["fadeIn"], i["fadeOut"]) for i in body["items"]] == [
+        ("mono", "none", False, 0.5, 0), ("none", "in", True, 0, 0), ("none", "none", False, 0, 1),
+    ]
+    assert body["totalSeconds"] == 13 and body["duck"]
+    assert (body["audio"][0]["fadeIn"], body["audio"][0]["fadeOut"]) == (2, 3)
+    assert [(t["start"], t["text"], t["position"], t["color"], t["size"]) for t in body["titles"]] == [
+        (0, "Mở đầu", "top-left", "#FFE000", "large"), (4, "Kết", "center", "#FFFFFF", "large"),
+    ]
+    assert body["logo"] == {
+        "mediaId": logo["id"], "corner": "bottom-right", "size": 20, "opacity": 0.5, "url": logo["url"],
+    }
+    assert body["output"] == {"aspect": "9:16", "fit": "cover", "height": 720, "quality": "small"}
+    wait_status(client, pid, "completed")
+
+    (segments, options), = built
+    assert [(s.start, s.end, s.effect, s.zoom, s.flip, s.fade_in, s.fade_out) for s in segments] == [
+        (0.0, 4, "mono", "none", False, 0.5, 0.0),
+        (0.0, None, "none", "in", True, 0.0, 0.0),
+        (6, None, "none", "none", False, 0.0, 1.0),
+    ]
+    # A tall 720p frame that the wide scenes fill, at the small-file quality.
+    assert (options["frame"], options["fit"], options["quality"]) == ((720, 1280), "cover", "small")
+    assert options["duck"] and not options["preview"]
+    assert (options["soundtracks"][0].fade_in, options["soundtracks"][0].fade_out) == (2, 3)
+    assert [(t.text, t.position, t.size) for t in options["titles"]] == [
+        ("Mở đầu", "top-left", 0.08), ("Kết", "center", 0.08),
+    ]
+    assert (options["logo"].corner, options["logo"].size, options["logo"].opacity) == ("bottom-right", 0.2, 0.5)
+    # The logo's picture cannot be deleted from under the film.
+    assert client.delete(logo["url"]).json()["detail"]["code"] == "media_in_use"
+
+
+def test_an_edit_is_previewed_without_being_saved(client, muse, ffmpeg, media_tools, monkeypatch):
+    built = []
+    compose = __import__("app.rendering.film", fromlist=["compose"]).compose
+    monkeypatch.setattr(
+        "app.rendering.film.compose",
+        lambda *args, **options: (built.append(options), compose(*args, **options)),
+    )
+    add_account(client)
+    project = add_project(client)
+    pid = project["id"]
+    timeline = f"/api/projects/{pid}/timeline"
+    client.post(f"/api/projects/{pid}/render")
+    done = wait_status(client, pid, "completed")
+    before = client.get(timeline).json()
+    assert client.get(f"{timeline}/preview.mp4").status_code == 404
+
+    edit = {"items": [{"scene": 2, "start": 0, "end": 5}, {"scene": 1, "start": 0, "end": 10, "speed": 2}]}
+    assert client.post("/api/projects/missing/timeline/preview", json=edit).status_code == 404
+    assert client.post(f"{timeline}/preview", json={"items": [edit["items"][0]]}).status_code == 422
+    preview = client.post(f"{timeline}/preview", json=edit)
+    assert preview.status_code == 200, preview.text
+    shown = client.get(preview.json()["url"])
+    assert shown.status_code == 200 and shown.headers["cache-control"] == "no-store"
+    assert shown.content.decode().startswith("clip-2[0-end x1]|clip-1[0-end x2]")
+    # Small and quick, even for an edit that would otherwise only be joined.
+    assert built[-1]["preview"]
+    plain = {"items": [{"scene": 1, "start": 0, "end": 10}, {"scene": 2, "start": 0, "end": 5}]}
+    assert client.post(f"{timeline}/preview", json=plain).status_code == 200
+    assert len(built) == 2 and built[-1]["preview"]
+
+    # Nothing was saved and the film itself is as it was.
+    assert client.get(timeline).json() == before
+    assert render(client, pid)["status"] == "completed"
+    assert client.get(done["videoUrl"]).content == b"clip-1|clip-2"
+
+
+def test_a_frame_of_the_film_becomes_the_cover(client, muse, ffmpeg, monkeypatch):
+    def frame_at(binary, clip, seconds, target):
+        if seconds > 100:
+            return False
+        target.write_bytes(f"frame@{seconds:g} of ".encode() + clip.read_bytes())
+        return True
+
+    monkeypatch.setattr("app.api.routes.render.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr("app.api.routes.render.frame_at", frame_at)
+    add_account(client)
+    project = add_project(client)
+    cover = f"/api/projects/{project['id']}/cover"
+    assert client.post("/api/projects/missing/cover", json={"seconds": 1}).status_code == 404
+    assert client.post(cover, json={"seconds": 1}).status_code == 404  # No film yet.
+    client.post(f"/api/projects/{project['id']}/render")
+    wait_status(client, project["id"], "completed")
+
+    assert client.post(cover, json={"seconds": -1}).status_code == 422
+    missed = client.post(cover, json={"seconds": 500})
+    assert missed.status_code == 422 and missed.json()["detail"]["code"] == "cover_failed"
+    assert client.post(cover, json={"seconds": 2.5}).status_code == 204
+    chosen = client.get(cover)
+    assert chosen.content == b"frame@2.5 of clip-1|clip-2"
+    assert chosen.headers["cache-control"] == "no-cache"
+    assert client.delete(cover).status_code == 204
+    assert client.get(cover).content != chosen.content
+    assert client.delete("/api/projects/missing/cover").status_code == 404

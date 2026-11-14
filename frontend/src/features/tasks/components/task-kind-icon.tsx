@@ -1,9 +1,11 @@
-import { Activity, Clapperboard, Film, Sparkles } from "lucide-react";
+import { Activity, Clapperboard, Film, Image, Sparkles } from "lucide-react";
 
 const icons: Record<string, typeof Activity> = {
   plan_script: Sparkles,
   render_scene: Clapperboard,
   merge_video: Film,
+  generate_image: Image,
+  generate_video: Film,
 };
 
 export function TaskKindIcon({ kind }: { kind: string }) {

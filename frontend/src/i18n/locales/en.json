@@ -482,7 +482,7 @@
     "timeline": {
       "title": "Timeline",
       "total": "Film length: {{time}}",
-      "hint": "Drag a clip to move it and drag its edges to trim it; audio pieces and captions work the same way. Select something and press Delete to take it out. Drag your own videos, pictures and audio in from Your media. Applying merges the film again from what it already has; nothing is rendered again.",
+      "hint": "Drag a clip to move it and its edges to trim it; audio, captions and titles work the same way. Space plays, S cuts the selected clip in two, Delete removes, Ctrl+Z undoes. Preview shows the edit before it is applied; applying merges the film again without rendering anything.",
       "locked": "The timeline can be edited once the film is finished.",
       "merging": "Merging the film again…",
       "apply": "Apply and merge again",
@@ -502,7 +502,8 @@
         "invalid_timeline": "This edit does not fit the clips and files. Undo the changes and try again.",
         "project_not_found": "This project no longer exists.",
         "unknown": "The timeline could not be saved. Please try again.",
-        "captions_unavailable": "This server's FFmpeg cannot draw captions. Turn off “Draw captions into the video” and try again."
+        "captions_unavailable": "This server's FFmpeg cannot draw captions. Turn off “Draw captions into the video” and try again.",
+        "preview_failed": "The preview could not be built. Check the edit and try again."
       },
       "shown": "Shown for (seconds)",
       "speed": "Speed",
@@ -521,7 +522,11 @@
         "volume": "Volume",
         "loop": "Repeat until the film ends",
         "loopHint": "For short music, such as a piece made by Muse.",
-        "empty": "No audio yet. Drag an audio file here from Your media below."
+        "empty": "No audio yet. Drag an audio file here from Your media below.",
+        "fadeIn": "Fade in",
+        "fadeOut": "Fade out",
+        "duck": "Lower added audio while the clips' own sound plays",
+        "duckHint": "Useful for music under speech."
       },
       "captions": {
         "title": "Captions",
@@ -557,14 +562,144 @@
           "color": "Text colour",
           "outline": "Outline colour",
           "bold": "Bold",
-          "box": "Dark box behind the words"
+          "box": "Dark box behind the words",
+          "font": "Font"
         },
         "count_one": "{{count}} caption",
         "count_other": "{{count}} captions"
       },
       "filmSpeed": "Speed of the whole film",
       "filmSpeedMixed": "Clips have different speeds.",
-      "removeSelected": "Remove selected"
+      "removeSelected": "Remove selected",
+      "unsaved": "Not applied yet",
+      "restored": "Your unapplied changes from last time were restored.",
+      "undo": "Undo",
+      "redo": "Redo",
+      "split": "Cut in two",
+      "splitHint": "Cut the selected clip in two where it is playing (S)",
+      "followClips": "Captions and titles move with their clip",
+      "preview": {
+        "action": "Preview",
+        "building": "Building the preview…",
+        "note": "A quick, low-quality preview of the changes that are not applied yet.",
+        "stale": "You changed something after this preview was made.",
+        "close": "Back to the film",
+        "error": "The preview could not be built. Please try again."
+      },
+      "zoom": {
+        "label": "Timeline zoom",
+        "in": "Zoom in",
+        "out": "Zoom out",
+        "fit": "Fit"
+      },
+      "panels": {
+        "media": "Your media",
+        "captions": "Captions",
+        "titles": "Titles & logo",
+        "output": "Export"
+      },
+      "effects": {
+        "title": "Effects",
+        "look": "Colour look",
+        "names": {
+          "none": "None",
+          "mono": "Black & white",
+          "sepia": "Sepia",
+          "warm": "Warm",
+          "cool": "Cool",
+          "vivid": "Vivid",
+          "vintage": "Old film",
+          "blur": "Blur",
+          "vignette": "Dark corners"
+        },
+        "zoom": "Slow zoom",
+        "zooms": {
+          "none": "None",
+          "in": "Push in",
+          "out": "Pull out"
+        },
+        "flip": "Mirror left to right",
+        "fadeIn": "Fade in from black",
+        "fadeOut": "Fade out to black",
+        "seconds": "{{seconds}} s",
+        "fadeAll": "Fade between all clips",
+        "fadeNone": "Remove all fades"
+      },
+      "titles": {
+        "title": "Titles",
+        "add": "Add title",
+        "empty": "No titles yet. Add words to show on the picture: a title, a name, a call to action.",
+        "emptyLane": "No titles yet.",
+        "placeholder": "Title, name, call to action…",
+        "remove": "Delete title",
+        "position": "Position",
+        "positions": {
+          "top-left": "Top left",
+          "top": "Top",
+          "top-right": "Top right",
+          "left": "Left",
+          "center": "Centre",
+          "right": "Right",
+          "bottom-left": "Bottom left",
+          "bottom": "Bottom",
+          "bottom-right": "Bottom right"
+        },
+        "style": "Look of this title",
+        "count_one": "{{count}} title",
+        "count_other": "{{count}} titles"
+      },
+      "logo": {
+        "title": "Logo",
+        "hint": "A picture from Your media kept in a corner for the whole film.",
+        "choose": "Use {{name}} as the logo",
+        "noImages": "There are no pictures in Your media yet. Upload one first.",
+        "corner": "Corner",
+        "corners": {
+          "top-left": "Top left",
+          "top-right": "Top right",
+          "bottom-left": "Bottom left",
+          "bottom-right": "Bottom right"
+        },
+        "size": "Size",
+        "opacity": "Opacity",
+        "remove": "Remove the logo"
+      },
+      "outputSettings": {
+        "title": "Export",
+        "hint": "Applied the next time the film is merged.",
+        "aspect": "Frame shape",
+        "aspects": {
+          "source": "Same as the scenes ({{ratio}})",
+          "wide": "Wide 16:9",
+          "tall": "Tall 9:16",
+          "square": "Square 1:1"
+        },
+        "fit": "When the shape changes",
+        "fits": {
+          "contain": "Show the whole picture (bars)",
+          "cover": "Fill the frame (crop edges)"
+        },
+        "height": "Resolution",
+        "heights": {
+          "source": "Same as the scenes",
+          "p480": "480p",
+          "p720": "720p",
+          "p1080": "1080p"
+        },
+        "quality": "Quality",
+        "qualities": {
+          "high": "High",
+          "medium": "Medium",
+          "small": "Small file"
+        },
+        "qualityHint": "Lower quality makes a smaller file."
+      },
+      "cover": {
+        "set": "Use this frame as the cover",
+        "done": "The cover was changed.",
+        "reset": "Use the automatic cover",
+        "error": "The cover could not be changed. Please try again."
+      }
     },
     "output": {
       "open": "Finished video",
@@ -889,7 +1024,9 @@
       "render_scene": "Scene render",
       "merge_video": "Video merge",
       "other": "Task",
-      "generate_music": "Music generation"
+      "generate_music": "Music generation",
+      "generate_image": "Generate image",
+      "generate_video": "Generate short video"
     },
     "fields": {
       "task": "Task",
@@ -1033,12 +1170,16 @@
       "scene_missing": "The clip of a scene is missing, so the video could not be merged.",
       "ffmpeg_unavailable": "FFmpeg is not installed on the server, so the scenes could not be merged. Install it, then continue.",
       "merge_failed": "FFmpeg could not merge the scenes.",
-      "reference_upload_failed": "The frame of the previous scene could not be attached, so nothing was sent to Muse. Retry, or turn continuity off in the project settings.",
+      "reference_upload_failed": "The reference image or file could not be attached, so nothing was sent to Muse. Retry. For a film, you can also turn continuity off in the project settings.",
       "reference_frame_failed": "The last frame of the previous scene could not be read. Retry, or render again from that scene.",
       "timeline_empty": "Every scene is left out of the timeline. Keep at least one scene, then merge again.",
       "music_missing": "Muse returned a clip without sound, so there is no music to keep. Try again, perhaps with a simpler description.",
       "media_missing": "A file used in the film is missing from the server. Remove it from the timeline and apply again.",
-      "captions_unavailable": "This server's FFmpeg cannot draw captions into the video."
+      "captions_unavailable": "This server's FFmpeg cannot draw captions into the video.",
+      "reference_missing": "The reference image is no longer in the Library. Choose it again before creating.",
+      "too_many_files": "The Library is full. Remove files or wait for pending generations to finish.",
+      "image_count_mismatch": "Muse did not return all requested images. Received images are kept; retry to create the remaining images.",
+      "conversation_unavailable": "The original conversation cannot be opened on its original account. Check the account and conversation before retrying."
     },
     "refresh": "Refresh",
     "autoUpdate": "Updates every 5 seconds while this tab is visible. Progress is shown only when reported by Muse.",
@@ -1080,7 +1221,8 @@
     "sources": {
       "all": "All sources",
       "studio": "Video Studio",
-      "upload": "Uploaded"
+      "upload": "Uploaded",
+      "quick": "Quick Create"
     },
     "searchLabel": "Search media",
     "searchPlaceholder": "Search by name or project",
@@ -1099,6 +1241,7 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "download": "Download",
+    "downloadLimit": "Up to {{count}} files can be downloaded at once.",
     "delete": "Delete",
     "deselect": "Deselect",
     "deleteNote": "Only files you uploaded can be deleted. Videos made in Video Studio belong to their project.",
@@ -1136,5 +1279,58 @@
         "unknown": "The files could not be added. Please try again."
       }
     }
+  },
+  "quickCreate": {
+    "description": "One prompt, one result. Create images or short single-scene videos; use Video Studio for multi-scene films.",
+    "configuration": "Quick Create settings",
+    "contentType": "Content type",
+    "kinds": {
+      "image": "Image",
+      "video": "Short video"
+    },
+    "prompt": "Prompt",
+    "imagePlaceholder": "Describe the image you want to create…",
+    "videoPlaceholder": "Describe the shot, movement and sound you want…",
+    "ratio": "Aspect ratio",
+    "quantity": "Quantity",
+    "moreThanFour": "More than 4",
+    "imageCount": "{{count}} images",
+    "customQuantity": "Enter the number of images",
+    "quantityHint": "Enter a whole number from 5 to {{max}} images. The whole request uses one conversation.",
+    "duration": "Duration",
+    "videoDuration": "~10 seconds (subject to Muse limits)",
+    "shortDuration": "~10 seconds",
+    "reference": "Reference image",
+    "startFrame": "Starting image",
+    "optional": "optional",
+    "dropImage": "Drag an image here or click to choose",
+    "removeReference": "Remove reference image",
+    "fileHint": "JPG, PNG or WebP · up to 20 MB",
+    "fileErrors": {
+      "type": "Choose a JPG, PNG or WebP image.",
+      "size": "Images can be up to 20 MB. Choose a smaller image."
+    },
+    "account": "Muse account",
+    "automatic": "Automatic",
+    "createImages": "Create {{count}} images",
+    "createVideo": "Create video",
+    "submitting": "Submitting…",
+    "recent": "Recent results",
+    "openLibrary": "Open Library",
+    "allTasks": "View all tasks",
+    "emptyTitle": "Your first frame starts here",
+    "emptyDescription": "Enter a prompt, choose an aspect ratio and start creating. Results appear here and are saved to your Library.",
+    "historyError": "Could not load recent results. Try again.",
+    "referenceMissing": "The reference image is no longer in the Library. Choose it again before creating.",
+    "invalidRequest": "Check the prompt, quantity and reference image, then try again.",
+    "completed": "Completed {{done}}/{{count}}",
+    "preview": "Preview",
+    "fileRemoved": "This file was removed from the Library.",
+    "reusePrompt": "Reuse prompt",
+    "downloadAll": "Download all",
+    "dismissBatch": "Remove the entire result card from the list",
+    "dismissed": "Request removed from the list. Files are still kept in the Library.",
+    "undoDismiss": "Undo",
+    "dismissError": "The list could not be updated. Please try again."
   }
 }

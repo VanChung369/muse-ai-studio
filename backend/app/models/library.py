@@ -18,6 +18,9 @@ class LibraryAsset(Base):
     )
     # "video", "image" or "audio".
     kind: Mapped[str] = mapped_column(String(10), index=True)
+    source: Mapped[str] = mapped_column(
+        String(10), default="upload", server_default="upload"
+    )
     # The name the user's file had; shown in the interface only.
     name: Mapped[str] = mapped_column(String(200))
     # File name inside the library folder (generated).

@@ -12,7 +12,7 @@ export const libraryItemSchema = z.object({
   id: z.string().min(1),
   role: z.enum(["upload", "scene", "film"]),
   kind: z.enum(["image", "video", "audio"]),
-  source: z.enum(["studio", "upload"]),
+  source: z.enum(["studio", "upload", "quick"]),
   title: z.string(),
   projectId: z.string().nullable(),
   projectName: z.string().nullable(),
@@ -43,7 +43,7 @@ export type LibraryPage = z.infer<typeof libraryPageSchema>;
 
 export type LibraryFilters = {
   kind: "all" | "image" | "video" | "audio";
-  source: "all" | "studio" | "upload";
+  source: "all" | "studio" | "upload" | "quick";
   q: string;
 };
 
@@ -95,6 +95,14 @@ export async function deleteLibraryAsset(assetId: string): Promise<void> {
     if (error instanceof ApiError && error.status === 404) return;
     throw error;
   }
+}
+
+// Files the archive route takes in one request (mirrors the server).
+export const ARCHIVE_LIMIT = 100;
+
+/** A file's address asked for as a download, so it keeps its own name. */
+export function libraryDownloadHref(url: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}download=1`;
 }
 
 export function libraryArchiveHref(ids: string[]): string {

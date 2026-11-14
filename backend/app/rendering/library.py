@@ -37,10 +37,11 @@ class Item:
     seconds: float | None = None
     width: int | None = None
     height: int | None = None
+    asset_source: str = "upload"
 
     @property
     def source(self) -> str:
-        return "upload" if self.role == "upload" else "studio"
+        return self.asset_source if self.role == "upload" else "studio"
 
     @property
     def file_name(self) -> str:
@@ -89,6 +90,7 @@ def _upload(settings: Settings, asset: LibraryAsset) -> Item:
         seconds=asset.seconds,
         width=asset.width,
         height=asset.height,
+        asset_source=asset.source,
     )
 
 
@@ -126,7 +128,9 @@ def _film(settings, project_id, name, file, rendered) -> Item:
 
 def catalogue(session, settings: Settings) -> list[Item]:
     """Every library entry whose file is on disk, newest first."""
-    items = [_upload(settings, asset) for asset in session.scalars(select(LibraryAsset))]
+    items = [
+        _upload(settings, asset) for asset in session.scalars(select(LibraryAsset))
+    ]
     scenes = session.execute(
         select(
             Scene.project_id,
@@ -192,7 +196,11 @@ def find(session, settings: Settings, item_id: str) -> Item | None:
         project = session.get(Project, rest)
         if project is not None and project.video_file:
             item = _film(
-                settings, project.id, project.name, project.video_file, project.rendered_at
+                settings,
+                project.id,
+                project.name,
+                project.video_file,
+                project.rendered_at,
             )
     return item if item is not None and item.path.is_file() else None
 

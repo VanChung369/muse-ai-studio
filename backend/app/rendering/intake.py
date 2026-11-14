@@ -33,7 +33,9 @@ def content_type(header: str | None) -> str:
 
 def base_name(name: str, fallback: str) -> str:
     """Only the base name: a path in the name must never reach the disk."""
-    return Path(name.replace("\\", "/")).name[:200] or fallback
+    base = Path(name.replace("\\", "/")).name[:200]
+    # "." and ".." are folders, not names.
+    return base if base.strip(". ") else fallback
 
 
 def waveform_name(file: str) -> str:
