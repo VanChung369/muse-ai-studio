@@ -91,6 +91,16 @@ class AccountVault:
             file.flush()
             os.fsync(file.fileno())
 
+    def encrypt_text(self, text: str) -> str:
+        if self._fernet is None:
+            raise RuntimeError("Account vault is not initialized.")
+        return self._fernet.encrypt(text.encode()).decode()
+
+    def decrypt_text(self, ciphertext: str) -> str:
+        if self._fernet is None:
+            raise RuntimeError("Account vault is not initialized.")
+        return self._fernet.decrypt(ciphertext.encode()).decode()
+
     def encrypt(self, cookies: dict[str, str]) -> str:
         if self._fernet is None:
             raise RuntimeError("Account vault is not initialized.")

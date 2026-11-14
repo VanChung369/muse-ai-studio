@@ -1253,7 +1253,8 @@
       "all": "All sources",
       "studio": "Video Studio",
       "upload": "Uploaded",
-      "quick": "Quick Create"
+      "quick": "Quick Create",
+      "api": "API"
     },
     "searchLabel": "Search media",
     "searchPlaceholder": "Search by name or project",

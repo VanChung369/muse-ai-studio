@@ -139,7 +139,8 @@ export function LibraryBrowser({
               value === "all" ||
               value === "studio" ||
               value === "upload" ||
-              value === "quick"
+              value === "quick" ||
+              value === "api"
             ) {
               onFiltersChange({ ...filters, source: value });
             }

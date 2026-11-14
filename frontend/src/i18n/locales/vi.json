@@ -1253,7 +1253,8 @@
       "all": "Mọi nguồn",
       "studio": "Video Studio",
       "upload": "Tải lên",
-      "quick": "Tạo nhanh"
+      "quick": "Tạo nhanh",
+      "api": "API"
     },
     "searchLabel": "Tìm tư liệu",
     "searchPlaceholder": "Tìm theo tên hoặc dự án",

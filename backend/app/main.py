@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from app.accounts.refresher import SessionRefresher
 from app.api.router import api_router
+from app.api.routes.public_api import install_error_handlers, router as public_router
 from app.core.account_vault import AccountVault
 from app.repositories import accounts
 from app.core.config import Settings
@@ -26,6 +27,7 @@ from app.rendering.tasks import (
 from app.tasks.kinds import GENERATE_MUSIC, MERGE_VIDEO, RENDER_SCENE, QUICK_KINDS
 from app.db.session import Database
 from app.models.account import Account
+from app.models.api_key import ApiKey
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -36,6 +38,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def prepare_vault() -> None:
         with database.sessions() as session:
             ciphertext = session.scalar(select(Account.encrypted_cookies).limit(1))
+            if ciphertext is None:
+                ciphertext = session.scalar(select(ApiKey.encrypted_key).limit(1))
             vault.prepare(ciphertext)
             accounts.refresh_fingerprints(session, vault)
 
@@ -86,6 +90,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router, prefix="/api")
+    app.include_router(public_router, prefix="/v1")
+    install_error_handlers(app)
     return app
 
 

@@ -7,7 +7,13 @@ import type { LibraryItem } from "../api/library";
 export const LIBRARY_PAGE_SIZE = 60;
 
 export const LIBRARY_KINDS = ["all", "image", "video", "audio"] as const;
-export const LIBRARY_SOURCES = ["all", "studio", "quick", "upload"] as const;
+export const LIBRARY_SOURCES = [
+  "all",
+  "studio",
+  "quick",
+  "api",
+  "upload",
+] as const;
 
 export const LIBRARY_ERROR_CODES = [
   "unsupported_file",
@@ -78,6 +84,8 @@ export function libraryItemMeta(
 ): string {
   const sourceLabel = t(`library.sources.${item.source}`);
   const prefix =
-    item.role === "film" ? `${sourceLabel} · ${t("library.film")}` : sourceLabel;
+    item.role === "film"
+      ? `${sourceLabel} · ${t("library.film")}`
+      : sourceLabel;
   return `${prefix} · ${formatRelativeTime(item.createdAt, language, now)}`;
 }

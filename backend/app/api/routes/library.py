@@ -52,7 +52,7 @@ class LibraryItem(CamelModel):
     role: Literal["upload", "scene", "film"]
     kind: Kind
     # Scenes and films are made in Video Studio and stay in their project.
-    source: Literal["studio", "upload", "quick"]
+    source: Literal["studio", "upload", "quick", "api"]
     # The file's name, the scene's title, or the project's name for a film.
     title: str
     project_id: str | None
@@ -120,7 +120,7 @@ def list_library(
     request: Request,
     session: DatabaseSession,
     kind: Kind | None = None,
-    source: Literal["studio", "upload", "quick"] | None = None,
+    source: Literal["studio", "upload", "quick", "api"] | None = None,
     q: Annotated[str, Query(max_length=200)] = "",
     limit: Annotated[int, Query(ge=1, le=200)] = PAGE_SIZE,
     offset: Annotated[int, Query(ge=0)] = 0,

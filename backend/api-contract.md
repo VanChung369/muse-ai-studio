@@ -57,7 +57,6 @@ Quota means provider-reported weekly usage percentage, plan, reset text and opti
 
 Remote operations (`test`, `keep-alive`, `quota`) persist cookies Muse rotates in any successful response, even when a later step of the same operation fails (for example the workspace is not assigned, or the quota browser step fails). If the rotated cookies no longer contain `hatch_sess`, the previous credentials are kept and the account is marked `invalid`. A saved proxy that cannot be used reports `proxy_error` instead of failing with HTTP 500.
 
-
 ## AI script proposals
 
 `POST /api/projects/{project_id}/script-generation` accepts `{accountId, idea, expectedRevision}` and returns HTTP 202 with a task response. The idea is trimmed and must be 1–12,000 characters. The selected account must exist, be enabled, and have a verified session. The project must be draft/ready with the expected saved-script revision. The operation saves the brief and queues one `plan_script` task atomically. A second active generation for the same project returns HTTP 409 `generation_active`; invalid accounts return `account_unavailable`, missing projects 404, and changed/locked scripts 409 `script_conflict`.
@@ -103,6 +102,38 @@ The library is one list of everything made in Video Studio (each rendered scene 
 `GET /api/library/archive?ids=<id>&ids=<id>` downloads the chosen items (up to 100) as one zip, each under a name of its own; ids that do not exist are skipped, and 404 `library_item_not_found` is returned when none do.
 
 `POST /api/projects/{project_id}/media/import` with `{ids}` (1 to 20 library item ids) copies those files into the project's media and returns the new media objects (201). The project gets copies of its own, so deleting the original later does not affect it. It is all or nothing: 404 `library_item_not_found` when any id is unknown, 409 `too_many_files` when the project would hold more than 30 files, 409 `project_busy` while rendering or merging, and 409 `ffmpeg_unavailable` when a scene or film has to be measured without FFmpeg.
+
+## API keys and the public API
+
+The trusted local UI manages keys without authentication. `GET /api/api-keys` returns active keys newest first as `{id, name, masked, createdAt, lastUsedAt}`. `masked` is `sk-muse-…` and the last four characters; timestamps are UTC, and `lastUsedAt` starts as null. `POST /api/api-keys` takes `{name}` (trimmed, 1–60 characters) and returns that object plus `key` (201). A key is `sk-muse-` followed by 48 lowercase hex characters. Only its SHA-256 hash and vault-encrypted ciphertext are stored. There may be 20 active keys (409 `too_many_keys`); invalid names return 422. `POST /api/api-keys/{id}/reveal` returns `{key}` (200). `DELETE /api/api-keys/{id}` revokes it permanently (204). Missing or revoked keys return 404 `api_key_not_found` for reveal and delete. These routes use the internal `{detail: {code, message}}` errors.
+
+All `/v1` routes require `Authorization: Bearer <key>`. Missing, malformed, unknown and revoked keys return 401. Using a key updates `lastUsedAt` at most once a minute. Keys share the same accounts, quota and media library; a key can read a video generation made by another key.
+
+`GET /v1/models` returns `{object: "list", data: [...]}` with models `muse-image` and `muse-video`; each entry has `{id, object: "model", created: 1763078400, owned_by: "muse"}`.
+
+`POST /v1/images/generations` takes `{prompt, model?, n?, size?, aspect_ratio?, response_format?}`. The trimmed prompt is 1–4000 characters; `model` defaults to and must be `muse-image`; `n` is an integer 1–4 (default 1). `size` chooses a shape: `1024x1024` means 1:1 (default), `1792x1024` and `1536x1024` mean 16:9, and `1024x1792` and `1024x1536` mean 9:16. Instead, `aspect_ratio` may be `1:1`, `16:9` or `9:16`. Muse chooses the actual pixel size. `response_format` is `url` (default) or `b64_json`. Extra fields are ignored. The response waits for completion and returns `{created, data: [{url}]}` (200), or `{b64_json}` items containing the saved file bytes. URLs use the request's scheme and host and point to `/api/library/assets/{id}/file`, downloadable without a key. `X-Muse-Task-Id` identifies the background task, including on timeout.
+
+`POST /v1/videos/generations` takes `{prompt, model?, aspect_ratio?}`. `model` defaults to and must be `muse-video`; `aspect_ratio` is `16:9` (default), `9:16` or `1:1`; prompt rules are the same as images. It queues one short video (about 10 seconds) and returns `{id, object: "video.generation", status: "queued", created, model: "muse-video"}` immediately (202). `GET /v1/videos/generations/{id}` returns the same fields with the current status: `queued`, `in_progress`, `succeeded`, `failed` or `cancelled`. Only success includes `data: [{url}]`; failure includes `error: {message, type, code}`. An interrupted task is reported as failed. Unknown ids, non-API tasks and image tasks return 404 `not_found`.
+
+`POST /v1/chat/completions` takes `{model, messages, stream?}`, with `model` either `muse-image` or `muse-video`. It uses the last user message: string content, or the text parts of array content joined by newlines (other parts ignored). Missing or empty user text returns 400. It waits for the result and returns `{id: "chatcmpl-<task id>", object: "chat.completion", created, model, choices: [{index: 0, message: {role: "assistant", content}, finish_reason: "stop"}], usage: {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0}}`. Content is `![image](<url>)` for pictures or `[video](<url>)` for a video.
+
+With `stream: true`, chat returns `text/event-stream`. Each `data:` chunk has `object: "chat.completion.chunk"` and the same id, created and model. It starts with `delta: {role: "assistant"}`, sends `: waiting` comments about every 10 seconds, then `delta: {content}`, then an empty delta with `finish_reason: "stop"`, and ends with `data: [DONE]`. If work fails after streaming starts, its error message is sent as content and the stream finishes normally.
+
+Generation uses the normal Quick Create background queue and appears in Tasks. Payloads carry `source: "api"`, `hidden: 1` and `apiKeyId`; outputs have library source `api` and are listed by `GET /api/library?source=api`. API work is absent from Quick Create history. Waiting releases database transactions between polls and gives up after the configured render timeout plus 120 seconds; the task may still finish.
+
+All public errors have `{error: {message, type, code}}`, including validation errors (400 rather than 422) and unknown paths. Error mappings:
+
+| HTTP | type                  | code                     | Cause                                                      |
+| ---- | --------------------- | ------------------------ | ---------------------------------------------------------- |
+| 401  | invalid_request_error | invalid_api_key          | Missing, malformed, unknown or revoked key                 |
+| 400  | invalid_request_error | invalid_request          | Invalid body, model, prompt, shape or count                |
+| 400  | invalid_request_error | content_policy_violation | generation_refused                                         |
+| 404  | invalid_request_error | not_found                | Unknown video generation or path                           |
+| 409  | invalid_request_error | library_full             | too_many_files                                             |
+| 429  | rate_limit_error      | rate_limit_exceeded      | quota_exhausted or rate_limited                            |
+| 502  | api_error             | upstream_error           | Other generation failures, cancellation or interruption    |
+| 503  | api_error             | no_account_available     | account_unavailable, account_deleted or ffmpeg_unavailable |
+| 504  | api_error             | timeout                  | generation_timeout or the waiting deadline                 |
 
 ## Quick Create
 

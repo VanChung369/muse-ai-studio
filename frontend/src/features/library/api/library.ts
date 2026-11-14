@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { API_ENDPOINTS } from "@/constants/api";
-import { projectMediaSchema, type ProjectMedia } from "@/features/projects/api/media";
+import {
+  projectMediaSchema,
+  type ProjectMedia,
+} from "@/features/projects/api/media";
 import { mediaMime } from "@/features/projects/lib/project-media";
 import { ApiError, requestJson } from "@/lib/http";
 import { LIBRARY_PAGE_SIZE } from "../lib/library";
@@ -12,7 +15,7 @@ export const libraryItemSchema = z.object({
   id: z.string().min(1),
   role: z.enum(["upload", "scene", "film"]),
   kind: z.enum(["image", "video", "audio"]),
-  source: z.enum(["studio", "upload", "quick"]),
+  source: z.enum(["studio", "upload", "quick", "api"]),
   title: z.string(),
   projectId: z.string().nullable(),
   projectName: z.string().nullable(),
@@ -43,7 +46,7 @@ export type LibraryPage = z.infer<typeof libraryPageSchema>;
 
 export type LibraryFilters = {
   kind: "all" | "image" | "video" | "audio";
-  source: "all" | "studio" | "upload" | "quick";
+  source: "all" | "studio" | "upload" | "quick" | "api";
   q: string;
 };
 
