@@ -182,14 +182,15 @@
       "optional": "Optional",
       "ideaPlaceholder": "Describe the story you want to tell…",
       "duration": "Target duration (seconds)",
-      "durationHint": "10–300 seconds, in increments of 5.",
+      "durationHint": "From 10 seconds, in increments of 5. Up to 3,600 seconds (60 minutes).",
+      "durationLong": "A long film: at least {{scenes}} scenes. Each scene is one video generation on Muse, so it takes a lot of quota and time, and Muse may not write a long script in one go. You can still save it.",
       "ratio": "Aspect ratio",
       "submit": "Create draft",
       "saved": "Draft “{{name}}” saved.",
       "errors": {
         "name": "Enter a project name between 1 and 100 characters.",
         "idea": "Keep the story idea under 12,000 characters.",
-        "durationSeconds": "Use 10–300 seconds in increments of 5.",
+        "durationSeconds": "Use 10 to 3,600 seconds in increments of 5.",
         "aspectRatio": "Choose a supported aspect ratio."
       },
       "saving": "Saving…",

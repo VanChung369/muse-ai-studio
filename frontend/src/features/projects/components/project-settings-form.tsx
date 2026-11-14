@@ -20,6 +20,8 @@ import { ApiError } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import {
   PROJECT_ASPECT_RATIOS,
+  PROJECT_LONG_SECONDS,
+  PROJECT_MAX_SECONDS,
   PROJECT_CONTINUITIES,
   PROJECT_LANGUAGES,
   PROJECT_LOOKS,
@@ -261,7 +263,7 @@ export function ProjectSettingsForm({
             id={`${id}-duration`}
             type="number"
             min={10}
-            max={300}
+            max={PROJECT_MAX_SECONDS}
             step={5}
             aria-invalid={Boolean(errors.durationSeconds)}
             aria-describedby={`${id}-duration-hint`}
@@ -284,6 +286,18 @@ export function ProjectSettingsForm({
                   })
                 : t("projects.form.durationHint")}
           </p>
+          {Number.isFinite(durationSeconds) &&
+            durationSeconds > PROJECT_LONG_SECONDS &&
+            durationSeconds <= PROJECT_MAX_SECONDS && (
+              <p
+                role="status"
+                className="rounded-lg border border-warning/40 bg-warning-soft p-2.5 text-xs leading-5 text-warning"
+              >
+                {t("projects.form.durationLong", {
+                  scenes: Math.ceil(durationSeconds / 10),
+                })}
+              </p>
+            )}
         </div>
         <div className="space-y-2">
           <Label htmlFor={`${id}-ratio`}>{t("projects.form.ratio")}</Label>
@@ -631,6 +645,10 @@ const FRAMES = {
   "16:9": "aspect-video w-40",
   "9:16": "aspect-[9/16] h-24",
   "1:1": "aspect-square h-24",
+  "4:3": "aspect-[4/3] h-24",
+  "3:4": "aspect-[3/4] h-24",
+  "4:5": "aspect-[4/5] h-24",
+  "21:9": "aspect-[21/9] w-40",
 } as const;
 
 // How many scenes the film has, or about how many its duration allows: a

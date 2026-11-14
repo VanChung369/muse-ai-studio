@@ -9,7 +9,7 @@ from app.db.base import Base
 class Scene(Base):
     __tablename__ = "project_scenes"
     __table_args__ = (
-        CheckConstraint("number BETWEEN 1 AND 30", name="ck_project_scenes_number"),
+        CheckConstraint("number BETWEEN 1 AND 720", name="ck_project_scenes_number"),
         CheckConstraint(
             "duration_seconds IN (5, 10)", name="ck_project_scenes_duration"
         ),

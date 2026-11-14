@@ -182,14 +182,15 @@
       "optional": "Không bắt buộc",
       "ideaPlaceholder": "Mô tả câu chuyện bạn muốn kể…",
       "duration": "Thời lượng mục tiêu (giây)",
-      "durationHint": "10–300 giây, theo bước 5 giây.",
+      "durationHint": "Từ 10 giây, theo bước 5 giây. Tối đa 3.600 giây (60 phút).",
+      "durationLong": "Phim dài: ít nhất {{scenes}} cảnh. Mỗi cảnh là một lượt tạo video trên Muse nên sẽ tốn nhiều quota và thời gian, và Muse có thể không viết hết kịch bản dài trong một lần. Bạn vẫn lưu được.",
       "ratio": "Tỉ lệ khung hình",
       "submit": "Tạo bản nháp",
       "saved": "Đã lưu bản nháp “{{name}}”.",
       "errors": {
         "name": "Nhập tên dự án từ 1 đến 100 ký tự.",
         "idea": "Ý tưởng câu chuyện không quá 12.000 ký tự.",
-        "durationSeconds": "Chọn 10–300 giây, theo bước 5 giây.",
+        "durationSeconds": "Chọn từ 10 đến 3.600 giây, theo bước 5 giây.",
         "aspectRatio": "Chọn tỉ lệ khung hình được hỗ trợ."
       },
       "saving": "Đang lưu…",

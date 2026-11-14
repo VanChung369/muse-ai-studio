@@ -23,7 +23,7 @@ from app.rendering.ffmpeg import (
     probe,
 )
 from app.rendering.tasks import remerge
-from app.schemas.project import ProjectStatus
+from app.schemas.project import MAX_SCENES, ProjectStatus
 
 router = APIRouter(prefix="/projects", tags=["Timeline"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
@@ -198,7 +198,7 @@ class Input(BaseModel):
 
 class TimelineCut(Input):
     # Exactly one of the two: a rendered scene, or an added video or picture.
-    scene: int | None = Field(default=None, strict=True, ge=1, le=30)
+    scene: int | None = Field(default=None, strict=True, ge=1, le=MAX_SCENES)
     media_id: str | None = Field(default=None, min_length=1, max_length=36)
     key: str | None = Field(default=None, pattern=KEY)
     start: float = Field(ge=0, le=600)
@@ -300,13 +300,22 @@ def _clip_seconds(request: Request, project: Project) -> dict[int, float]:
             continue
         lengths[scene.number] = float(scene.duration_seconds)
         if ffmpeg:
+            clip = folder / Path(scene.video_file).name
             try:
-                lengths[scene.number] = round(
-                    probe(ffmpeg, folder / Path(scene.video_file).name).seconds, 2
+                written = clip.stat()
+                lengths[scene.number] = _measured(
+                    ffmpeg, str(clip), written.st_mtime_ns, written.st_size
                 )
-            except MergeError:
+            except (MergeError, OSError):
                 pass
     return lengths
+
+
+@lru_cache(maxsize=4096)
+def _measured(ffmpeg: str, clip: str, modified: int, size: int) -> float:
+    """A clip's length, measured once for as long as the file stays the same:
+    a long film has hundreds of clips and the timeline is read often."""
+    return round(probe(ffmpeg, Path(clip)).seconds, 2)
 
 
 def timeline_response(
@@ -426,15 +435,17 @@ def timeline_response(
             )
             for title in edit.titles
         ],
-        logo=TimelineLogo(
-            media_id=edit.logo["media"],
-            corner=edit.logo["corner"],
-            size=edit.logo["size"],
-            opacity=edit.logo["opacity"],
-            url=f"{base}/media/{edit.logo['media']}",
-        )
-        if edit.logo
-        else None,
+        logo=(
+            TimelineLogo(
+                media_id=edit.logo["media"],
+                corner=edit.logo["corner"],
+                size=edit.logo["size"],
+                opacity=edit.logo["opacity"],
+                url=f"{base}/media/{edit.logo['media']}",
+            )
+            if edit.logo
+            else None
+        ),
         output=TimelineOutput(**edit.output),
         can_burn_captions=bool(ffmpeg) and _captions_supported(ffmpeg),
         total_seconds=round(

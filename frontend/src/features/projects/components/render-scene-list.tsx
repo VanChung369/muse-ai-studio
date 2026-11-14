@@ -13,6 +13,10 @@ const VIDEO_FRAMES = {
   "16:9": "aspect-video w-full",
   "9:16": "mx-auto aspect-[9/16] max-h-96",
   "1:1": "mx-auto aspect-square max-h-96",
+  "4:3": "mx-auto aspect-[4/3] max-h-96",
+  "3:4": "mx-auto aspect-[3/4] max-h-96",
+  "4:5": "mx-auto aspect-[4/5] max-h-96",
+  "21:9": "aspect-[21/9] w-full",
 } as const;
 
 export function RenderVideo({

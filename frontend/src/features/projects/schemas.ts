@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import {
   PROJECT_ASPECT_RATIOS,
+  PROJECT_MAX_SCENES,
+  PROJECT_MAX_SECONDS,
   PROJECT_CONTINUITIES,
   PROJECT_COVER_TONES,
   PROJECT_ERROR_CODES,
@@ -14,7 +16,12 @@ export const projectDraftSchema = z.object({
   name: z.string().trim().min(1).max(100),
   idea: z.string().trim().max(12000),
   aspectRatio: z.enum(PROJECT_ASPECT_RATIOS),
-  durationSeconds: z.number().int().min(10).max(300).multipleOf(5),
+  durationSeconds: z
+    .number()
+    .int()
+    .min(10)
+    .max(PROJECT_MAX_SECONDS)
+    .multipleOf(5),
 });
 
 // Optional starting points a script can build on.
@@ -61,9 +68,9 @@ const projectSummaryShape = projectDraftSchema.omit({ idea: true }).extend({
   id: z.string().min(1),
   status: z.enum(PROJECT_STATUSES),
   updatedAt: z.iso.datetime(),
-  sceneCount: z.number().int().min(0).max(30),
-  completedScenes: z.number().int().min(0).max(30),
-  currentScene: z.number().int().min(1).max(30).optional(),
+  sceneCount: z.number().int().min(0).max(PROJECT_MAX_SCENES),
+  completedScenes: z.number().int().min(0).max(PROJECT_MAX_SCENES),
+  currentScene: z.number().int().min(1).max(PROJECT_MAX_SCENES).optional(),
   errorCode: z.enum(PROJECT_ERROR_CODES).optional(),
   coverTone: z.enum(PROJECT_COVER_TONES),
   // A still of the first rendered scene; null until one exists.
@@ -92,7 +99,7 @@ export const projectScriptDraftSchema = z.object({
   expectedRevision: z.number().int().nonnegative(),
   characterBible: z.string().trim().max(10000),
   visualStyle: z.string().trim().max(3000),
-  scenes: projectScriptSceneSchema.array().min(1).max(30),
+  scenes: projectScriptSceneSchema.array().min(1).max(PROJECT_MAX_SCENES),
 });
 
 // Full project from GET /api/projects/{id}.
@@ -110,7 +117,7 @@ export const projectSchema = projectSummaryShape
     scriptRevision: z.number().int().nonnegative(),
     scenes: z.array(
       projectScriptSceneSchema.extend({
-        number: z.number().int().min(1).max(30),
+        number: z.number().int().min(1).max(PROJECT_MAX_SCENES),
       }),
     ),
   })

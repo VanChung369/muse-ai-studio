@@ -22,7 +22,11 @@ ProjectStatus = Literal[
     "failed",
     "completed",
 ]
-AspectRatio = Literal["16:9", "9:16", "1:1"]
+# A film is at most an hour long. A scene is 5 or 10 seconds, so that is
+# also the most scenes a script can hold.
+MAX_DURATION = 3600
+MAX_SCENES = MAX_DURATION // 5
+AspectRatio = Literal["16:9", "9:16", "1:1", "4:3", "3:4", "4:5", "21:9"]
 # The film's visual look; `auto` leaves it to the script's visual style.
 ProjectLook = Literal[
     "auto",
@@ -53,8 +57,8 @@ class ProjectCreate(BaseModel):
     character_bible: str = Field(default="", max_length=10000)
     visual_style: str = Field(default="", max_length=3000)
     music: str = Field(default="", max_length=500)
-    aspect_ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
-    duration_seconds: int = Field(default=60, strict=True, ge=10, le=300, multiple_of=5)
+    aspect_ratio: AspectRatio = "16:9"
+    duration_seconds: int = Field(default=60, strict=True, ge=10, le=MAX_DURATION, multiple_of=5)
     look: ProjectLook = "auto"
     continuity: ProjectContinuity = "reference"
     language: ProjectLanguage = "auto"
@@ -83,7 +87,7 @@ class ProjectUpdate(BaseModel):
     music: str | None = Field(default=None, max_length=500)
     aspect_ratio: AspectRatio | None = None
     duration_seconds: int | None = Field(
-        default=None, strict=True, ge=10, le=300, multiple_of=5
+        default=None, strict=True, ge=10, le=MAX_DURATION, multiple_of=5
     )
     look: ProjectLook | None = None
     continuity: ProjectContinuity | None = None
@@ -117,7 +121,7 @@ class ProjectScene(BaseModel):
         str_strip_whitespace=True,
     )
 
-    number: int = Field(strict=True, ge=1, le=30)
+    number: int = Field(strict=True, ge=1, le=MAX_SCENES)
     title: str = Field(min_length=1, max_length=300)
     prompt: str = Field(min_length=1, max_length=6000)
     duration_seconds: int = Field(strict=True, ge=5, le=10, multiple_of=5)
@@ -135,7 +139,7 @@ class ProjectScriptUpdate(BaseModel):
     expected_revision: int = Field(strict=True, ge=0)
     character_bible: str = Field(default="", max_length=10000)
     visual_style: str = Field(default="", max_length=3000)
-    scenes: list[ProjectScene] = Field(min_length=1, max_length=30)
+    scenes: list[ProjectScene] = Field(min_length=1, max_length=MAX_SCENES)
 
     @model_validator(mode="after")
     def validate_scene_order(self):
@@ -163,7 +167,7 @@ class ProjectSummary(CamelModel):
     id: str
     name: str
     status: ProjectStatus
-    aspect_ratio: Literal["16:9", "9:16", "1:1"]
+    aspect_ratio: AspectRatio
     duration_seconds: int
     created_at: datetime
     updated_at: datetime

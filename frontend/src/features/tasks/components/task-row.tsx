@@ -42,9 +42,13 @@ export function TaskRow({
           <div className="min-w-0">
             <button
               className="text-left font-semibold wrap-anywhere hover:text-primary"
+              // The whole title, when it is cut short below.
+              title={task.title}
               onClick={() => onView(task.id)}
             >
-              {task.title}
+              {/* A long request is two lines and an ellipsis; the details
+                  show all of it. */}
+              <span className="line-clamp-2">{task.title}</span>
             </button>
             <p className="mt-0.5 text-xs text-faint">
               {t(taskKindKey(task.kind))}

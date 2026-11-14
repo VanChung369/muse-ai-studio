@@ -34,6 +34,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   PROJECT_ASPECT_RATIOS,
+  PROJECT_LONG_SECONDS,
+  PROJECT_MAX_SECONDS,
   PROJECT_LANGUAGES,
   PROJECT_LOOKS,
   REFERENCE_MAX_FILES,
@@ -73,7 +75,12 @@ type Props = {
   hasError: boolean;
 };
 
-export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Props) {
+export function NewProjectDialog({
+  open,
+  onOpenChange,
+  onCreate,
+  hasError,
+}: Props) {
   const { t } = useTranslation();
   const id = useId();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -90,6 +97,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
     defaultValues,
   });
   const look = useWatch({ control, name: "look" });
+  const durationSeconds = useWatch({ control, name: "durationSeconds" });
 
   function resetAll() {
     reset(defaultValues);
@@ -135,7 +143,10 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
           {t("projects.newProject")}
         </Button>
       </DialogTrigger>
-      <DialogContent showCloseButton={!isSubmitting} className="max-h-[calc(100svh-2rem)] overflow-y-auto border border-input p-6 sm:max-w-lg">
+      <DialogContent
+        showCloseButton={!isSubmitting}
+        className="max-h-[calc(100svh-2rem)] overflow-y-auto border border-input p-6 sm:max-w-[min(48rem,calc(100%-2rem))]"
+      >
         <DialogHeader className="pr-6">
           <DialogTitle className="text-lg font-semibold">
             {t("projects.form.title")}
@@ -214,7 +225,7 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
                   id={`${id}-duration`}
                   type="number"
                   min={10}
-                  max={300}
+                  max={PROJECT_MAX_SECONDS}
                   step={5}
                   aria-invalid={Boolean(errors.durationSeconds)}
                   aria-describedby={`${id}-duration-hint`}
@@ -235,14 +246,32 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
                       : "projects.form.durationHint",
                   )}
                 </p>
+                {Number.isFinite(durationSeconds) &&
+                  durationSeconds > PROJECT_LONG_SECONDS &&
+                  durationSeconds <= PROJECT_MAX_SECONDS && (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-warning/40 bg-warning-soft p-2.5 text-xs leading-5 text-warning"
+                    >
+                      {t("projects.form.durationLong", {
+                        scenes: Math.ceil(durationSeconds / 10),
+                      })}
+                    </p>
+                  )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`${id}-ratio`}>{t("projects.form.ratio")}</Label>
+                <Label htmlFor={`${id}-ratio`}>
+                  {t("projects.form.ratio")}
+                </Label>
                 <Controller
                   name="aspectRatio"
                   control={control}
                   render={({ field }) => (
-                    <Select disabled={isSubmitting} value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      disabled={isSubmitting}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
                       <SelectTrigger
                         id={`${id}-ratio`}
                         ref={field.ref}
@@ -510,7 +539,9 @@ export function NewProjectDialog({ open, onOpenChange, onCreate, hasError }: Pro
               </Button>
             </DialogClose>
             <Button type="submit" disabled={isSubmitting}>
-              {t(isSubmitting ? "projects.form.saving" : "projects.form.submit")}
+              {t(
+                isSubmitting ? "projects.form.saving" : "projects.form.submit",
+              )}
             </Button>
           </DialogFooter>
         </form>

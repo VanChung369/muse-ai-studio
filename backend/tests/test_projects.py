@@ -71,8 +71,8 @@ def test_create_list_details_and_restart(settings):
 @pytest.mark.parametrize('overrides', [
     {'name': ''}, {'name': '   '}, {'name': 'x' * 101},
     {'idea': 'x' * 12001}, {'durationSeconds': 9}, {'durationSeconds': 12},
-    {'durationSeconds': 305}, {'durationSeconds': '60'}, {'durationSeconds': True},
-    {'aspectRatio': '4:3'}, {'status': 'completed'}, {'id': 'injected'},
+    {'durationSeconds': 3605}, {'durationSeconds': '60'}, {'durationSeconds': True},
+    {'aspectRatio': '5:4'}, {'status': 'completed'}, {'id': 'injected'},
 ])
 def test_invalid_input_does_not_insert(client, overrides):
     response = client.post('/api/projects', json={'name': 'Valid name', **overrides})

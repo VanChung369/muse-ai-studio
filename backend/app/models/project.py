@@ -17,11 +17,11 @@ class Project(Base):
         CheckConstraint("length(name) BETWEEN 1 AND 100", name="ck_projects_name"),
         CheckConstraint("length(idea) <= 12000", name="ck_projects_idea"),
         CheckConstraint(
-            "duration_seconds BETWEEN 10 AND 300 AND duration_seconds % 5 = 0",
+            "duration_seconds BETWEEN 10 AND 3600 AND duration_seconds % 5 = 0",
             name="ck_projects_duration",
         ),
         CheckConstraint(
-            "aspect_ratio IN ('16:9', '9:16', '1:1')", name="ck_projects_ratio"
+            "aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '21:9')", name="ck_projects_ratio"
         ),
         CheckConstraint(
             "status IN ('draft', 'planning', 'ready', 'rendering', 'cancelling', 'cancelled', 'failed', 'completed')",
@@ -34,7 +34,7 @@ class Project(Base):
             "length(visual_style) <= 3000", name="ck_projects_visual_style"
         ),
         CheckConstraint("script_revision >= 0", name="ck_projects_script_revision"),
-        CheckConstraint("scene_count BETWEEN 0 AND 30", name="ck_projects_scene_count"),
+        CheckConstraint("scene_count BETWEEN 0 AND 720", name="ck_projects_scene_count"),
         CheckConstraint(
             "look IN ('auto', 'realistic', 'cinematic', 'documentary', 'commercial', 'animation3d', 'anime')",
             name="ck_projects_look",

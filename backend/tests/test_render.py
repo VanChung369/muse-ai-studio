@@ -438,7 +438,7 @@ def test_project_brief_can_change_until_a_render_starts(client, muse, ffmpeg):
     assert body["status"] == "draft" and body["updatedAt"] >= draft["updatedAt"]
     # The renamed project is found by its new name.
     assert client.get("/api/projects", params={"q": "tea"}).json()["total"] == 1
-    for invalid in ({"name": " "}, {"aspectRatio": "4:3"}, {"durationSeconds": 12},
+    for invalid in ({"name": " "}, {"aspectRatio": "5:4"}, {"durationSeconds": 12},
                     {"look": "noir"}, {"name": None}, {"status": "ready"}):  # fmt: skip
         assert client.patch(path, json=invalid).status_code == 422, invalid
     assert client.patch(path, json={}).json() == body

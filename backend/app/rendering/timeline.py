@@ -16,9 +16,10 @@ SPEEDS = (0.25, 4.0)
 # How long a picture may be shown, and for how long when nothing says.
 STILL_LIMIT = 30.0
 STILL_SECONDS = 3.0
-MAX_ITEMS = 60
+# Room for every scene of the longest film, cut in pieces, and added media.
+MAX_ITEMS = 1000
 MAX_TRACKS = 8
-MAX_CAPTIONS = 300
+MAX_CAPTIONS = 1000
 MAX_TITLES = 50
 CAPTION_LENGTH = 300
 # Longest fade of a piece of the picture, and of an audio piece.

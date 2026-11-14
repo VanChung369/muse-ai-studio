@@ -159,7 +159,14 @@ def merge(
     )
     try:
         with tempfile.TemporaryDirectory() as folder:
-            attempts = [_reencode_arguments(clips, mute, spans if trimmed else None)]
+            # Re-encoding a long film in one run needs a command longer than
+            # Windows takes; `compose` builds it in parts instead.
+            many = len(clips) > CHUNK
+            attempts = (
+                []
+                if many
+                else [_reencode_arguments(clips, mute, spans if trimmed else None)]
+            )
             if uniform and not trimmed:
                 attempts.insert(
                     0, _copy_arguments(clips, Path(folder) / "clips.txt", mute)
@@ -176,7 +183,18 @@ def merge(
                 if abs(merged - expected) <= max(0.5, expected * 0.05):
                     os.replace(temporary, output)
                     return
-        raise MergeError
+        if not many:
+            raise MergeError
+        compose(
+            ffmpeg,
+            [
+                Segment(path=clip.path, start=start, end=end)
+                for clip, (start, end) in zip(clips, spans, strict=True)
+            ],
+            output,
+            check_cancelled,
+            mute=mute,
+        )
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -497,6 +515,15 @@ def compose(
     """
     if (captions or titles) and not can_caption(ffmpeg):
         raise CaptionError
+    if len(segments) > CHUNK:
+        _compose_in_parts(
+            ffmpeg, segments, output, check_cancelled,
+            mute=mute, volume=volume, frame=frame, fit=fit, quality=quality,
+            preview=preview, soundtracks=soundtracks, duck=duck,
+            captions=captions, caption_style=caption_style, titles=titles,
+            logo=logo,
+        )  # fmt: skip
+        return
     parts = []  # (segment, start, seconds of source used, has audio)
     for segment in segments:
         if segment.still:
@@ -746,6 +773,44 @@ def compose(
         os.replace(temporary, output)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+# Pieces built in one FFmpeg run. Every piece adds an input and a chain of
+# filters to the command, and Windows takes a command of about 32,000
+# characters: a long film is built in runs of this many pieces.
+CHUNK = 24
+
+
+def _compose_in_parts(
+    ffmpeg, segments, output, check_cancelled,
+    *, mute, volume, frame, fit, quality, preview, **finish,
+) -> None:  # fmt: skip
+    """A film of many pieces: each run of pieces becomes a film of its own,
+    then those are joined and finished (the clips' volume, audio laid over,
+    captions, titles, the logo), which is `compose` again on a few inputs.
+    The picture is encoded twice; the first time at high quality."""
+    if frame is None:
+        first = next((piece for piece in segments if not piece.still), None)
+        if first is not None:
+            clip = probe(ffmpeg, first.path)
+            frame = (clip.width, clip.height)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent) as folder:
+        runs = []
+        for number, begin in enumerate(range(0, len(segments), CHUNK)):
+            run = Path(folder) / f"run-{number:03d}.mp4"
+            compose(
+                ffmpeg, list(segments[begin : begin + CHUNK]), run, check_cancelled,
+                # The volume is set once, when the runs are joined.
+                mute=mute or volume <= 0, frame=frame, fit=fit, quality="high",
+                preview=preview,
+            )  # fmt: skip
+            runs.append(Segment(path=run))
+        compose(
+            ffmpeg, runs, output, check_cancelled,
+            mute=mute, volume=volume, frame=frame, fit=fit, quality=quality,
+            preview=preview, **finish,
+        )  # fmt: skip
 
 
 CAPTION_FILE = "captions.ass"

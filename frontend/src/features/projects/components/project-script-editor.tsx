@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { PROJECT_MAX_SCENES } from "../constants";
 import { useScriptEditor } from "../hooks/use-script-editor";
 import type { Project } from "../types";
 
@@ -259,7 +260,7 @@ export function ProjectScriptEditor({ project, onClose }: Props) {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={fields.length >= 30}
+                  disabled={fields.length >= PROJECT_MAX_SCENES}
                   onClick={() =>
                     append({
                       title: "",

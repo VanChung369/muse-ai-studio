@@ -113,6 +113,10 @@ const VIDEO_FRAMES = {
   "16:9": "aspect-video w-full",
   "9:16": "mx-auto aspect-[9/16] max-h-[70svh]",
   "1:1": "mx-auto aspect-square max-h-[70svh]",
+  "4:3": "mx-auto aspect-[4/3] max-h-[70svh]",
+  "3:4": "mx-auto aspect-[3/4] max-h-[70svh]",
+  "4:5": "mx-auto aspect-[4/5] max-h-[70svh]",
+  "21:9": "aspect-[21/9] w-full",
 } as const;
 // How far the tracks can be stretched to work on a detail.
 const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8];
@@ -202,7 +206,9 @@ function Output({
         : setCover({ id: project.id, seconds }),
     retry: false,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: projectKeys.detail(project.id) });
+      void client.invalidateQueries({
+        queryKey: projectKeys.detail(project.id),
+      });
       void client.invalidateQueries({ queryKey: projectKeys.lists });
     },
   });
@@ -330,7 +336,10 @@ function Output({
     0.1,
   );
   // Where blocks on the lanes are drawn to: every cut, and the playhead.
-  const snaps = [...snapPoints(draft.items), ...(inStep ? [toTenth(time)] : [])];
+  const snaps = [
+    ...snapPoints(draft.items),
+    ...(inStep ? [toTenth(time)] : []),
+  ];
 
   // Takes the selected piece out of the film: an added clip, a part of a
   // scene that has another part, an audio piece, a caption or a title is
@@ -443,7 +452,9 @@ function Output({
       else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         if (!selection || selection.kind === "clip") return;
         event.preventDefault();
-        nudge((event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 1 : 0.1));
+        nudge(
+          (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 1 : 0.1),
+        );
       }
     }
     window.addEventListener("keydown", onKey);
@@ -627,7 +638,10 @@ function Output({
           ) : (
             preview && (
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary-line bg-primary-soft px-3 py-2">
-                <Eye className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                <Eye
+                  className="size-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
                 <p className="min-w-0 flex-1 text-xs leading-5">
                   {t("projects.timeline.preview.note")}
                   {previewStale && ` ${t("projects.timeline.preview.stale")}`}
@@ -724,169 +738,174 @@ function Output({
             down the page. */}
         <aside className="relative min-w-0 border-t desktop:min-h-[32rem] desktop:border-t-0 desktop:border-l">
           <div className="scroll-subtle divide-y desktop:absolute desktop:inset-0 desktop:overflow-y-auto desktop:overscroll-contain">
-          <section className="space-y-3 p-5">
-            <h2 className="text-sm font-semibold">
-              {t("projects.output.info")}
-            </h2>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[13px]">
-              <dt className="text-muted-foreground">
-                {t("projects.details.duration")}
-              </dt>
-              <dd className="font-mono">
-                {formatDuration(
-                  Math.round(timeline?.totalSeconds ?? project.durationSeconds),
-                )}
-              </dd>
-              <dt className="text-muted-foreground">
-                {t("projects.details.ratio")}
-              </dt>
-              <dd>
-                {savedDraft.output.aspect === "source"
-                  ? project.aspectRatio
-                  : savedDraft.output.aspect}
-              </dd>
-              <dt className="text-muted-foreground">
-                {t("projects.details.scenes")}
-              </dt>
-              <dd>
-                {t("projects.output.scenesInFilm", {
-                  kept: new Set(
-                    saved.flatMap((segment) =>
-                      segment.scene === null ? [] : [segment.scene],
+            <section className="space-y-3 p-5">
+              <h2 className="text-sm font-semibold">
+                {t("projects.output.info")}
+              </h2>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[13px]">
+                <dt className="text-muted-foreground">
+                  {t("projects.details.duration")}
+                </dt>
+                <dd className="font-mono">
+                  {formatDuration(
+                    Math.round(
+                      timeline?.totalSeconds ?? project.durationSeconds,
                     ),
-                  ).size,
-                  count: project.sceneCount,
-                })}
-              </dd>
-              <dt className="text-muted-foreground">
-                {t("projects.details.updated")}
-              </dt>
-              <dd>{finished}</dd>
-            </dl>
-          </section>
-          <section className="space-y-2 p-5">
-            <h2 className="text-sm font-semibold">
-              {t("projects.output.downloads")}
-            </h2>
-            {videoUrl && (
-              <FileButton
-                icon={Film}
-                label={t("projects.output.fullVideo")}
-                detail="MP4"
-                href={downloadHref(videoUrl)}
-              />
-            )}
-            {scenes.length > 0 && (
-              <FileButton
-                icon={Layers}
-                label={t("projects.output.allScenes")}
-                detail={t("projects.output.files", { count: scenes.length })}
-                href={`/api/projects/${encodeURIComponent(project.id)}/scenes.zip`}
-              />
-            )}
-            <h2 className="pt-2 text-sm font-semibold">
-              {t("projects.output.export")}
-            </h2>
-            <FileButton
-              icon={FileText}
-              label={t("projects.output.script")}
-              detail=".md"
-              onClick={() =>
-                downloadText(
-                  project,
-                  "md",
-                  scriptMarkdown(project, {
-                    idea: t("projects.details.idea"),
-                    characters: t("projects.form.characters"),
-                    visualStyle: t("projects.settings.look"),
-                    scene: (number) => t("projects.details.scene", { number }),
-                    narration: t("projects.script.narration"),
-                  }),
-                  "text/markdown",
-                )
-              }
-            />
-            <FileButton
-              icon={Terminal}
-              label={t("projects.output.prompts")}
-              detail=".json"
-              onClick={() =>
-                downloadText(
-                  project,
-                  "prompts.json",
-                  promptsJson(project),
-                  "application/json",
-                )
-              }
-            />
-            <p className="text-xs leading-5 text-faint">
-              {t("projects.output.exportNote")}
-            </p>
-          </section>
-          <section className="space-y-3 p-5">
-            <h2 className="text-sm font-semibold">
-              {t("projects.output.edit")}
-            </h2>
-            <p className="text-[13px] leading-6 text-muted-foreground">
-              {t("projects.output.editNote")}
-            </p>
-            <Button variant="outline" asChild>
-              <Link to={projectStepHref(project.id, "script")}>
-                <Pencil aria-hidden="true" />
-                {t("projects.output.openScript")}
-              </Link>
-            </Button>
-          </section>
-          {draft.items.length > 0 && (
-            // What is selected in the timeline is edited here, beside the
-            // player, so it is in view whichever track it is on.
-            <section className="space-y-5 bg-background/40 p-4 tablet:p-5">
-              <div className="min-w-0 space-y-5 rounded-xl border bg-card p-4 shadow-sm">
-                {cut ? (
-                  <TimelineCutEditor
-                    item={cut}
-                    index={cutIndex}
-                    count={draft.items.length}
-                    editable={editable}
-                    onChange={(patch) => patchItem(cut.key, patch)}
-                    onMove={move}
-                    onRemove={
-                      isRemovable(draft.items, cut) ? removeSelected : undefined
-                    }
-                  />
-                ) : track ? (
-                  <AudioEditor
-                    track={track}
-                    total={total}
-                    editable={editable}
-                    onChange={(patch) => patchAudio(track.key, patch)}
-                    onRemove={removeSelected}
-                  />
-                ) : (
-                  <p className="text-[13px] leading-6 text-muted-foreground">
-                    {t("projects.timeline.inspectorHint")}
-                  </p>
-                )}
-                <div className="space-y-4 border-t pt-4">
-                  <SceneVolume
-                    volume={draft.volume}
-                    muted={project.mute}
-                    editable={editable}
-                    onChange={(volume) =>
-                      editor.change((edit) => ({ ...edit, volume }), "volume")
-                    }
-                  />
-                  <DuckField
-                    duck={draft.duck}
-                    editable={editable}
-                    onChange={(duck) =>
-                      editor.change((edit) => ({ ...edit, duck }))
-                    }
-                  />
-                </div>
-              </div>
+                  )}
+                </dd>
+                <dt className="text-muted-foreground">
+                  {t("projects.details.ratio")}
+                </dt>
+                <dd>
+                  {savedDraft.output.aspect === "source"
+                    ? project.aspectRatio
+                    : savedDraft.output.aspect}
+                </dd>
+                <dt className="text-muted-foreground">
+                  {t("projects.details.scenes")}
+                </dt>
+                <dd>
+                  {t("projects.output.scenesInFilm", {
+                    kept: new Set(
+                      saved.flatMap((segment) =>
+                        segment.scene === null ? [] : [segment.scene],
+                      ),
+                    ).size,
+                    count: project.sceneCount,
+                  })}
+                </dd>
+                <dt className="text-muted-foreground">
+                  {t("projects.details.updated")}
+                </dt>
+                <dd>{finished}</dd>
+              </dl>
             </section>
-          )}
+            <section className="space-y-2 p-5">
+              <h2 className="text-sm font-semibold">
+                {t("projects.output.downloads")}
+              </h2>
+              {videoUrl && (
+                <FileButton
+                  icon={Film}
+                  label={t("projects.output.fullVideo")}
+                  detail="MP4"
+                  href={downloadHref(videoUrl)}
+                />
+              )}
+              {scenes.length > 0 && (
+                <FileButton
+                  icon={Layers}
+                  label={t("projects.output.allScenes")}
+                  detail={t("projects.output.files", { count: scenes.length })}
+                  href={`/api/projects/${encodeURIComponent(project.id)}/scenes.zip`}
+                />
+              )}
+              <h2 className="pt-2 text-sm font-semibold">
+                {t("projects.output.export")}
+              </h2>
+              <FileButton
+                icon={FileText}
+                label={t("projects.output.script")}
+                detail=".md"
+                onClick={() =>
+                  downloadText(
+                    project,
+                    "md",
+                    scriptMarkdown(project, {
+                      idea: t("projects.details.idea"),
+                      characters: t("projects.form.characters"),
+                      visualStyle: t("projects.settings.look"),
+                      scene: (number) =>
+                        t("projects.details.scene", { number }),
+                      narration: t("projects.script.narration"),
+                    }),
+                    "text/markdown",
+                  )
+                }
+              />
+              <FileButton
+                icon={Terminal}
+                label={t("projects.output.prompts")}
+                detail=".json"
+                onClick={() =>
+                  downloadText(
+                    project,
+                    "prompts.json",
+                    promptsJson(project),
+                    "application/json",
+                  )
+                }
+              />
+              <p className="text-xs leading-5 text-faint">
+                {t("projects.output.exportNote")}
+              </p>
+            </section>
+            <section className="space-y-3 p-5">
+              <h2 className="text-sm font-semibold">
+                {t("projects.output.edit")}
+              </h2>
+              <p className="text-[13px] leading-6 text-muted-foreground">
+                {t("projects.output.editNote")}
+              </p>
+              <Button variant="outline" asChild>
+                <Link to={projectStepHref(project.id, "script")}>
+                  <Pencil aria-hidden="true" />
+                  {t("projects.output.openScript")}
+                </Link>
+              </Button>
+            </section>
+            {draft.items.length > 0 && (
+              // What is selected in the timeline is edited here, beside the
+              // player, so it is in view whichever track it is on.
+              <section className="space-y-5 bg-background/40 p-4 tablet:p-5">
+                <div className="min-w-0 space-y-5 rounded-xl border bg-card p-4 shadow-sm">
+                  {cut ? (
+                    <TimelineCutEditor
+                      item={cut}
+                      index={cutIndex}
+                      count={draft.items.length}
+                      editable={editable}
+                      onChange={(patch) => patchItem(cut.key, patch)}
+                      onMove={move}
+                      onRemove={
+                        isRemovable(draft.items, cut)
+                          ? removeSelected
+                          : undefined
+                      }
+                    />
+                  ) : track ? (
+                    <AudioEditor
+                      track={track}
+                      total={total}
+                      editable={editable}
+                      onChange={(patch) => patchAudio(track.key, patch)}
+                      onRemove={removeSelected}
+                    />
+                  ) : (
+                    <p className="text-[13px] leading-6 text-muted-foreground">
+                      {t("projects.timeline.inspectorHint")}
+                    </p>
+                  )}
+                  <div className="space-y-4 border-t pt-4">
+                    <SceneVolume
+                      volume={draft.volume}
+                      muted={project.mute}
+                      editable={editable}
+                      onChange={(volume) =>
+                        editor.change((edit) => ({ ...edit, volume }), "volume")
+                      }
+                    />
+                    <DuckField
+                      duck={draft.duck}
+                      editable={editable}
+                      onChange={(duck) =>
+                        editor.change((edit) => ({ ...edit, duck }))
+                      }
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         </aside>
       </div>
@@ -1128,7 +1147,9 @@ function Output({
                   disabled={zoom === ZOOMS.at(-1)}
                   onClick={() =>
                     setZoom(
-                      ZOOMS[Math.min(ZOOMS.indexOf(zoom) + 1, ZOOMS.length - 1)],
+                      ZOOMS[
+                        Math.min(ZOOMS.indexOf(zoom) + 1, ZOOMS.length - 1)
+                      ],
                     )
                   }
                 >
@@ -1347,13 +1368,17 @@ function Output({
                   span={span}
                   snaps={snaps}
                   tone="bg-success-soft text-success"
-                  selected={selection?.kind === "title" ? selection.index : null}
+                  selected={
+                    selection?.kind === "title" ? selection.index : null
+                  }
                   editable={editable}
                   onSelect={(index) => {
                     setSelection({ kind: "title", index });
                     setPanel("titles");
                   }}
-                  onChange={(index, patch) => patchTimed("titles", index, patch)}
+                  onChange={(index, patch) =>
+                    patchTimed("titles", index, patch)
+                  }
                 />
               ) : (
                 <EmptyLane>{t("projects.timeline.titles.emptyLane")}</EmptyLane>
@@ -1422,9 +1447,7 @@ function Output({
                 disabled={merging}
                 usedIds={usedIds}
                 onAddClip={editable ? (media) => addClip(media) : undefined}
-                onAddAudio={
-                  editable ? (media) => addAudio(media) : undefined
-                }
+                onAddAudio={editable ? (media) => addAudio(media) : undefined}
               />
             )}
             {panel === "captions" && (
@@ -1469,10 +1492,7 @@ function Output({
                     ? () =>
                         editor.change((edit) => ({
                           ...edit,
-                          captions: captionsFromNarration(
-                            project,
-                            edit.items,
-                          ),
+                          captions: captionsFromNarration(project, edit.items),
                         }))
                     : undefined
                 }
@@ -1544,9 +1564,7 @@ function Output({
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={
-                      !videoUrl || Boolean(preview) || cover.isPending
-                    }
+                    disabled={!videoUrl || Boolean(preview) || cover.isPending}
                     onClick={() => cover.mutate(time)}
                   >
                     <ImageUp aria-hidden="true" />

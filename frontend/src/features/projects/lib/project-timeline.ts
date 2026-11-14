@@ -18,7 +18,7 @@ export const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4] as const;
 export const STILL_SECONDS = 3;
 export const MAX_TIMELINE_ITEMS = 60;
 export const MAX_AUDIO_TRACKS = 8;
-export const MAX_CAPTIONS = 300;
+export const MAX_CAPTIONS = 1000;
 export const CAPTION_LENGTH = 300;
 
 /** The part of the timeline the editor changes. */

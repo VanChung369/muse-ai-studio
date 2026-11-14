@@ -597,3 +597,38 @@ def test_compose_fades_and_ducks_added_audio(tmp_path):
         soundtracks=[Soundtrack(music, fade_in=2.0, fade_out=2.0)],
     )  # fmt: skip
     assert music_level(0.0) < music_level(2.6) - 6 and music_level(5.2) < music_level(2.6) - 6
+
+
+@needs_ffmpeg
+def test_a_film_of_many_pieces_is_built_in_parts(tmp_path, monkeypatch):
+    from app.rendering.ffmpeg import (
+        Caption, Segment, Soundtrack, can_caption, compose, inspect,
+    )  # fmt: skip
+
+    # A long film would need a command longer than Windows takes.
+    monkeypatch.setattr("app.rendering.ffmpeg.CHUNK", 3)
+    colours = ["red", "blue", "green", "yellow", "white", "gray", "orange", "purple"]
+    clips = [clip(tmp_path / f"scene-{n:02d}.mp4", 1, colour) for n, colour in enumerate(colours)]
+    music = tone(tmp_path / "music.wav", 20)
+    output = tmp_path / "film" / "final.mp4"
+    compose(
+        FFMPEG,
+        # The fifth piece plays twice as fast: half a second of film.
+        [Segment(path=path, speed=2.0 if index == 4 else 1.0) for index, path in enumerate(clips)],
+        output,
+        lambda: None,
+        soundtracks=[Soundtrack(path=music, volume=0.5)],
+        captions=[Caption(start=0.5, end=7.0, text="Xin chào")] if can_caption(FFMPEG) else [],
+    )
+    info = inspect(FFMPEG, output)
+    assert 7.2 < info.seconds < 7.9 and info.has_audio
+    assert (info.width, info.height) == (320, 180)
+    # Nothing of the intermediate films is left beside the result.
+    assert [path.name for path in output.parent.iterdir()] == ["final.mp4"]
+
+    # Plain joining of clips that cannot be copied takes the same road.
+    mixed = [clip(tmp_path / f"m-{n}.mp4", 1, "red") for n in range(4)]
+    mixed.append(clip(tmp_path / "m-4.webm", 1, "blue"))
+    joined = tmp_path / "joined.mp4"
+    merge(FFMPEG, mixed, joined, lambda: None)
+    assert 4.6 < duration(joined) < 5.5

@@ -26,7 +26,7 @@ from app.rendering.tasks import (
     sync_project,
     usable_accounts,
 )
-from app.schemas.project import ProjectStatus
+from app.schemas.project import MAX_SCENES, ProjectStatus
 from app.schemas.task import TaskResponse
 from app.tasks.kinds import MERGE_VIDEO, RENDER_KINDS
 
@@ -232,7 +232,7 @@ def resume_project_render(
 class RenderRestart(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
     # This scene and every later one are rendered again.
-    from_scene: int = Field(strict=True, ge=1, le=30)
+    from_scene: int = Field(strict=True, ge=1, le=MAX_SCENES)
 
 
 @router.post(

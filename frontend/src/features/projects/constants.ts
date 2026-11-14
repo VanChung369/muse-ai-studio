@@ -16,7 +16,21 @@ export const PROJECT_FILTERS = [
   "cancelled",
 ] as const;
 export const PROJECT_SORTS = ["updated", "name", "duration"] as const;
-export const PROJECT_ASPECT_RATIOS = ["16:9", "9:16", "1:1"] as const;
+export const PROJECT_ASPECT_RATIOS = [
+  "16:9",
+  "9:16",
+  "1:1",
+  "4:3",
+  "3:4",
+  "4:5",
+  "21:9",
+] as const;
+// A film is at most an hour long (mirrors the server). Past five minutes
+// it is allowed but worth a warning: every scene is a generation on Muse.
+export const PROJECT_MAX_SECONDS = 3600;
+export const PROJECT_LONG_SECONDS = 300;
+// A scene is 5 or 10 seconds, so this is the most a script can hold.
+export const PROJECT_MAX_SCENES = PROJECT_MAX_SECONDS / 5;
 // The film's visual look; "auto" leaves it to the script's visual style.
 export const PROJECT_LOOKS = [
   "auto",
