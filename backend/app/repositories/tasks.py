@@ -4,11 +4,12 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, case, func, or_, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, case, delete, func, or_, select, update
+from sqlalchemy.orm import Session, aliased
 
 from app.models import Account, Task
 from app.tasks.coordinator import utcnow
+from app.tasks.kinds import ACTIVE_STATUSES, RENDER_KINDS
 
 # UI filter groups -> statuses (design board 23).
 TASK_FILTERS = {
@@ -174,6 +175,44 @@ def request_cancel(session: Session, task_id: str) -> bool:
     if not exists:
         return False
     raise TaskStateError("task_finished", "This task has already finished.")
+
+
+def delete_task(session: Session, task_id: str) -> bool:
+    """Remove a finished task for good (see `kinds.is_deletable`). False when
+    there is no such task.
+
+    One guarded statement, so a task that was queued again a moment ago is
+    never deleted, and neither is one a waiting task still depends on.
+    """
+    waiting = aliased(Task)
+    try:
+        removed = session.execute(
+            delete(Task).where(
+                Task.id == task_id,
+                Task.status.in_(FINISHED),
+                or_(Task.kind.not_in(RENDER_KINDS), Task.project_id.is_(None)),
+                ~select(waiting.id)
+                .where(
+                    waiting.depends_on_id == task_id,
+                    waiting.status.in_(ACTIVE_STATUSES),
+                )
+                .exists(),
+            )
+        ).rowcount
+        if removed:
+            session.commit()
+            return True
+        exists = session.scalar(select(Task.id).where(Task.id == task_id)) is not None
+        session.rollback()
+    except Exception:
+        session.rollback()
+        raise
+    if not exists:
+        return False
+    raise TaskStateError(
+        "task_not_deletable",
+        "Only a finished task that nothing else needs can be deleted.",
+    )
 
 
 def requeue_values(switch_account: bool = False) -> dict:

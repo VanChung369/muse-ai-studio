@@ -454,3 +454,68 @@ def test_accounts_report_their_running_tasks(settings):
         client.post(f"/api/tasks/{task_id}/cancel")
         release.set()
         wait_for(client, task_id, "cancelled", "succeeded")
+
+
+def test_finished_tasks_can_be_deleted_and_others_cannot(settings):
+    release = threading.Event()
+
+    def demo(ctx):
+        if ctx.payload.get("fail"):
+            raise TaskFailure("generation_refused")
+        if ctx.payload.get("hold"):
+            release.wait(5)
+        return {}
+
+    with TestClient(make_app(settings, demo=demo)) as client:
+        done = add_task(client)
+        failed = add_task(client, payload={"fail": True})
+        assert wait_for(client, done, "succeeded")["deletable"] is True
+        assert wait_for(client, failed, "failed")["deletable"] is True
+
+        running = add_task(client, payload={"hold": True})
+        queued = add_task(client, depends_on_id=running)
+        assert wait_for(client, running, "running")["deletable"] is False
+        for task_id in (running, queued):
+            refused = client.delete(f"/api/tasks/{task_id}")
+            assert refused.status_code == 409
+            assert refused.json()["detail"]["code"] == "task_not_deletable"
+        release.set()
+        wait_for(client, queued, "succeeded")
+
+        assert client.delete(f"/api/tasks/{failed}").status_code == 204
+        assert client.get(f"/api/tasks/{failed}").status_code == 404
+        assert client.delete(f"/api/tasks/{failed}").status_code == 404
+        # A finished task goes even when a finished one came after it.
+        assert client.delete(f"/api/tasks/{running}").status_code == 204
+        assert client.get(f"/api/tasks/{queued}").json()["dependsOnId"] is None
+        listed = {task["id"] for task in client.get("/api/tasks").json()["items"]}
+        assert listed == {done, queued}
+
+
+def test_a_finished_task_is_kept_while_a_waiting_one_depends_on_it(settings):
+    with TestClient(make_app(settings, demo=lambda ctx: {})) as client:
+        first = add_task(client)
+        wait_for(client, first, "succeeded")
+        with client.app.state.database.sessions() as session:
+            waiting = task_repo.create_task(session, kind="demo", title="Waits", depends_on_id=first)
+            # Not due for an hour: it stays queued.
+            waiting.run_after = utcnow() + timedelta(hours=1)
+            session.commit()
+            waiting_id = waiting.id
+        assert client.delete(f"/api/tasks/{first}").status_code == 409
+        assert client.post(f"/api/tasks/{waiting_id}/cancel").status_code == 200
+        assert client.delete(f"/api/tasks/{first}").status_code == 204
+
+
+def test_a_films_render_tasks_are_deleted_only_with_the_film(settings):
+    with TestClient(make_app(settings, render_scene=lambda ctx: {})) as client:
+        project = client.post(
+            "/api/projects", json={"name": "Film", "idea": "An idea", "durationSeconds": 20}
+        ).json()
+        scene = add_task(client, kind="render_scene", project_id=project["id"], scene_number=1)
+        task = wait_for(client, scene, "succeeded")
+        assert task["deletable"] is False
+        assert client.delete(f"/api/tasks/{scene}").status_code == 409
+        assert client.delete(f"/api/projects/{project['id']}").status_code == 204
+        assert client.get(f"/api/tasks/{scene}").json()["deletable"] is True
+        assert client.delete(f"/api/tasks/{scene}").status_code == 204

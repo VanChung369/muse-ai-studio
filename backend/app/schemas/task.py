@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.models import Task
+from app.tasks.kinds import is_deletable
 
 TaskStatus = Literal[
     "queued", "running", "succeeded", "failed", "cancelled", "interrupted"
@@ -44,6 +45,8 @@ class TaskResponse(CamelModel):
     )
     # A request may exist upstream; retrying an interrupted task needs confirmation.
     submitted: bool
+    # May be removed from the list (finished, and not a film's own record).
+    deletable: bool
     result: dict | None
     created_at: datetime
     started_at: datetime | None
@@ -82,6 +85,7 @@ class TaskResponse(CamelModel):
             retryable=task.retryable,
             suggested_action=task.suggested_action,
             submitted=task.submitted_at is not None,
+            deletable=is_deletable(task.kind, task.status, task.project_id),
             result=json.loads(task.result_json) if task.result_json else None,
             created_at=task.created_at,
             started_at=task.started_at,

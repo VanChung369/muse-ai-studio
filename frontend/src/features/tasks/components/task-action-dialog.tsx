@@ -30,11 +30,14 @@ export function TaskActionDialog({
   task,
   action,
   onClose,
+  onDeleted,
   onCloseAutoFocus,
 }: {
   task: Task;
   action: TaskAction;
   onClose: () => void;
+  // After the task is deleted, instead of `onClose` (nothing is left to show).
+  onDeleted?: () => void;
   onCloseAutoFocus: (event: Event) => void;
 }) {
   const { t } = useTranslation();
@@ -45,7 +48,9 @@ export function TaskActionDialog({
   const allowed =
     action === "retry"
       ? canRetryTask(task)
-      : isTaskActive(task) && !task.cancelRequested;
+      : action === "delete"
+        ? task.deletable
+        : isTaskActive(task) && !task.cancelRequested;
 
   async function submit() {
     try {
@@ -56,7 +61,8 @@ export function TaskActionDialog({
           ? { switchAccount, confirmDuplicate: duplicateRisk }
           : {}),
       });
-      onClose();
+      if (action === "delete" && onDeleted) onDeleted();
+      else onClose();
     } catch {
       // Keep the confirmation open with the latest server state and a localized error.
     }
@@ -135,7 +141,7 @@ export function TaskActionDialog({
             {t("common.cancel")}
           </Button>
           <Button
-            variant={action === "cancel" ? "danger" : "default"}
+            variant={action === "retry" ? "default" : "danger"}
             disabled={mutation.isPending || !allowed}
             onClick={() => void submit()}
           >
@@ -148,9 +154,11 @@ export function TaskActionDialog({
             {t(
               action === "cancel"
                 ? "tasks.actions.cancel"
-                : duplicateRisk
-                  ? "tasks.confirm.confirmRetry"
-                  : "tasks.actions.retry",
+                : action === "delete"
+                  ? "tasks.actions.delete"
+                  : duplicateRisk
+                    ? "tasks.confirm.confirmRetry"
+                    : "tasks.actions.retry",
             )}
           </Button>
         </DialogFooter>

@@ -13,3 +13,14 @@ QUICK_KINDS = (GENERATE_IMAGE, GENERATE_VIDEO)
 RENDER_KINDS = (RENDER_SCENE, MERGE_VIDEO)
 
 ACTIVE_STATUSES = ("queued", "running")
+FINISHED_STATUSES = ("succeeded", "failed", "cancelled", "interrupted")
+
+
+def is_deletable(kind: str, status: str, project_id: str | None) -> bool:
+    """Whether a task may be removed from the list: it has finished, and it
+    is not part of a film that still exists. A film's render tasks are its
+    record (they are queued again to re-render or re-merge it), so they
+    go only when the project does."""
+    return status in FINISHED_STATUSES and not (
+        kind in RENDER_KINDS and project_id is not None
+    )

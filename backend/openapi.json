@@ -7,9 +7,7 @@
   "paths": {
     "/api/health": {
       "get": {
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "summary": "Health",
         "operationId": "health_api_health_get",
         "responses": {
@@ -31,9 +29,7 @@
     },
     "/api/accounts": {
       "get": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "List Accounts",
         "operationId": "list_accounts_api_accounts_get",
         "responses": {
@@ -50,9 +46,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Import Account",
         "operationId": "import_account_api_accounts_post",
         "requestBody": {
@@ -94,9 +88,7 @@
     },
     "/api/accounts/{account_id}": {
       "get": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Get Account",
         "operationId": "get_account_api_accounts__account_id__get",
         "parameters": [
@@ -137,9 +129,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Patch Account",
         "operationId": "patch_account_api_accounts__account_id__patch",
         "parameters": [
@@ -190,9 +180,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Delete Account",
         "operationId": "delete_account_api_accounts__account_id__delete",
         "parameters": [
@@ -228,9 +216,7 @@
     },
     "/api/accounts/{account_id}/cookies": {
       "put": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Update Cookies",
         "operationId": "update_cookies_api_accounts__account_id__cookies_put",
         "parameters": [
@@ -280,9 +266,7 @@
     },
     "/api/accounts/{account_id}/proxy": {
       "put": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Update Proxy",
         "operationId": "update_proxy_api_accounts__account_id__proxy_put",
         "parameters": [
@@ -332,9 +316,7 @@
     },
     "/api/accounts/{account_id}/test": {
       "post": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Test Account",
         "operationId": "test_account_api_accounts__account_id__test_post",
         "parameters": [
@@ -374,9 +356,7 @@
     },
     "/api/accounts/{account_id}/keep-alive": {
       "post": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Keep Account Alive",
         "operationId": "keep_account_alive_api_accounts__account_id__keep_alive_post",
         "parameters": [
@@ -416,9 +396,7 @@
     },
     "/api/accounts/{account_id}/quota": {
       "post": {
-        "tags": [
-          "Accounts"
-        ],
+        "tags": ["Accounts"],
         "summary": "Refresh Account Quota",
         "operationId": "refresh_account_quota_api_accounts__account_id__quota_post",
         "parameters": [
@@ -458,9 +436,7 @@
     },
     "/api/projects": {
       "get": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "List Projects",
         "operationId": "list_projects_api_projects_get",
         "parameters": [
@@ -482,12 +458,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "all",
-                "inProgress",
-                "completed",
-                "cancelled"
-              ],
+              "enum": ["all", "inProgress", "completed", "cancelled"],
               "type": "string",
               "default": "all",
               "title": "Status"
@@ -498,11 +469,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": [
-                "updated",
-                "name",
-                "duration"
-              ],
+              "enum": ["updated", "name", "duration"],
               "type": "string",
               "default": "updated",
               "title": "Sort"
@@ -567,9 +534,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "Create Project",
         "operationId": "create_project_api_projects_post",
         "requestBody": {
@@ -608,9 +573,7 @@
     },
     "/api/projects/{project_id}": {
       "get": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "Get Project",
         "operationId": "get_project_api_projects__project_id__get",
         "parameters": [
@@ -651,9 +614,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "Update Project",
         "operationId": "update_project_api_projects__project_id__patch",
         "parameters": [
@@ -707,9 +668,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "Delete Project",
         "operationId": "delete_project_api_projects__project_id__delete",
         "parameters": [
@@ -748,9 +707,7 @@
     },
     "/api/projects/{project_id}/script": {
       "put": {
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "summary": "Save Project Script",
         "operationId": "save_project_script_api_projects__project_id__script_put",
         "parameters": [
@@ -806,9 +763,7 @@
     },
     "/api/projects/{project_id}/script-generation": {
       "post": {
-        "tags": [
-          "Script generation"
-        ],
+        "tags": ["Script generation"],
         "summary": "Start Script Generation",
         "operationId": "start_script_generation_api_projects__project_id__script_generation_post",
         "parameters": [
@@ -856,9 +811,7 @@
         }
       },
       "get": {
-        "tags": [
-          "Script generation"
-        ],
+        "tags": ["Script generation"],
         "summary": "Get Script Generation",
         "operationId": "get_script_generation_api_projects__project_id__script_generation_get",
         "parameters": [
@@ -906,9 +859,7 @@
     },
     "/api/projects/{project_id}/render": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Get Render",
         "operationId": "get_render_api_projects__project_id__render_get",
         "parameters": [
@@ -949,9 +900,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Start Project Render",
         "description": "Render every scene in order, then merge them into one video.",
         "operationId": "start_project_render_api_projects__project_id__render_post",
@@ -998,9 +947,7 @@
     },
     "/api/projects/{project_id}/render/cancel": {
       "post": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Cancel Project Render",
         "description": "Waiting scenes stop now, the running one after its current step.\nFinished scenes are kept.",
         "operationId": "cancel_project_render_api_projects__project_id__render_cancel_post",
@@ -1047,9 +994,7 @@
     },
     "/api/projects/{project_id}/render/resume": {
       "post": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Resume Project Render",
         "description": "Continue a failed or cancelled render from the first unfinished scene.",
         "operationId": "resume_project_render_api_projects__project_id__render_resume_post",
@@ -1113,9 +1058,7 @@
     },
     "/api/projects/{project_id}/render/restart": {
       "post": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Restart Project Render",
         "description": "Render again from one scene to the last, keeping the earlier scenes.\nThe current clips of the redone scenes and the merged video are deleted.",
         "operationId": "restart_project_render_api_projects__project_id__render_restart_post",
@@ -1172,9 +1115,7 @@
     },
     "/api/projects/{project_id}/scenes/{number}/video": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Get Scene Video",
         "operationId": "get_scene_video_api_projects__project_id__scenes__number__video_get",
         "parameters": [
@@ -1229,9 +1170,7 @@
     },
     "/api/projects/{project_id}/scenes/{number}/thumbnail": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Get Scene Thumbnail",
         "operationId": "get_scene_thumbnail_api_projects__project_id__scenes__number__thumbnail_get",
         "parameters": [
@@ -1276,9 +1215,7 @@
     },
     "/api/projects/{project_id}/scenes.zip": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Download Scenes",
         "description": "Every rendered scene clip in one archive (`scene-01.mp4`, ...).",
         "operationId": "download_scenes_api_projects__project_id__scenes_zip_get",
@@ -1315,9 +1252,7 @@
     },
     "/api/projects/{project_id}/cover": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Get Project Cover",
         "description": "The frame the user picked as the cover, or a still of the first\nscene that has a clip.",
         "operationId": "get_project_cover_api_projects__project_id__cover_get",
@@ -1352,9 +1287,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Set Project Cover",
         "description": "Use the finished film's frame at `seconds` as the project's cover.",
         "operationId": "set_project_cover_api_projects__project_id__cover_post",
@@ -1395,9 +1328,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Clear Project Cover",
         "description": "Go back to the cover picked automatically.",
         "operationId": "clear_project_cover_api_projects__project_id__cover_delete",
@@ -1434,9 +1365,7 @@
     },
     "/api/projects/{project_id}/video": {
       "get": {
-        "tags": [
-          "Render"
-        ],
+        "tags": ["Render"],
         "summary": "Get Project Video",
         "operationId": "get_project_video_api_projects__project_id__video_get",
         "parameters": [
@@ -1482,9 +1411,7 @@
     },
     "/api/projects/{project_id}/references": {
       "get": {
-        "tags": [
-          "Reference material"
-        ],
+        "tags": ["Reference material"],
         "summary": "List References",
         "operationId": "list_references_api_projects__project_id__references_get",
         "parameters": [
@@ -1529,9 +1456,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Reference material"
-        ],
+        "tags": ["Reference material"],
         "summary": "Add Reference",
         "description": "Upload one file as the raw request body, with its type in Content-Type\nand its original name in `name`.",
         "operationId": "add_reference_api_projects__project_id__references_post",
@@ -1595,9 +1520,7 @@
     },
     "/api/projects/{project_id}/references/{reference_id}": {
       "get": {
-        "tags": [
-          "Reference material"
-        ],
+        "tags": ["Reference material"],
         "summary": "Get Reference",
         "operationId": "get_reference_api_projects__project_id__references__reference_id__get",
         "parameters": [
@@ -1640,9 +1563,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Reference material"
-        ],
+        "tags": ["Reference material"],
         "summary": "Delete Reference",
         "operationId": "delete_reference_api_projects__project_id__references__reference_id__delete",
         "parameters": [
@@ -1690,9 +1611,7 @@
     },
     "/api/projects/{project_id}/media": {
       "get": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "List Media",
         "operationId": "list_media_api_projects__project_id__media_get",
         "parameters": [
@@ -1737,9 +1656,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Add Media",
         "description": "Upload one file as the raw request body, with its type in Content-Type\nand its original name in `name`.",
         "operationId": "add_media_api_projects__project_id__media_post",
@@ -1796,9 +1713,7 @@
     },
     "/api/projects/{project_id}/media/music": {
       "post": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Generate Music",
         "description": "Ask Muse for a short piece of background music. It arrives among the\nproject's media as an audio file (`source: \"muse\"`) when the task ends.",
         "operationId": "generate_music_api_projects__project_id__media_music_post",
@@ -1853,9 +1768,7 @@
         }
       },
       "get": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Get Music Generation",
         "description": "The latest music request for the project, or null.",
         "operationId": "get_music_generation_api_projects__project_id__media_music_get",
@@ -1907,9 +1820,7 @@
     },
     "/api/projects/{project_id}/media/import": {
       "post": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Import Media",
         "description": "Copy files from the media library into the project's media. The\nproject gets copies of its own, so it does not depend on the library.",
         "operationId": "import_media_api_projects__project_id__media_import_post",
@@ -1970,9 +1881,7 @@
     },
     "/api/projects/{project_id}/media/{media_id}": {
       "get": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Get Media",
         "operationId": "get_media_api_projects__project_id__media__media_id__get",
         "parameters": [
@@ -2015,9 +1924,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Delete Media",
         "operationId": "delete_media_api_projects__project_id__media__media_id__delete",
         "parameters": [
@@ -2065,9 +1972,7 @@
     },
     "/api/projects/{project_id}/media/{media_id}/thumbnail": {
       "get": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Get Media Thumbnail",
         "operationId": "get_media_thumbnail_api_projects__project_id__media__media_id__thumbnail_get",
         "parameters": [
@@ -2112,9 +2017,7 @@
     },
     "/api/projects/{project_id}/media/{media_id}/waveform": {
       "get": {
-        "tags": [
-          "Media"
-        ],
+        "tags": ["Media"],
         "summary": "Get Media Waveform",
         "description": "The sound of an audio file drawn as a wide, see-through PNG.",
         "operationId": "get_media_waveform_api_projects__project_id__media__media_id__waveform_get",
@@ -2160,9 +2063,7 @@
     },
     "/api/library": {
       "get": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "List Library",
         "description": "Every video made in Video Studio and every file uploaded to the\nlibrary, newest first.",
         "operationId": "list_library_api_library_get",
@@ -2174,11 +2075,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "image",
-                    "video",
-                    "audio"
-                  ],
+                  "enum": ["image", "video", "audio"],
                   "type": "string"
                 },
                 {
@@ -2195,11 +2092,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "studio",
-                    "upload",
-                    "quick"
-                  ],
+                  "enum": ["studio", "upload", "quick"],
                   "type": "string"
                 },
                 {
@@ -2268,9 +2161,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Add To Library",
         "description": "Upload one file as the raw request body, with its type in Content-Type\nand its original name in `name`.",
         "operationId": "add_to_library_api_library_post",
@@ -2315,9 +2206,7 @@
     },
     "/api/library/archive": {
       "get": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Download Archive",
         "description": "The chosen files in one zip archive.",
         "operationId": "download_archive_api_library_archive_get",
@@ -2359,9 +2248,7 @@
     },
     "/api/library/assets/{asset_id}/file": {
       "get": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Get Asset",
         "operationId": "get_asset_api_library_assets__asset_id__file_get",
         "parameters": [
@@ -2407,9 +2294,7 @@
     },
     "/api/library/assets/{asset_id}/thumbnail": {
       "get": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Get Asset Thumbnail",
         "operationId": "get_asset_thumbnail_api_library_assets__asset_id__thumbnail_get",
         "parameters": [
@@ -2445,9 +2330,7 @@
     },
     "/api/library/assets/{asset_id}/waveform": {
       "get": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Get Asset Waveform",
         "description": "The sound of an audio file drawn as a wide, see-through PNG.",
         "operationId": "get_asset_waveform_api_library_assets__asset_id__waveform_get",
@@ -2484,9 +2367,7 @@
     },
     "/api/library/assets/{asset_id}": {
       "delete": {
-        "tags": [
-          "Media library"
-        ],
+        "tags": ["Media library"],
         "summary": "Delete Asset",
         "description": "Remove an uploaded file. Projects that took a copy keep their copy.",
         "operationId": "delete_asset_api_library_assets__asset_id__delete",
@@ -2523,9 +2404,7 @@
     },
     "/api/projects/{project_id}/timeline": {
       "get": {
-        "tags": [
-          "Timeline"
-        ],
+        "tags": ["Timeline"],
         "summary": "Get Timeline",
         "operationId": "get_timeline_api_projects__project_id__timeline_get",
         "parameters": [
@@ -2566,9 +2445,7 @@
         }
       },
       "put": {
-        "tags": [
-          "Timeline"
-        ],
+        "tags": ["Timeline"],
         "summary": "Save Timeline",
         "description": "Change the film's edit (order, trims, speed, looks, left-out pieces,\nadded videos and pictures, the soundtrack, captions, titles, the logo and\nthe shape of the file), then merge the film again from its clips. Nothing\nis rendered again.",
         "operationId": "save_timeline_api_projects__project_id__timeline_put",
@@ -2618,9 +2495,7 @@
     },
     "/api/projects/{project_id}/timeline/preview": {
       "post": {
-        "tags": [
-          "Timeline"
-        ],
+        "tags": ["Timeline"],
         "summary": "Preview Timeline",
         "description": "Build a small, quick version of the film this edit would make. The\nedit is not saved and the finished film is not touched.",
         "operationId": "preview_timeline_api_projects__project_id__timeline_preview_post",
@@ -2670,9 +2545,7 @@
     },
     "/api/projects/{project_id}/timeline/preview.mp4": {
       "get": {
-        "tags": [
-          "Timeline"
-        ],
+        "tags": ["Timeline"],
         "summary": "Get Preview",
         "description": "The latest preview made for the project.",
         "operationId": "get_preview_api_projects__project_id__timeline_preview_mp4_get",
@@ -2709,9 +2582,7 @@
     },
     "/api/tasks": {
       "get": {
-        "tags": [
-          "Tasks"
-        ],
+        "tags": ["Tasks"],
         "summary": "List Tasks",
         "operationId": "list_tasks_api_tasks_get",
         "parameters": [
@@ -2809,9 +2680,7 @@
     },
     "/api/tasks/summary": {
       "get": {
-        "tags": [
-          "Tasks"
-        ],
+        "tags": ["Tasks"],
         "summary": "Task Summary",
         "description": "Counts for the top-bar indicator and the sidebar badge.",
         "operationId": "task_summary_api_tasks_summary_get",
@@ -2831,9 +2700,7 @@
     },
     "/api/tasks/{task_id}": {
       "get": {
-        "tags": [
-          "Tasks"
-        ],
+        "tags": ["Tasks"],
         "summary": "Get Task",
         "operationId": "get_task_api_tasks__task_id__get",
         "parameters": [
@@ -2872,13 +2739,49 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": ["Tasks"],
+        "summary": "Delete Task",
+        "description": "Remove a finished task from the list. Files it made are kept.",
+        "operationId": "delete_task_api_tasks__task_id__delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Task not found"
+          },
+          "409": {
+            "description": "Still queued or running, part of a film, or needed by a waiting task"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/tasks/{task_id}/cancel": {
       "post": {
-        "tags": [
-          "Tasks"
-        ],
+        "tags": ["Tasks"],
         "summary": "Cancel Task",
         "operationId": "cancel_task_api_tasks__task_id__cancel_post",
         "parameters": [
@@ -2924,9 +2827,7 @@
     },
     "/api/tasks/{task_id}/retry": {
       "post": {
-        "tags": [
-          "Tasks"
-        ],
+        "tags": ["Tasks"],
         "summary": "Retry Task",
         "operationId": "retry_task_api_tasks__task_id__retry_post",
         "parameters": [
@@ -2989,9 +2890,7 @@
     },
     "/api/quick-create": {
       "get": {
-        "tags": [
-          "Quick Create"
-        ],
+        "tags": ["Quick Create"],
         "summary": "Recent",
         "operationId": "recent_api_quick_create_get",
         "parameters": [
@@ -3036,9 +2935,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Quick Create"
-        ],
+        "tags": ["Quick Create"],
         "summary": "Create",
         "operationId": "create_api_quick_create_post",
         "requestBody": {
@@ -3077,9 +2974,7 @@
     },
     "/api/quick-create/{batch_id}": {
       "delete": {
-        "tags": [
-          "Quick Create"
-        ],
+        "tags": ["Quick Create"],
         "summary": "Dismiss",
         "operationId": "dismiss_api_quick_create__batch_id__delete",
         "parameters": [
@@ -3112,9 +3007,7 @@
     },
     "/api/quick-create/{batch_id}/restore": {
       "post": {
-        "tags": [
-          "Quick Create"
-        ],
+        "tags": ["Quick Create"],
         "summary": "Restore",
         "operationId": "restore_api_quick_create__batch_id__restore_post",
         "parameters": [
@@ -3174,11 +3067,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "account",
-          "ok",
-          "code"
-        ],
+        "required": ["account", "ok", "code"],
         "title": "AccountActionResponse"
       },
       "AccountImport": {
@@ -3200,10 +3089,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "label",
-          "cookieText"
-        ],
+        "required": ["label", "cookieText"],
         "title": "AccountImport"
       },
       "AccountListResponse": {
@@ -3221,10 +3107,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
+        "required": ["items", "total"],
         "title": "AccountListResponse"
       },
       "AccountPatch": {
@@ -3337,9 +3220,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "weeklyUsedPct"
-        ],
+        "required": ["weeklyUsedPct"],
         "title": "AccountQuota"
       },
       "AccountResponse": {
@@ -3362,11 +3243,7 @@
           },
           "sessionStatus": {
             "type": "string",
-            "enum": [
-              "unverified",
-              "valid",
-              "invalid"
-            ],
+            "enum": ["unverified", "valid", "invalid"],
             "title": "Sessionstatus",
             "default": "unverified"
           },
@@ -3502,12 +3379,7 @@
         "properties": {
           "size": {
             "type": "string",
-            "enum": [
-              "small",
-              "medium",
-              "large",
-              "xlarge"
-            ],
+            "enum": ["small", "medium", "large", "xlarge"],
             "title": "Size",
             "default": "medium"
           },
@@ -3525,11 +3397,7 @@
           },
           "position": {
             "type": "string",
-            "enum": [
-              "bottom",
-              "middle",
-              "top"
-            ],
+            "enum": ["bottom", "middle", "top"],
             "title": "Position",
             "default": "bottom"
           },
@@ -3575,9 +3443,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "cookieText"
-        ],
+        "required": ["cookieText"],
         "title": "CookieUpdate"
       },
       "CoverRequest": {
@@ -3591,9 +3457,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "seconds"
-        ],
+        "required": ["seconds"],
         "title": "CoverRequest"
       },
       "FeaturedProject": {
@@ -3622,11 +3486,7 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": [
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["16:9", "9:16", "1:1"],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -3744,12 +3604,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "all",
-          "image",
-          "video",
-          "audio"
-        ],
+        "required": ["all", "image", "video", "audio"],
         "title": "LibraryCounts"
       },
       "LibraryImport": {
@@ -3766,9 +3621,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "ids"
-        ],
+        "required": ["ids"],
         "title": "LibraryImport"
       },
       "LibraryItem": {
@@ -3779,29 +3632,17 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "upload",
-              "scene",
-              "film"
-            ],
+            "enum": ["upload", "scene", "film"],
             "title": "Role"
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "image",
-              "video",
-              "audio"
-            ],
+            "enum": ["image", "video", "audio"],
             "title": "Kind"
           },
           "source": {
             "type": "string",
-            "enum": [
-              "studio",
-              "upload",
-              "quick"
-            ],
+            "enum": ["studio", "upload", "quick"],
             "title": "Source"
           },
           "title": {
@@ -3949,11 +3790,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "items",
-          "total",
-          "counts"
-        ],
+        "required": ["items", "total", "counts"],
         "title": "LibraryPage"
       },
       "LogoInput": {
@@ -3966,12 +3803,7 @@
           },
           "corner": {
             "type": "string",
-            "enum": [
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right"
-            ],
+            "enum": ["top-left", "top-right", "bottom-left", "bottom-right"],
             "title": "Corner",
             "default": "top-right"
           },
@@ -3992,9 +3824,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "mediaId"
-        ],
+        "required": ["mediaId"],
         "title": "LogoInput"
       },
       "MediaResponse": {
@@ -4009,11 +3839,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "video",
-              "image",
-              "audio"
-            ],
+            "enum": ["video", "image", "audio"],
             "title": "Kind"
           },
           "name": {
@@ -4063,10 +3889,7 @@
           },
           "source": {
             "type": "string",
-            "enum": [
-              "upload",
-              "muse"
-            ],
+            "enum": ["upload", "muse"],
             "title": "Source"
           },
           "url": {
@@ -4130,9 +3953,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "description"
-        ],
+        "required": ["description"],
         "title": "MusicRequest"
       },
       "PreviewResponse": {
@@ -4147,10 +3968,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "url",
-          "seconds"
-        ],
+        "required": ["url", "seconds"],
         "title": "PreviewResponse"
       },
       "ProjectCounts": {
@@ -4173,12 +3991,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "all",
-          "inProgress",
-          "completed",
-          "cancelled"
-        ],
+        "required": ["all", "inProgress", "completed", "cancelled"],
         "title": "ProjectCounts"
       },
       "ProjectCreate": {
@@ -4215,11 +4028,7 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": [
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["16:9", "9:16", "1:1"],
             "title": "Aspectratio",
             "default": "16:9"
           },
@@ -4247,11 +4056,7 @@
           },
           "continuity": {
             "type": "string",
-            "enum": [
-              "off",
-              "reference",
-              "seamless"
-            ],
+            "enum": ["off", "reference", "seamless"],
             "title": "Continuity",
             "default": "reference"
           },
@@ -4282,9 +4087,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ProjectCreate"
       },
       "ProjectListResponse": {
@@ -4326,13 +4129,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "items",
-          "total",
-          "nextCursor",
-          "counts",
-          "featured"
-        ],
+        "required": ["items", "total", "nextCursor", "counts", "featured"],
         "title": "ProjectListResponse"
       },
       "ProjectReference": {
@@ -4364,14 +4161,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "id",
-          "projectId",
-          "name",
-          "mime",
-          "size",
-          "url"
-        ],
+        "required": ["id", "projectId", "name", "mime", "size", "url"],
         "title": "ProjectReference",
         "description": "A picture or video given as reference material for the film."
       },
@@ -4401,11 +4191,7 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": [
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["16:9", "9:16", "1:1"],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -4457,11 +4243,7 @@
           },
           "continuity": {
             "type": "string",
-            "enum": [
-              "off",
-              "reference",
-              "seamless"
-            ],
+            "enum": ["off", "reference", "seamless"],
             "title": "Continuity"
           },
           "language": {
@@ -4588,12 +4370,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "number",
-          "title",
-          "prompt",
-          "durationSeconds"
-        ],
+        "required": ["number", "title", "prompt", "durationSeconds"],
         "title": "ProjectScene"
       },
       "ProjectSceneTitle": {
@@ -4608,10 +4385,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "number",
-          "title"
-        ],
+        "required": ["number", "title"],
         "title": "ProjectSceneTitle"
       },
       "ProjectScriptUpdate": {
@@ -4645,10 +4419,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "expectedRevision",
-          "scenes"
-        ],
+        "required": ["expectedRevision", "scenes"],
         "title": "ProjectScriptUpdate"
       },
       "ProjectSummary": {
@@ -4677,11 +4448,7 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": [
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["16:9", "9:16", "1:1"],
             "title": "Aspectratio"
           },
           "durationSeconds": {
@@ -4809,11 +4576,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "16:9",
-                  "9:16",
-                  "1:1"
-                ]
+                "enum": ["16:9", "9:16", "1:1"]
               },
               {
                 "type": "null"
@@ -4859,11 +4622,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "off",
-                  "reference",
-                  "seamless"
-                ]
+                "enum": ["off", "reference", "seamless"]
               },
               {
                 "type": "null"
@@ -4948,9 +4707,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "server"
-        ],
+        "required": ["server"],
         "title": "ProxyInput"
       },
       "ProxyPublic": {
@@ -4969,11 +4726,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "server",
-          "username",
-          "hasPassword"
-        ],
+        "required": ["server", "username", "hasPassword"],
         "title": "ProxyPublic"
       },
       "ProxyUpdate": {
@@ -4991,9 +4744,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "proxy"
-        ],
+        "required": ["proxy"],
         "title": "ProxyUpdate"
       },
       "QuickBatch": {
@@ -5004,10 +4755,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "image",
-              "video"
-            ],
+            "enum": ["image", "video"],
             "title": "Kind"
           },
           "prompt": {
@@ -5064,10 +4812,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": [
-              "image",
-              "video"
-            ],
+            "enum": ["image", "video"],
             "title": "Kind"
           },
           "prompt": {
@@ -5078,11 +4823,7 @@
           },
           "aspectRatio": {
             "type": "string",
-            "enum": [
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["16:9", "9:16", "1:1"],
             "title": "Aspectratio",
             "default": "1:1"
           },
@@ -5108,10 +4849,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "kind",
-          "prompt"
-        ],
+        "required": ["kind", "prompt"],
         "title": "QuickRequest"
       },
       "RenderResponse": {
@@ -5199,9 +4937,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "fromScene"
-        ],
+        "required": ["fromScene"],
         "title": "RenderRestart"
       },
       "RenderResume": {
@@ -5352,11 +5088,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "accountId",
-          "expectedRevision",
-          "idea"
-        ],
+        "required": ["accountId", "expectedRevision", "idea"],
         "title": "ScriptGenerationRequest"
       },
       "TaskCounts": {
@@ -5416,9 +5148,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "code"
-        ],
+        "required": ["code"],
         "title": "TaskError"
       },
       "TaskListResponse": {
@@ -5450,12 +5180,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "items",
-          "total",
-          "nextCursor",
-          "counts"
-        ],
+        "required": ["items", "total", "nextCursor", "counts"],
         "title": "TaskListResponse"
       },
       "TaskResponse": {
@@ -5580,12 +5305,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "retry",
-                  "relogin",
-                  "switch_account",
-                  "check_proxy"
-                ]
+                "enum": ["retry", "relogin", "switch_account", "check_proxy"]
               },
               {
                 "type": "null"
@@ -5596,6 +5316,10 @@
           "submitted": {
             "type": "boolean",
             "title": "Submitted"
+          },
+          "deletable": {
+            "type": "boolean",
+            "title": "Deletable"
           },
           "result": {
             "anyOf": [
@@ -5658,6 +5382,7 @@
           "retryable",
           "suggestedAction",
           "submitted",
+          "deletable",
           "result",
           "createdAt",
           "startedAt",
@@ -5771,11 +5496,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "start",
-          "end",
-          "text"
-        ],
+        "required": ["start", "end", "text"],
         "title": "TimelineCaption"
       },
       "TimelineCue": {
@@ -5800,11 +5521,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "start",
-          "end",
-          "text"
-        ],
+        "required": ["start", "end", "text"],
         "title": "TimelineCue"
       },
       "TimelineCut": {
@@ -5889,11 +5606,7 @@
           },
           "zoom": {
             "type": "string",
-            "enum": [
-              "none",
-              "in",
-              "out"
-            ],
+            "enum": ["none", "in", "out"],
             "title": "Zoom",
             "default": "none"
           },
@@ -5919,10 +5632,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "start",
-          "end"
-        ],
+        "required": ["start", "end"],
         "title": "TimelineCut"
       },
       "TimelineItem": {
@@ -5933,11 +5643,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "scene",
-              "video",
-              "image"
-            ],
+            "enum": ["scene", "video", "image"],
             "title": "Kind"
           },
           "scene": {
@@ -6003,11 +5709,7 @@
           },
           "zoom": {
             "type": "string",
-            "enum": [
-              "none",
-              "in",
-              "out"
-            ],
+            "enum": ["none", "in", "out"],
             "title": "Zoom"
           },
           "flip": {
@@ -6075,12 +5777,7 @@
           },
           "corner": {
             "type": "string",
-            "enum": [
-              "top-left",
-              "top-right",
-              "bottom-left",
-              "bottom-right"
-            ],
+            "enum": ["top-left", "top-right", "bottom-left", "bottom-right"],
             "title": "Corner"
           },
           "size": {
@@ -6097,13 +5794,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "mediaId",
-          "corner",
-          "size",
-          "opacity",
-          "url"
-        ],
+        "required": ["mediaId", "corner", "size", "opacity", "url"],
         "title": "TimelineLogo",
         "description": "A picture of the project kept in a corner for the whole film."
       },
@@ -6111,42 +5802,25 @@
         "properties": {
           "aspect": {
             "type": "string",
-            "enum": [
-              "source",
-              "16:9",
-              "9:16",
-              "1:1"
-            ],
+            "enum": ["source", "16:9", "9:16", "1:1"],
             "title": "Aspect",
             "default": "source"
           },
           "fit": {
             "type": "string",
-            "enum": [
-              "contain",
-              "cover"
-            ],
+            "enum": ["contain", "cover"],
             "title": "Fit",
             "default": "contain"
           },
           "height": {
             "type": "integer",
-            "enum": [
-              0,
-              480,
-              720,
-              1080
-            ],
+            "enum": [0, 480, 720, 1080],
             "title": "Height",
             "default": 0
           },
           "quality": {
             "type": "string",
-            "enum": [
-              "high",
-              "medium",
-              "small"
-            ],
+            "enum": ["high", "medium", "small"],
             "title": "Quality",
             "default": "high"
           }
@@ -6334,10 +6008,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "mediaId",
-          "end"
-        ],
+        "required": ["mediaId", "end"],
         "title": "TimelineSound"
       },
       "TimelineTitle": {
@@ -6361,12 +6032,7 @@
           },
           "size": {
             "type": "string",
-            "enum": [
-              "small",
-              "medium",
-              "large",
-              "xlarge"
-            ],
+            "enum": ["small", "medium", "large", "xlarge"],
             "title": "Size",
             "default": "large"
           },
@@ -6405,11 +6071,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "start",
-          "end",
-          "text"
-        ],
+        "required": ["start", "end", "text"],
         "title": "TimelineTitle",
         "description": "Words placed on the picture for a while."
       },
@@ -6484,9 +6146,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "items"
-        ],
+        "required": ["items"],
         "title": "TimelineUpdate"
       },
       "ValidationError": {
@@ -6522,11 +6182,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError"
       }
     }

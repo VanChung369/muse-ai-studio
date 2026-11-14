@@ -156,3 +156,11 @@ The script and all scenes of a project are sent to one Muse conversation on one 
 `GET /api/projects/{project_id}/scenes/{number}/thumbnail` and `GET /api/projects/{project_id}/cover` serve JPEG stills (made with FFmpeg when a scene is rendered, or on first request for older clips; 404 `media_not_found` when FFmpeg is unavailable).
 
 `GET /api/projects/{project_id}/scenes/{number}/video` and `GET /api/projects/{project_id}/video` serve a scene clip and the merged video (HTTP range requests supported); `?download=true` adds a download filename. Missing media returns 404 `media_not_found`. Deleting a project removes its media folder and cancels its waiting render tasks.
+
+## Deleting a task
+
+`DELETE /api/tasks/{task_id}` removes a finished task from the list for good and returns 204. Files the task made stay where they are (the library, the project), and nothing changes on Muse. It is refused with 409 `task_not_deletable` while the task is queued or running, while a queued or running task depends on it, and for a render task (`render_scene`, `merge_video`) of a project that still exists: those are the film's own record and are queued again to re-render or re-merge it, so they go only when the project is deleted. 404 `task_not_found` when there is no such task.
+
+Every task in `GET /api/tasks`, `GET /api/tasks/{task_id}` and the other task responses carries `deletable`: whether the rule above lets it go (a waiting dependent is only checked by the request itself).
+
+Reference files sent to Muse (a project's reference material, the frame of the previous scene, a Quick Create reference image) are attached to the message only once the Muse composer displays them; if it never does, the task fails with `reference_upload_failed` and nothing is sent.

@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -194,6 +195,16 @@ export function TaskDetailsSheet({
               {t("common.close")}
             </Button>
           </SheetClose>
+          {task?.deletable && (
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setAction("delete")}
+            >
+              <Trash2 aria-hidden="true" />
+              {t("tasks.actions.delete")}
+            </Button>
+          )}
           {task && isTaskActive(task) && (
             <Button
               ref={actionButton}
@@ -220,6 +231,8 @@ export function TaskDetailsSheet({
             task={task}
             action={action}
             onClose={() => setAction(null)}
+            // The task is gone: the sheet has nothing left to show.
+            onDeleted={onClose}
             onCloseAutoFocus={(event) => {
               event.preventDefault();
               const target = actionButton.current;

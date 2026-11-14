@@ -1059,6 +1059,7 @@
     "actions": {
       "cancel": "Huỷ",
       "retry": "Thử lại",
+      "delete": "Xóa",
       "retrySwitch": "Thử lại bằng tài khoản khác",
       "view": "Xem",
       "relogin": "Nhập lại cookie tài khoản",
@@ -1077,6 +1078,8 @@
       "keep": "Giữ nguyên",
       "cancelTitle": "Dừng tác vụ này?",
       "cancelDescription": "Tác vụ đang chờ sẽ dừng ngay. Tác vụ đang chạy sẽ dừng khi bước hiện tại cho phép; yêu cầu đã gửi sang Muse có thể vẫn tiếp tục ở đó.",
+      "deleteTitle": "Xóa tác vụ này?",
+      "deleteDescription": "Tác vụ sẽ bị xóa hẳn khỏi danh sách này. Các tệp nó đã tạo vẫn nằm trong thư viện, và không có gì thay đổi trên Muse.",
       "retryTitle": "Chạy lại tác vụ này?",
       "retryDescription": "Tác vụ sẽ được xếp hàng lại với đầu vào ban đầu. Kiểm tra lỗi và xử lý vấn đề tài khoản hoặc proxy trước.",
       "duplicateWarning": "Yêu cầu trước có thể đã tồn tại trên Muse. Chạy lại có thể tạo tác vụ trùng và sử dụng thêm hạn mức.",
@@ -1133,6 +1136,7 @@
       "task_not_found": "Tác vụ này không còn tồn tại.",
       "task_finished": "Tác vụ này đã kết thúc.",
       "task_not_retryable": "Chỉ có thể thử lại tác vụ lỗi, bị gián đoạn hoặc đã huỷ.",
+      "task_not_deletable": "Chưa xóa được tác vụ này: nó còn đang chờ hoặc đang chạy, có tác vụ khác đang chờ nó, hoặc nó thuộc một bộ phim vẫn còn.",
       "confirm_required": "Tác vụ này có thể đã được gửi tới Muse. Hãy xác nhận trước khi gửi lại.",
       "project_not_found": "Dự án của tác vụ này không còn tồn tại.",
       "script_conflict": "Kịch bản của dự án đã thay đổi kể từ khi tác vụ bắt đầu. Hãy tạo lại từ trang dự án.",
@@ -1196,6 +1200,7 @@
     "progress": "Tiến độ tác vụ",
     "elapsed": "Đã chạy {{value}}",
     "detailsFor": "Xem tác vụ: {{title}}",
+    "deleteFor": "Xóa tác vụ: {{title}}",
     "suggestions": {
       "retry": "Kiểm tra vấn đề rồi chạy lại tác vụ khi sẵn sàng.",
       "relogin": "Cập nhật cookie tài khoản và kiểm tra phiên trước khi chạy lại.",

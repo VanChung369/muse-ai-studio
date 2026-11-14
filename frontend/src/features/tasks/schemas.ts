@@ -23,6 +23,8 @@ export const taskSchema = z.object({
     .enum(["retry", "relogin", "switch_account", "check_proxy"])
     .nullable(),
   submitted: z.boolean(),
+  // May be removed from the list; the server decides (finished, not a film's).
+  deletable: z.boolean().default(false),
   createdAt: z.iso.datetime(),
   startedAt: z.iso.datetime().nullable(),
   finishedAt: z.iso.datetime().nullable(),

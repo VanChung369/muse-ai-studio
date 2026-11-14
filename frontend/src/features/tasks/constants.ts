@@ -29,6 +29,7 @@ export const TASK_ERROR_CODES = [
   "task_not_found",
   "task_finished",
   "task_not_retryable",
+  "task_not_deletable",
   "confirm_required",
   "project_not_found",
   "script_conflict",

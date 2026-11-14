@@ -69,6 +69,22 @@ def get_task(task_id: str, session: DatabaseSession) -> TaskResponse:
     return task_response(session, task_id)
 
 
+@router.delete(
+    "/{task_id}", status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        404: {"description": "Task not found"},
+        409: {"description": "Still queued or running, part of a film, or needed by a waiting task"},
+    },
+)
+def delete_task(task_id: str, session: DatabaseSession) -> None:
+    """Remove a finished task from the list. Files it made are kept."""
+    try:
+        if not tasks.delete_task(session, task_id):
+            raise not_found()
+    except tasks.TaskStateError as error:
+        raise state_error(error) from None
+
+
 @router.post(
     "/{task_id}/cancel", response_model=TaskResponse,
     responses={404: {"description": "Task not found"}, 409: {"description": "Task already finished"}},

@@ -41,6 +41,13 @@ export async function runTaskAction(values: {
   confirmDuplicate?: boolean;
 }) {
   const { id, action, ...body } = values;
+  if (action === "delete") {
+    await requestJson(`${API_ENDPOINTS.TASKS}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    // Nothing is left to return.
+    return null;
+  }
   return taskSchema.parse(
     await requestJson(
       `${API_ENDPOINTS.TASKS}/${encodeURIComponent(id)}/${action}`,

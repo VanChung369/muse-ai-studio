@@ -55,9 +55,16 @@ export function useTaskAction() {
   return useMutation({
     mutationFn: runTaskAction,
     retry: false,
-    onSuccess: async (task) => {
+    onSuccess: async (task, values) => {
       // Stop older reads before publishing the mutation response.
       await client.cancelQueries({ queryKey: taskKeys.all });
+      if (!task) {
+        // Deleted: every list that showed it (tasks, a project's latest
+        // run, Quick Create) reads again.
+        client.removeQueries({ queryKey: taskKeys.detail(values.id) });
+        void client.invalidateQueries();
+        return;
+      }
       client.setQueryData(taskKeys.detail(task.id), task);
       void client.invalidateQueries({ queryKey: taskKeys.all });
       if (task.projectId) {

@@ -1059,6 +1059,7 @@
     "actions": {
       "cancel": "Cancel",
       "retry": "Retry",
+      "delete": "Delete",
       "retrySwitch": "Retry with another account",
       "view": "View",
       "relogin": "Re-import account cookies",
@@ -1077,6 +1078,8 @@
       "keep": "Keep as is",
       "cancelTitle": "Stop this task?",
       "cancelDescription": "Queued work stops immediately. Running work stops as soon as its current step allows; a request already sent to Muse may continue there.",
+      "deleteTitle": "Delete this task?",
+      "deleteDescription": "The task is removed from this list for good. Files it made stay in the library, and nothing changes on Muse.",
       "retryTitle": "Run this task again?",
       "retryDescription": "This queues another run using the original input. Review the error and fix any account or proxy issues first.",
       "duplicateWarning": "The earlier request may already exist in Muse. Running it again can create duplicate work and use additional quota.",
@@ -1133,6 +1136,7 @@
       "task_not_found": "This task no longer exists.",
       "task_finished": "This task has already finished.",
       "task_not_retryable": "Only failed, interrupted, or cancelled tasks can be retried.",
+      "task_not_deletable": "This task cannot be deleted: it is still waiting or running, another task is waiting for it, or it belongs to a film that still exists.",
       "confirm_required": "This task may already have reached Muse. Confirm before sending it again.",
       "project_not_found": "The project for this task no longer exists.",
       "script_conflict": "The project's script changed since this task started. Start a new generation from the project.",
@@ -1196,6 +1200,7 @@
     "progress": "Task progress",
     "elapsed": "Elapsed {{value}}",
     "detailsFor": "View task: {{title}}",
+    "deleteFor": "Delete task: {{title}}",
     "suggestions": {
       "retry": "Review the issue, then run the task again when ready.",
       "relogin": "Update the account cookies and test the session before running again.",
