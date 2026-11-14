@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import Field, field_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
@@ -75,7 +75,8 @@ def list_keys(session: DatabaseSession):
         for key in session.scalars(
             select(ApiKey)
             .where(ApiKey.revoked_at.is_(None))
-            .order_by(ApiKey.created_at.desc(), ApiKey.id)
+            # Two keys made in the same instant still list the later one first.
+            .order_by(ApiKey.created_at.desc(), text("rowid DESC"))
         )
     ]
 

@@ -82,6 +82,7 @@ export function SettingsPage() {
   const title = t("pages.settings.title");
   useDocumentTitle(title);
   const settings = useSettingsQuery();
+  const update = useUpdateSettings();
 
   return (
     <div className="w-full max-w-340 px-4 pt-5 pb-10 tablet:px-8 tablet:pt-7 tablet:pb-14">
@@ -121,6 +122,7 @@ export function SettingsPage() {
           key={JSON.stringify(settings.data)}
           settings={settings.data}
           title={title}
+          update={update}
         />
       )}
       <SystemSection />
@@ -131,13 +133,16 @@ export function SettingsPage() {
 function SettingsForm({
   settings,
   title,
+  update,
 }: {
   settings: AppSettings;
   title: string;
+  // Kept by the page: the form is built afresh after a save, and what the
+  // save reported must outlive it.
+  update: ReturnType<typeof useUpdateSettings>;
 }) {
   const { t } = useTranslation();
   const id = useId();
-  const update = useUpdateSettings();
   const {
     register,
     control,
