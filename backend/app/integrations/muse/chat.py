@@ -5,6 +5,7 @@ import re
 import shutil
 import time
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -132,6 +133,33 @@ def _open_thread(page, client, thread_path) -> bool:
     return False
 
 
+def _first_browser(configured: str | None, bundled: str | None) -> str | None:
+    """The Chromium to drive: the configured one, one installed on the
+    machine, or the one Playwright downloaded."""
+    candidates = [
+        configured,
+        shutil.which("chromium"),
+        shutil.which("google-chrome"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        bundled,
+    ]
+    return next((path for path in candidates if path and Path(path).is_file()), None)
+
+
+@lru_cache(maxsize=4)
+def find_browser(configured: str | None) -> str | None:
+    """The browser `open_composer` would use, or None when there is none
+    (for the status page; asked once per configured path)."""
+    found = _first_browser(configured, None)
+    if found:
+        return found
+    try:
+        with sync_playwright() as playwright:
+            return _first_browser(None, playwright.chromium.executable_path)
+    except Exception:  # noqa: BLE001 - a missing driver is an answer here
+        return None
+
+
 @contextmanager
 def open_composer(client, result, proxy, thread_path=None):
     """Yield a Muse thread page in a private browser context: the saved
@@ -147,15 +175,8 @@ def open_composer(client, result, proxy, thread_path=None):
     relay = None
     try:
         with sync_playwright() as playwright:
-            candidates = [
-                client.settings.browser_path,
-                shutil.which("chromium"),
-                shutil.which("google-chrome"),
-                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                playwright.chromium.executable_path,
-            ]
-            executable = next(
-                (path for path in candidates if path and Path(path).is_file()), None
+            executable = _first_browser(
+                client.settings.browser_path, playwright.chromium.executable_path
             )
             if executable is None:
                 raise MuseError("browser_unavailable", 503, partial=result)

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes.accounts import router as accounts_router
 from app.api.routes.api_keys import router as api_keys_router
+from app.api.routes.settings import router as settings_router
 from app.api.routes.health import router as health_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.tasks import router as tasks_router
@@ -18,6 +19,7 @@ api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(accounts_router)
 api_router.include_router(api_keys_router)
+api_router.include_router(settings_router)
 api_router.include_router(projects_router)
 api_router.include_router(planning_router)
 api_router.include_router(render_router)

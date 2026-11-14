@@ -195,3 +195,15 @@ The script and all scenes of a project are sent to one Muse conversation on one 
 Every task in `GET /api/tasks`, `GET /api/tasks/{task_id}` and the other task responses carries `deletable`: whether the rule above lets it go (a waiting dependent is only checked by the request itself).
 
 Reference files sent to Muse (a project's reference material, the frame of the previous scene, a Quick Create reference image) are attached to the message only once the Muse composer displays them; if it never does, the task fails with `reference_upload_failed` and nothing is sent.
+
+## Settings and system status
+
+`GET /api/settings` returns what the user may change in the app: `{"projectDefaults": {"durationSeconds", "aspectRatio", "language", "look", "continuity"}, "publicUrl": string | null}`. Until something is saved these are `60`, `16:9`, `auto`, `auto`, `reference` and `null`.
+
+`PATCH /api/settings` changes the parts it is given and returns all of them. `projectDefaults` is always sent whole and follows the same rules as a project (duration 10-3,600 in steps of 5, a supported aspect ratio, language, look and continuity). `publicUrl` is an `http`/`https` address with a host, optionally a port and a path, at most 200 characters, without credentials, query or fragment; a trailing slash is dropped, and `null` or an empty string clears it. Anything else is 422 and nothing is saved.
+
+- `POST /api/projects` takes `durationSeconds`, `aspectRatio`, `language`, `look` and `continuity` from `projectDefaults` for each of those fields the request leaves out.
+- The public API builds result URLs from `publicUrl` when it is set; otherwise from the host a proxy forwards (`X-Forwarded-Host`, `X-Forwarded-Proto`), otherwise from the request's own address.
+
+`GET /api/system` is read-only and describes what the server runs with: `version`, `dataDir`, `databaseRevision`, `ffmpeg` (`path` or null, `version`, `captions`: whether it can draw captions and titles), `browserPath` (the Chromium used for Muse, or null), `storage` (`databaseBytes`, `projectsBytes`, `libraryBytes`, `freeBytes`) and `limits` (`taskWorkers`, `browserSlots`, `planningTimeout`, `renderTimeout`, `threadSceneLimit`, `sessionRefreshMinutes`, `sessionRefreshWake`), which come from the `MUSE_...` environment variables read at start-up.
+

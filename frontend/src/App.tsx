@@ -55,6 +55,11 @@ const featurePages: Partial<Record<NavigationItem["id"], ComponentType>> = {
       default: module.DocsPage,
     })),
   ),
+  settings: lazy(() =>
+    import("@/pages/settings-page").then((module) => ({
+      default: module.SettingsPage,
+    })),
+  ),
 };
 
 // A project opened as a workspace: one layout, one page per step.

@@ -1,10 +1,5 @@
-import { V1_BASE_PATH, V1_ENDPOINTS } from "../constants";
+import { V1_ENDPOINTS } from "../constants";
 import type { PlaygroundRequestConfig, QuickstartLanguage } from "../types";
-
-export function getApiBaseUrl(): string {
-  if (typeof window === "undefined") return V1_BASE_PATH;
-  return `${window.location.origin}${V1_BASE_PATH}`;
-}
 
 export function buildQuickstartSnippet(
   language: QuickstartLanguage,

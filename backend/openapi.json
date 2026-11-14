@@ -567,6 +567,81 @@
         }
       }
     },
+    "/api/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Settings"],
+        "summary": "Update Settings",
+        "operationId": "update_settings_api_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "System Status",
+        "operationId": "system_status_api_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects": {
       "get": {
         "tags": ["Projects"],
@@ -3941,6 +4016,39 @@
         ],
         "title": "FeaturedProject"
       },
+      "FfmpegStatus": {
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "captions": {
+            "type": "boolean",
+            "title": "Captions"
+          }
+        },
+        "type": "object",
+        "required": ["path", "version", "captions"],
+        "title": "FfmpegStatus"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4286,6 +4394,49 @@
         "required": ["items", "total", "counts"],
         "title": "LibraryPage"
       },
+      "Limits": {
+        "properties": {
+          "taskWorkers": {
+            "type": "integer",
+            "title": "Taskworkers"
+          },
+          "browserSlots": {
+            "type": "integer",
+            "title": "Browserslots"
+          },
+          "planningTimeout": {
+            "type": "integer",
+            "title": "Planningtimeout"
+          },
+          "renderTimeout": {
+            "type": "integer",
+            "title": "Rendertimeout"
+          },
+          "threadSceneLimit": {
+            "type": "integer",
+            "title": "Threadscenelimit"
+          },
+          "sessionRefreshMinutes": {
+            "type": "integer",
+            "title": "Sessionrefreshminutes"
+          },
+          "sessionRefreshWake": {
+            "type": "boolean",
+            "title": "Sessionrefreshwake"
+          }
+        },
+        "type": "object",
+        "required": [
+          "taskWorkers",
+          "browserSlots",
+          "planningTimeout",
+          "renderTimeout",
+          "threadSceneLimit",
+          "sessionRefreshMinutes",
+          "sessionRefreshWake"
+        ],
+        "title": "Limits"
+      },
       "LogoInput": {
         "properties": {
           "mediaId": {
@@ -4611,6 +4762,68 @@
         "type": "object",
         "required": ["name"],
         "title": "ProjectCreate"
+      },
+      "ProjectDefaults": {
+        "properties": {
+          "durationSeconds": {
+            "type": "integer",
+            "multipleOf": 5.0,
+            "maximum": 3600.0,
+            "minimum": 10.0,
+            "title": "Durationseconds"
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": ["16:9", "9:16", "1:1", "4:3", "3:4", "4:5", "21:9"],
+            "title": "Aspectratio"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "vi",
+              "en",
+              "zh",
+              "ja",
+              "ko",
+              "es",
+              "fr",
+              "de",
+              "pt",
+              "th",
+              "id"
+            ],
+            "title": "Language"
+          },
+          "look": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "realistic",
+              "cinematic",
+              "documentary",
+              "commercial",
+              "animation3d",
+              "anime"
+            ],
+            "title": "Look"
+          },
+          "continuity": {
+            "type": "string",
+            "enum": ["off", "reference", "seamless"],
+            "title": "Continuity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "durationSeconds",
+          "aspectRatio",
+          "language",
+          "look",
+          "continuity"
+        ],
+        "title": "ProjectDefaults"
       },
       "ProjectListResponse": {
         "properties": {
@@ -5623,6 +5836,138 @@
         "type": "object",
         "required": ["accountId", "expectedRevision", "idea"],
         "title": "ScriptGenerationRequest"
+      },
+      "SettingsResponse": {
+        "properties": {
+          "projectDefaults": {
+            "$ref": "#/components/schemas/ProjectDefaults"
+          },
+          "publicUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publicurl"
+          }
+        },
+        "type": "object",
+        "required": ["projectDefaults", "publicUrl"],
+        "title": "SettingsResponse"
+      },
+      "SettingsUpdate": {
+        "properties": {
+          "projectDefaults": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectDefaults"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publicUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publicurl"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SettingsUpdate"
+      },
+      "StorageStatus": {
+        "properties": {
+          "databaseBytes": {
+            "type": "integer",
+            "title": "Databasebytes"
+          },
+          "projectsBytes": {
+            "type": "integer",
+            "title": "Projectsbytes"
+          },
+          "libraryBytes": {
+            "type": "integer",
+            "title": "Librarybytes"
+          },
+          "freeBytes": {
+            "type": "integer",
+            "title": "Freebytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "databaseBytes",
+          "projectsBytes",
+          "libraryBytes",
+          "freeBytes"
+        ],
+        "title": "StorageStatus"
+      },
+      "SystemResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "dataDir": {
+            "type": "string",
+            "title": "Datadir"
+          },
+          "databaseRevision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databaserevision"
+          },
+          "ffmpeg": {
+            "$ref": "#/components/schemas/FfmpegStatus"
+          },
+          "browserPath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Browserpath"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageStatus"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "dataDir",
+          "databaseRevision",
+          "ffmpeg",
+          "browserPath",
+          "storage",
+          "limits"
+        ],
+        "title": "SystemResponse"
       },
       "TaskCounts": {
         "properties": {

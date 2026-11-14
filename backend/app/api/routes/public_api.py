@@ -21,6 +21,7 @@ from app.api.routes.quick_create import QuickRequest
 from app.models import ApiKey, LibraryAsset, Task
 from app.rendering import storage
 from app.rendering.quick_create import QuickCreateError, enqueue
+from app.repositories import app_settings
 from app.repositories.tasks import FINISHED
 from app.tasks.coordinator import utcnow
 from app.tasks.kinds import GENERATE_VIDEO
@@ -236,6 +237,12 @@ def public_base(request) -> str:
     forwarded host: this server's own address would be no use to a caller
     on another machine. The header only shapes the URLs in the caller's own
     response."""
+    with request.app.state.database.sessions() as session:
+        configured = app_settings.read(session)["publicUrl"]
+    if configured:
+        # The address set in Settings wins: the user knows how the app is
+        # reached from outside.
+        return configured + "/"
     host = request.headers.get("x-forwarded-host", "").split(",")[0].strip()
     if not FORWARDED_HOST.fullmatch(host):
         return str(request.base_url)

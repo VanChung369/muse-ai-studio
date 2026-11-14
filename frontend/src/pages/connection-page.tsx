@@ -23,14 +23,13 @@ import {
   API_KEY_COLUMNS,
   MAX_API_KEYS,
   QUICKSTART_LANGUAGES,
+  V1_BASE_PATH,
 } from "@/features/api-access/constants";
 import { useApiKeysQuery } from "@/features/api-access/hooks/use-api-keys";
 import { useCopyClipboard } from "@/features/api-access/hooks/use-copy-clipboard";
-import {
-  buildQuickstartSnippet,
-  getApiBaseUrl,
-} from "@/features/api-access/lib/snippets";
+import { buildQuickstartSnippet } from "@/features/api-access/lib/snippets";
 import type { QuickstartLanguage } from "@/features/api-access/types";
+import { usePublicOrigin } from "@/features/settings/hooks/use-settings";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 const ENV_VAR_LINE = "MUSE_API_KEY=<your key>";
@@ -41,7 +40,7 @@ export function ConnectionPage() {
   useDocumentTitle(t("pages.api.title"));
 
   const keysQuery = useApiKeysQuery();
-  const baseUrl = getApiBaseUrl();
+  const baseUrl = `${usePublicOrigin()}${V1_BASE_PATH}`;
 
   const baseUrlCopy = useCopyClipboard();
   const envCopy = useCopyClipboard();

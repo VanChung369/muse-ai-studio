@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.rendering import storage
 from app.rendering.tasks import remerge
-from app.repositories import projects
+from app.repositories import app_settings, projects
 from app.schemas.project import (
     FeaturedProject,
     ProjectCounts,
@@ -65,6 +65,16 @@ def list_projects(
     )
 
 
+# Fields of a new project that have a default in the Settings page.
+DEFAULT_FIELDS = {
+    "duration_seconds": "durationSeconds",
+    "aspect_ratio": "aspectRatio",
+    "language": "language",
+    "look": "look",
+    "continuity": "continuity",
+}
+
+
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
     values: ProjectCreate,
@@ -72,6 +82,16 @@ def create_project(
     response: Response,
     session: DatabaseSession,
 ) -> ProjectResponse:
+    # What the request leaves out comes from the Settings page.
+    defaults = app_settings.read(session)["projectDefaults"]
+    session.rollback()  # End the read snapshot before the insert (WAL).
+    omitted = {
+        field: defaults[name]
+        for field, name in DEFAULT_FIELDS.items()
+        if field not in values.model_fields_set
+    }
+    if omitted:
+        values = values.model_copy(update=omitted)
     project = projects.create_project(session, values)
     response.headers["Location"] = str(
         request.url_for("get_project", project_id=project.id)

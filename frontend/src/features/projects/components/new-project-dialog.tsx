@@ -41,6 +41,7 @@ import {
   REFERENCE_MAX_FILES,
 } from "../constants";
 import { projectCreateSchema } from "../schemas";
+import { useSettingsQuery } from "@/features/settings/hooks/use-settings";
 import type { ProjectCreateDraft } from "../types";
 import {
   type ReferenceErrorCode,
@@ -99,8 +100,21 @@ export function NewProjectDialog({
   const look = useWatch({ control, name: "look" });
   const durationSeconds = useWatch({ control, name: "durationSeconds" });
 
+  // The defaults saved in Settings, once they are known.
+  const saved = useSettingsQuery().data?.projectDefaults;
+  const startValues = (): ProjectCreateDraft =>
+    saved
+      ? {
+          ...defaultValues,
+          durationSeconds: saved.durationSeconds,
+          aspectRatio: saved.aspectRatio,
+          look: saved.look,
+          language: saved.language,
+        }
+      : defaultValues;
+
   function resetAll() {
-    reset(defaultValues);
+    reset(startValues());
     setFiles([]);
     setFileError(null);
     setMoreOpen(false);
@@ -110,7 +124,9 @@ export function NewProjectDialog({
   // starts clean instead of showing stale values and errors.
   function handleOpenChange(next: boolean) {
     if (isSubmitting) return;
-    if (!next) resetAll();
+    // Opening also starts from the saved defaults: they may have arrived,
+    // or changed, since the form was last reset.
+    resetAll();
     onOpenChange(next);
   }
 

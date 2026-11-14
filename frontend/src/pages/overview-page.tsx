@@ -31,6 +31,7 @@ import {
   resumeStep,
 } from "@/features/projects/lib/project-list";
 import type { ProjectSummary } from "@/features/projects/types";
+import { usePublicOrigin } from "@/features/settings/hooks/use-settings";
 import { TaskKindIcon } from "@/features/tasks/components/task-kind-icon";
 import { TaskStatusBadge } from "@/features/tasks/components/task-status-badge";
 import { TASK_QUERY_PARAMS } from "@/features/tasks/constants";
@@ -582,7 +583,7 @@ function Shortcut({
 function CopyBaseUrl() {
   const { t } = useTranslation();
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
-  const url = `${window.location.origin}/v1`;
+  const url = `${usePublicOrigin()}/v1`;
 
   async function copy() {
     try {

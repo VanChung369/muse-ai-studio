@@ -9,15 +9,17 @@ import { CodeBlock } from "@/features/api-access/components/code-block";
 import {
   DOCS_ERROR_ROWS,
   DOCS_SECTIONS,
+  V1_BASE_PATH,
 } from "@/features/api-access/constants";
-import { getApiBaseUrl } from "@/features/api-access/lib/snippets";
+import { usePublicOrigin } from "@/features/settings/hooks/use-settings";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 export function DocsPage() {
   const { t } = useTranslation();
   useDocumentTitle(t("pages.docs.title"));
 
-  const baseUrl = getApiBaseUrl();
+  const origin = usePublicOrigin();
+  const baseUrl = `${origin}${V1_BASE_PATH}`;
 
   const modelsExampleResponse = `{
   "object": "list",
@@ -38,7 +40,7 @@ export function DocsPage() {
   const imagesExampleResponse = `{
   "created": 1763078400,
   "data": [
-    {"url": "${window.location.origin}/api/library/assets/<id>/file"}
+    {"url": "${origin}/api/library/assets/<id>/file"}
   ]
 }`;
 
@@ -63,7 +65,7 @@ export function DocsPage() {
   "created": 1763078400,
   "model": "muse-video",
   "data": [
-    {"url": "${window.location.origin}/api/library/assets/<id>/file"}
+    {"url": "${origin}/api/library/assets/<id>/file"}
   ]
 }`;
 
@@ -85,7 +87,7 @@ export function DocsPage() {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "![image](${window.location.origin}/api/library/assets/<id>/file)"
+        "content": "![image](${origin}/api/library/assets/<id>/file)"
       },
       "finish_reason": "stop"
     }
@@ -97,7 +99,7 @@ export function DocsPage() {
 
 : waiting
 
-data: {"id":"chatcmpl-<task id>","object":"chat.completion.chunk","created":1763078400,"model":"muse-image","choices":[{"index":0,"delta":{"content":"![image](${window.location.origin}/api/library/assets/<id>/file)"},"finish_reason":null}]}
+data: {"id":"chatcmpl-<task id>","object":"chat.completion.chunk","created":1763078400,"model":"muse-image","choices":[{"index":0,"delta":{"content":"![image](${origin}/api/library/assets/<id>/file)"},"finish_reason":null}]}
 
 data: {"id":"chatcmpl-<task id>","object":"chat.completion.chunk","created":1763078400,"model":"muse-image","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
 

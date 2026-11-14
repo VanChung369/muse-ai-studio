@@ -54,6 +54,7 @@ import {
   buildPlaygroundRequest,
 } from "@/features/api-access/lib/snippets";
 import { videoGenerationSchema } from "@/features/api-access/schemas";
+import { usePublicOrigin } from "@/features/settings/hooks/use-settings";
 import type {
   ChatModel,
   ImageCount,
@@ -167,7 +168,8 @@ export function PlaygroundPage() {
           : { endpoint: "models" };
 
   const builtRequest = buildPlaygroundRequest(config);
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  // Only for the cURL text: the request itself goes to this page's origin.
+  const origin = usePublicOrigin();
   const curlCommand = buildPlaygroundCurl(origin, config);
   const needsPrompt = endpoint !== "models";
   const canSend =

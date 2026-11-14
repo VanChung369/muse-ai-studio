@@ -1707,5 +1707,76 @@
       "noKeyDownloads": "URL tệp trả về (/api/library/assets/<id>/file) là URL tuyệt đối và tải trực tiếp không cần API key.",
       "revocationAndUsage": "Thu hồi key khiến mọi yêu cầu dùng key đó bị 401 ngay lập tức. Mỗi lần dùng key sẽ cập nhật lastUsedAt (tối đa mỗi phút một lần)."
     }
+  },
+  "appSettings": {
+    "save": "Lưu thay đổi",
+    "saving": "Đang lưu…",
+    "saved": "Đã lưu cài đặt.",
+    "unsaved": "Có thay đổi chưa lưu",
+    "discard": "Bỏ thay đổi",
+    "loadError": "Không tải được cài đặt.",
+    "retry": "Thử lại",
+    "errors": {
+      "save": "Không lưu được cài đặt. Kiểm tra kết nối rồi thử lại.",
+      "invalid": "Máy chủ từ chối các giá trị này. Hãy kiểm tra thời lượng và địa chỉ."
+    },
+    "defaults": {
+      "title": "Mặc định cho dự án mới",
+      "description": "Giá trị điền sẵn trong form Dự án mới, và cũng là giá trị một dự án tạo qua API nhận được khi yêu cầu bỏ trống. Từng dự án vẫn đổi được."
+    },
+    "address": {
+      "title": "Địa chỉ công khai",
+      "description": "Địa chỉ để máy khác truy cập ứng dụng này. Nó hiện ở các trang Kết nối & API, Playground, Tài liệu và được dùng cho URL kết quả mà API trả về.",
+      "label": "Địa chỉ",
+      "hint": "Để trống để dùng chính địa chỉ mà mỗi yêu cầu đi tới. Hãy đặt khi ứng dụng nằm sau reverse proxy hoặc dùng tên miền.",
+      "invalid": "Nhập địa chỉ dạng https://studio.example.com, không kèm tham số.",
+      "result": "Base URL của API:"
+    },
+    "system": {
+      "title": "Hệ thống",
+      "description": "Máy chủ hiện đang chạy với những gì. Các mục này không đổi được từ trang này.",
+      "refresh": "Kiểm tra lại",
+      "loading": "Đang kiểm tra…",
+      "loadError": "Không đọc được tình trạng hệ thống.",
+      "ffmpeg": "FFmpeg",
+      "found": "Đã tìm thấy · {{detail}}",
+      "unknownVersion": "không rõ phiên bản",
+      "ffmpegMissing": "Không tìm thấy. Chưa thể ghép phim hay thêm tệp cho tới khi cài FFmpeg.",
+      "captions": "Phụ đề và tiêu đề",
+      "captionsYes": "FFmpeg này vẽ được",
+      "captionsNo": "FFmpeg này không vẽ được (thiếu libass)",
+      "browser": "Trình duyệt dùng cho Muse",
+      "browserFound": "Đã tìm thấy",
+      "browserMissing": "Không tìm thấy Chromium hay Chrome. Chưa thể tạo nội dung.",
+      "version": "Phiên bản",
+      "schema": "cơ sở dữ liệu {{revision}}",
+      "dataDir": "Thư mục dữ liệu",
+      "backupHint": "Hãy sao lưu cả thư mục này, gồm cả account-secret.key: thiếu khóa đó thì không đọc lại được tài khoản và khóa API đã lưu.",
+      "storage": "Dung lượng",
+      "sizes": {
+        "projects": "Dự án",
+        "library": "Thư viện",
+        "database": "Cơ sở dữ liệu",
+        "free": "Còn trống trên ổ đĩa"
+      }
+    },
+    "limits": {
+      "title": "Giới hạn khi khởi động",
+      "description": "Được đọc từ biến môi trường lúc máy chủ khởi động. Muốn đổi, đặt biến tương ứng trong tệp .env ở thư mục gốc rồi khởi động lại máy chủ.",
+      "setting": "Thiết lập",
+      "value": "Giá trị",
+      "variable": "Biến",
+      "on": "bật",
+      "off": "tắt",
+      "names": {
+        "taskWorkers": "Số tác vụ nền chạy cùng lúc",
+        "browserSlots": "Số trình duyệt mở cùng lúc",
+        "planningTimeout": "Chờ kịch bản tối đa (giây)",
+        "renderTimeout": "Chờ một cảnh tối đa (giây)",
+        "threadSceneLimit": "Số cảnh trong một hội thoại Muse",
+        "sessionRefreshMinutes": "Kiểm tra lại phiên tài khoản mỗi (phút)",
+        "sessionRefreshWake": "Đánh thức workspace mỗi lần kiểm tra"
+      }
+    }
   }
 }

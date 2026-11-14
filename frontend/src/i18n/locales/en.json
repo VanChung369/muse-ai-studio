@@ -1707,5 +1707,76 @@
       "noKeyDownloads": "Returned asset URLs (/api/library/assets/<id>/file) are absolute and require no API key to download.",
       "revocationAndUsage": "Revoking a key returns 401 immediately. Using a key updates its lastUsedAt timestamp (at most once per minute)."
     }
+  },
+  "appSettings": {
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Settings saved.",
+    "unsaved": "Unsaved changes",
+    "discard": "Discard",
+    "loadError": "The settings could not be loaded.",
+    "retry": "Try again",
+    "errors": {
+      "save": "The settings could not be saved. Check the connection and try again.",
+      "invalid": "The server refused these values. Check the duration and the address."
+    },
+    "defaults": {
+      "title": "Defaults for new projects",
+      "description": "What the New project form starts with, and what a project created through the API gets when the request leaves a field out. Each project can still change them."
+    },
+    "address": {
+      "title": "Public address",
+      "description": "Where other machines reach this app. It is shown on the Connection & API, Playground and Documentation pages and used for the result URLs the API returns.",
+      "label": "Address",
+      "hint": "Leave empty to use the address each request arrives at. Set it when the app sits behind a reverse proxy or a domain name.",
+      "invalid": "Enter an address such as https://studio.example.com, without a query string.",
+      "result": "API Base URL:"
+    },
+    "system": {
+      "title": "System",
+      "description": "What the server is running with right now. Nothing here can be changed from this page.",
+      "refresh": "Check again",
+      "loading": "Checking…",
+      "loadError": "The system status could not be read.",
+      "ffmpeg": "FFmpeg",
+      "found": "Found · {{detail}}",
+      "unknownVersion": "version unknown",
+      "ffmpegMissing": "Not found. Films cannot be merged and files cannot be added until FFmpeg is installed.",
+      "captions": "Captions and titles",
+      "captionsYes": "This FFmpeg can draw them",
+      "captionsNo": "This FFmpeg cannot draw them (it lacks libass)",
+      "browser": "Browser for Muse",
+      "browserFound": "Found",
+      "browserMissing": "No Chromium or Chrome found. Nothing can be generated.",
+      "version": "Version",
+      "schema": "database {{revision}}",
+      "dataDir": "Data folder",
+      "backupHint": "Back up this whole folder, including account-secret.key: without the key the saved accounts and API keys cannot be read.",
+      "storage": "Storage",
+      "sizes": {
+        "projects": "Projects",
+        "library": "Media library",
+        "database": "Database",
+        "free": "Free on this disk"
+      }
+    },
+    "limits": {
+      "title": "Start-up limits",
+      "description": "Read from the environment when the server starts. To change one, set its variable in the .env file at the repository root and restart the server.",
+      "setting": "Setting",
+      "value": "Value",
+      "variable": "Variable",
+      "on": "on",
+      "off": "off",
+      "names": {
+        "taskWorkers": "Background tasks at once",
+        "browserSlots": "Browsers open at once",
+        "planningTimeout": "Longest wait for a script (seconds)",
+        "renderTimeout": "Longest wait for one scene (seconds)",
+        "threadSceneLimit": "Scenes per Muse conversation",
+        "sessionRefreshMinutes": "Re-check account sessions every (minutes)",
+        "sessionRefreshWake": "Wake the workspace on each re-check"
+      }
+    }
   }
 }
