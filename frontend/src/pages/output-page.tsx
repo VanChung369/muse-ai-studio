@@ -675,7 +675,21 @@ function Output({
           </div>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
             {scenes.map((item) => {
-              const segment = saved.find((entry) => entry.key === item.key);
+              // A scene cut in pieces: what is kept of it, wherever it plays.
+              const kept = savedDraft.items.filter(
+                (other) =>
+                  other.kind === "scene" &&
+                  other.scene === item.scene &&
+                  other.enabled,
+              );
+              const enabled = kept.length > 0;
+              const seconds = kept.reduce(
+                (sum, other) => sum + itemSeconds(other),
+                0,
+              );
+              const segment = saved.find((entry) =>
+                kept.some((other) => other.key === entry.key),
+              );
               const active = !cut && !preview && current?.scene === item.scene;
               return (
                 <li key={item.key} className="min-w-0 space-y-1.5">
@@ -697,7 +711,7 @@ function Output({
                     className={cn(
                       "relative block aspect-video w-full overflow-hidden rounded-lg bg-background",
                       active && "ring-2 ring-primary",
-                      !item.enabled && "opacity-45",
+                      !enabled && "opacity-45",
                     )}
                   >
                     {item.thumbnailUrl && (
@@ -712,8 +726,8 @@ function Output({
                       {String(item.scene).padStart(2, "0")}
                     </span>
                     <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] leading-4 text-white">
-                      {item.enabled
-                        ? `${itemSeconds(item).toFixed(1)}s`
+                      {enabled
+                        ? `${seconds.toFixed(1)}s`
                         : t("projects.timeline.excluded")}
                     </span>
                   </button>

@@ -1,10 +1,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.models import Account
 from app.repositories import tasks
 from app.planning.tasks import PlanningRequestError, validate_retry
 from app.rendering.tasks import sync_project
@@ -117,6 +118,20 @@ def retry_task(
     found = tasks.get_task(session, task_id)
     if found is None:
         raise not_found()
+    # Like a new request: with no account to run on, it would wait unseen.
+    if found[0].requires_account and not session.scalar(
+        select(Account.id)
+        .where(Account.enabled.is_(True), Account.session_status == "valid")
+        .limit(1)
+    ):
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "account_unavailable",
+                "message": "No enabled account with a verified session is available.",
+            },
+        )
     if found[0].kind == PLAN_SCRIPT:
         try:
             validate_retry(session, found[0])
