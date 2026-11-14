@@ -53,6 +53,7 @@ import {
   SceneVolume,
 } from "@/features/projects/components/timeline-lanes";
 import { TitlesEditor } from "@/features/projects/components/titles-editor";
+import { useMusicGeneration } from "@/features/projects/hooks/use-music-generation";
 import { useProjectMedia } from "@/features/projects/hooks/use-project-media";
 import { useProjectRender } from "@/features/projects/hooks/use-project-render";
 import { useProjectTimeline } from "@/features/projects/hooks/use-project-timeline";
@@ -140,6 +141,7 @@ export function OutputPage() {
   const project = useOutletContext<Project>();
   const render = useProjectRender(project.id);
   const timeline = useProjectTimeline(project.id);
+  useMusicGeneration(project.id);
 
   return (
     <Output
@@ -195,9 +197,11 @@ function Output({
   const [zoom, setZoom] = useState(1);
   const [time, setTime] = useState(0);
   // A quick version of the draft to watch, and the draft it was made from.
-  const [preview, setPreview] = useState<{ url: string; made: string } | null>(
-    null,
-  );
+  const [preview, setPreview] = useState<{
+    url: string;
+    made: string;
+    items: TimelineItem[];
+  } | null>(null);
   const previewing = useMutation({ mutationFn: previewTimeline, retry: false });
   const cover = useMutation({
     mutationFn: (seconds: number | null) =>
@@ -219,7 +223,7 @@ function Output({
   const madeFrom = JSON.stringify(timelinePayload(draft));
   const previewStale = preview !== null && preview.made !== madeFrom;
   // What the film player shows: a fresh preview of the draft, or the film.
-  const playing = preview && !previewStale ? draft.items : savedDraft.items;
+  const playing = preview ? preview.items : savedDraft.items;
   const segments = filmSegments(playing);
   const saved = filmSegments(savedDraft.items);
   const total = timelineSeconds(draft.items);
@@ -393,7 +397,10 @@ function Output({
   function nudge(seconds: number) {
     if (selection?.kind === "audio" && track)
       patchAudio(track.key, {
-        offset: Math.max(toTenth(track.offset + seconds), 0),
+        offset: Math.min(
+          Math.max(toTenth(track.offset + seconds), 0),
+          Math.max(toTenth(total - 0.5), 0),
+        ),
       });
     else if (selection?.kind === "caption" || selection?.kind === "title") {
       const list = selection.kind === "caption" ? "captions" : "titles";
@@ -506,7 +513,7 @@ function Output({
       { id: project.id, ...timelinePayload(draft) },
       {
         onSuccess: (made) => {
-          setPreview({ url: made.url, made: madeFrom });
+          setPreview({ url: made.url, made: madeFrom, items: draft.items });
           setSelection(null);
           setTime(0);
         },

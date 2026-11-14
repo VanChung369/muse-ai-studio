@@ -161,7 +161,7 @@ export function isTimelineValid(draft: TimelineDraft) {
   const long = (piece: { start: number; end: number }) =>
     piece.end - piece.start >= MIN_CUT_SECONDS - 1e-6;
   const shown = (piece: { start: number; end: number; text: string }) =>
-    !piece.text.trim() || piece.end - piece.start >= 0.2;
+    !piece.text.trim() || piece.end - piece.start >= 0.2 - 1e-6;
   return (
     draft.items.some((item) => item.enabled) &&
     draft.items.every(long) &&
@@ -352,14 +352,25 @@ export function followClips<T extends { start: number; end: number }>(
         entry.start < piece.offset + piece.length - EPSILON,
     );
     const to = from && now.get(from.key);
-    if (!from || !to) return entry;
-    // The same share of the way into the piece, so a trim or a new speed
-    // keeps the words on the same moment.
-    const share = from.length > 0 ? (entry.start - from.offset) / from.length : 0;
-    const start = toTenth(to.offset + share * to.length);
-    return start === entry.start
+    const original = from && before.find((item) => item.key === from.key);
+    const updated = from && after.find((item) => item.key === from.key);
+    if (!from || !to || !original || !updated) return entry;
+    const sourceTime =
+      original.start + (entry.start - from.offset) * original.speed;
+    const start = toTenth(
+      to.offset + Math.max(sourceTime - updated.start, 0) / updated.speed,
+    );
+    // Its length follows the new speed as well, and text that sat inside its
+    // piece stays inside it when the piece gets shorter; otherwise it runs on
+    // over the next piece's text and both show at once.
+    let length = ((entry.end - entry.start) * original.speed) / updated.speed;
+    const pieceEnd = to.offset + to.length;
+    if (entry.end <= from.offset + from.length + EPSILON && start < pieceEnd)
+      length = Math.min(length, pieceEnd - start);
+    const end = toTenth(start + Math.max(length, 0.2));
+    return start === entry.start && end === entry.end
       ? entry
-      : { ...entry, start, end: toTenth(start + entry.end - entry.start) };
+      : { ...entry, start, end };
   });
 }
 

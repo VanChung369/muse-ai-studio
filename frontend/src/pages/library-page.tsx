@@ -31,6 +31,7 @@ import {
 import { useDocumentTitle } from "@/hooks/use-document-title";
 
 const LIBRARY_MAX_MB = Math.round(MEDIA_MAX_BYTES / (1024 * 1024));
+const LIBRARY_MAX_FILES = 500;
 
 const INITIAL_FILTERS: LibraryFilters = {
   kind: "all",
@@ -92,7 +93,14 @@ export function LibraryPage() {
     setValidationError(null);
     setFailedCount(0);
 
-    const { accepted, errorCode } = validateMediaFiles(picked, 0);
+    // The server counts only the files kept in the library (not the
+    // projects' scenes and films listed beside them) and refuses past its
+    // limit, so a batch is only checked against that limit here.
+    const { accepted, errorCode } = validateMediaFiles(
+      picked,
+      0,
+      LIBRARY_MAX_FILES,
+    );
     if (errorCode) {
       setValidationError(`library.errors.${errorCode}` as const);
     }

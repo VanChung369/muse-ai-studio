@@ -201,8 +201,8 @@ class TimelineCut(Input):
     scene: int | None = Field(default=None, strict=True, ge=1, le=MAX_SCENES)
     media_id: str | None = Field(default=None, min_length=1, max_length=36)
     key: str | None = Field(default=None, pattern=KEY)
-    start: float = Field(ge=0, le=600)
-    end: float = Field(gt=0, le=600)
+    start: float = Field(ge=0)
+    end: float = Field(gt=0)
     enabled: bool = Field(default=True, strict=True)
     speed: float = Field(default=1.0, ge=timeline.SPEEDS[0], le=timeline.SPEEDS[1])
     effect: Effect = "none"

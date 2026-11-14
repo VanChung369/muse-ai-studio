@@ -504,7 +504,11 @@
         "project_not_found": "This project no longer exists.",
         "unknown": "The timeline could not be saved. Please try again.",
         "captions_unavailable": "This server's FFmpeg cannot draw captions. Turn off “Draw captions into the video” and try again.",
-        "preview_failed": "The preview could not be built. Check the edit and try again."
+        "preview_failed": "The preview could not be built. Check the edit and try again.",
+        "preview_busy": "Another preview is being built. Wait for it to finish, then try again.",
+        "scene_missing": "A scene clip is missing. Render that scene again before previewing.",
+        "media_missing": "A file used in the edit is missing. Upload it again and replace it in the timeline.",
+        "timeline_empty": "There are no clips to preview. Keep at least one clip in the film."
       },
       "shown": "Shown for (seconds)",
       "speed": "Speed",

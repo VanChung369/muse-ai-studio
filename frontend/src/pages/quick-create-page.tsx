@@ -159,7 +159,7 @@ export function QuickCreatePage() {
   }, [client, completedIds]);
 
   function chooseFile(next: File | undefined) {
-    if (!next) return;
+    if (request.isPending || !next) return;
     if (!IMAGE_TYPES.includes(next.type)) {
       setFileError("type");
       return;
@@ -187,6 +187,7 @@ export function QuickCreatePage() {
   }
 
   function reuse(batch: QuickBatch) {
+    if (request.isPending) return;
     setKind(batch.kind);
     setPrompt(batch.prompt);
     setAspectRatio(batch.aspectRatio);

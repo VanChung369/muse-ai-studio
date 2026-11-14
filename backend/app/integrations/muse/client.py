@@ -5,12 +5,10 @@ Protocol/usage selectors follow the reference MUSE2API implementation.
 
 import json
 import logging
-import shutil
 import threading
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from urllib.parse import urlsplit
 
 import requests
@@ -275,18 +273,14 @@ class MuseClient:
         raise MuseError("quota_unavailable")
 
     def _read_quota(self, cookies, proxy) -> dict:
+        from app.integrations.muse.chat import _first_browser
+
         relay = None
         try:
             with sync_playwright() as playwright:
-                candidates = [
+                executable = _first_browser(
                     self.settings.browser_path,
-                    shutil.which("chromium"),
-                    shutil.which("google-chrome"),
-                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
                     playwright.chromium.executable_path,
-                ]
-                executable = next(
-                    (path for path in candidates if path and Path(path).is_file()), None
                 )
                 if executable is None:
                     raise MuseError("browser_unavailable", 503)

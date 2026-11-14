@@ -110,6 +110,10 @@ export const TIMELINE_ERROR_CODES = [
   "invalid_timeline",
   "captions_unavailable",
   "preview_failed",
+  "preview_busy",
+  "scene_missing",
+  "media_missing",
+  "timeline_empty",
   "project_not_found",
 ] as const;
 

@@ -205,7 +205,7 @@ def _from_set_cookie(line: str) -> _Candidate | None:
             except ValueError:
                 continue
             # Max-Age wins over Expires; <= 0 means already expired.
-            expiry = time.time() + seconds if seconds > 0 else 1
+            expiry = time.time() + min(seconds, MAX_EXPIRY) if seconds > 0 else 1
         elif key == "expires" and expiry is None:
             try:
                 # Clamp so dates at or before the epoch still count as expired.

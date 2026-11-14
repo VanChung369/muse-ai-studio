@@ -24,6 +24,7 @@ import {
   isTaskActive,
   taskElapsed,
   taskErrorKey,
+  taskKindKey,
   taskProjectHref,
 } from "../lib/task-format";
 import type { TaskAction } from "../types";
@@ -52,10 +53,7 @@ export function TaskDetailsSheet({
   const fields = task
     ? {
         id: task.id,
-        kind:
-          task.kind === "plan_script"
-            ? t("tasks.kinds.plan_script")
-            : task.kind,
+        kind: t(taskKindKey(task.kind)),
         account:
           task.accountLabel ??
           t(

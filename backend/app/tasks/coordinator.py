@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import case, or_, select, text, update
 from sqlalchemy.orm import aliased
 
 from app.core.account_operations import AccountOperations
@@ -208,7 +208,10 @@ class TaskCoordinator:
             running = Task.status == "running"
             cancelled = session.execute(
                 update(Task)
-                .where(running, Task.cancel_requested.is_(True))
+                .where(
+                    Task.status.in_(("queued", "running")),
+                    Task.cancel_requested.is_(True),
+                )
                 .values(status="cancelled", finished_at=now)
             ).rowcount
             interrupted = session.execute(
@@ -284,7 +287,6 @@ class TaskCoordinator:
                     or_(Task.depends_on_id.is_(None), dependency.status == "succeeded"),
                 )
                 .order_by(Task.created_at, Task.id)
-                .limit(25)
             ).all()
             usable_accounts = (
                 self._usable_accounts(session)
@@ -315,9 +317,24 @@ class TaskCoordinator:
     def _claim(
         self, session, candidate, account_id: str | None, now: datetime
     ) -> _Claim | None:
+        dependency = aliased(Task)
         claimed = session.execute(
             update(Task)
-            .where(Task.id == candidate.id, Task.status == "queued")
+            .where(
+                Task.id == candidate.id,
+                Task.status == "queued",
+                Task.cancel_requested.is_(False),
+                or_(Task.run_after.is_(None), Task.run_after <= now),
+                or_(
+                    Task.depends_on_id.is_(None),
+                    select(dependency.id)
+                    .where(
+                        dependency.id == Task.depends_on_id,
+                        dependency.status == "succeeded",
+                    )
+                    .exists(),
+                ),
+            )
             .values(
                 status="running",
                 started_at=now,
@@ -410,7 +427,12 @@ class TaskCoordinator:
             # Not an attempt: give it back and try again later.
             self._update(
                 context.task_id,
-                status="queued",
+                status=case(
+                    (Task.cancel_requested.is_(True), "cancelled"), else_="queued"
+                ),
+                finished_at=case(
+                    (Task.cancel_requested.is_(True), utcnow()), else_=None
+                ),
                 started_at=None,
                 attempts=Task.attempts - 1,
                 run_after=utcnow() + timedelta(seconds=deferred.delay),
@@ -435,8 +457,21 @@ class TaskCoordinator:
             self._wake.set()
 
     def _fail(self, context: TaskContext, failure: TaskFailure) -> None:
+        fields = dict(
+            error_code=failure.code,
+            error_message=failure.message[:500] or None,
+            retryable=failure.retryable,
+            suggested_action=failure.suggested_action,
+        )
         with self.database.sessions() as session:
+            # Serialize the retry decision with cancellation (SQLite WAL).
+            session.execute(
+                text("UPDATE tasks SET status = status WHERE id = :id"),
+                {"id": context.task_id},
+            )
             task = session.get(Task, context.task_id)
+            if task is None:
+                return
             # `retryable` is the handler's statement that resending is safe
             # (the upstream request definitely failed). Unknown outcomes only
             # arise after a restart and are handled by recover().
@@ -445,22 +480,24 @@ class TaskCoordinator:
                 and task.attempts < task.max_attempts
                 and not task.cancel_requested
             )
-        fields = dict(
-            error_code=failure.code,
-            error_message=failure.message[:500] or None,
-            retryable=failure.retryable,
-            suggested_action=failure.suggested_action,
-        )
-        if retry_automatically:
-            self._update(
-                context.task_id,
-                status="queued",
-                started_at=None,
-                run_after=utcnow() + self.retry_delay * context.attempt,
-                **fields,
+            now = utcnow()
+            if retry_automatically:
+                fields.update(
+                    status="queued",
+                    started_at=None,
+                    run_after=now + self.retry_delay * context.attempt,
+                )
+            else:
+                fields.update(
+                    status="cancelled" if task.cancel_requested else "failed",
+                    finished_at=now,
+                )
+            session.execute(
+                update(Task)
+                .where(Task.id == context.task_id)
+                .values(updated_at=now, **fields)
             )
-        else:
-            self._finish(context.task_id, "failed", **fields)
+            session.commit()
 
     def _finish(self, task_id: str, status: str, **fields) -> None:
         self._update(task_id, status=status, finished_at=utcnow(), **fields)

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
@@ -109,6 +110,10 @@ def retry_task(
     values: Annotated[TaskRetry | None, Body()] = None,
 ) -> TaskResponse:
     values = values or TaskRetry()
+    session.execute(
+        text("UPDATE tasks SET status = status WHERE id = :id"),
+        {"id": task_id},
+    )
     found = tasks.get_task(session, task_id)
     if found is None:
         raise not_found()
@@ -119,7 +124,6 @@ def retry_task(
             raise HTTPException(
                 error.status, detail={"code": error.code, "message": "This generation cannot be retried."}
             ) from None
-    session.rollback()  # End the read snapshot before retry_task writes (WAL).
     try:
         if not tasks.retry_task(
             session, task_id, switch_account=values.switch_account, confirm_duplicate=values.confirm_duplicate,

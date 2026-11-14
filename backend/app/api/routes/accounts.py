@@ -16,6 +16,7 @@ from app.core.account_cookies import CookieImportError, parse_cookie_bundle
 from app.core.account_operations import AccountBusyError
 from app.models.account import Account
 from app.repositories import accounts
+from app.rendering.tasks import sync_active_projects
 from app.schemas.account import (
     AccountImport,
     AccountListResponse,
@@ -182,6 +183,7 @@ def delete_account(
     with request.app.state.account_operations.acquire(account_id):
         if not accounts.delete_account(session, account_id):
             raise not_found()
+    sync_active_projects(request.app.state.database)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

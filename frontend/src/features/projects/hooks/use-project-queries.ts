@@ -92,6 +92,7 @@ export function useSaveProjectScript() {
     onSuccess: (project) => {
       client.setQueryData(projectKeys.detail(project.id), project);
       void client.invalidateQueries({ queryKey: projectKeys.lists });
+      void client.invalidateQueries({ queryKey: renderKey(project.id) });
     },
     onError: (error, { id }) => {
       if (!(error instanceof ApiError) || error.status !== 409) return;

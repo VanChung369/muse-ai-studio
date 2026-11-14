@@ -241,7 +241,7 @@ export function useProjectList() {
     counts: firstPage?.counts ?? NO_COUNTS,
     hasMore: projectsQuery.hasNextPage,
     loadMore: () => {
-      if (!projectsQuery.isFetchingNextPage) void projectsQuery.fetchNextPage();
+      if (!projectsQuery.isFetching) void projectsQuery.fetchNextPage();
     },
     isLoadingMore: projectsQuery.isFetchingNextPage,
     loadMoreError: projectsQuery.isFetchNextPageError,

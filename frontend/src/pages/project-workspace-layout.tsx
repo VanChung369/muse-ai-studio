@@ -115,7 +115,7 @@ export function ProjectWorkspaceLayout() {
         <ProjectStatusBadge status={data.status} />
       </header>
       {/* Every step page reads the project from here. */}
-      <Outlet context={data} />
+      <Outlet key={data.id} context={data} />
     </div>
   );
 }

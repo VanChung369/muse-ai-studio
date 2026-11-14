@@ -32,7 +32,8 @@ class Clip:
 
 def find_ffmpeg(settings: Settings) -> str | None:
     if settings.ffmpeg_path:
-        return settings.ffmpeg_path if Path(settings.ffmpeg_path).is_file() else None
+        path = Path(settings.ffmpeg_path)
+        return str(path.resolve()) if path.is_file() else None
     return shutil.which("ffmpeg")
 
 
@@ -202,7 +203,7 @@ def merge(
 def _span(clip: Clip, start: float, end: float | None) -> tuple[float, float]:
     """The part of a clip to keep, fitted inside the clip."""
     end = min(end if end is not None else clip.seconds, clip.seconds)
-    start = max(0.0, min(start, end))
+    start = max(0.0, min(start, end - 0.5))
     return start, end
 
 

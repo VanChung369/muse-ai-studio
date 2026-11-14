@@ -14,6 +14,7 @@ from app.core.text import normalize_search_text
 from app.models import LibraryAsset, Project, Scene
 from app.rendering import storage
 from app.rendering.intake import thumbnail_name
+from app.schemas.project import MAX_SCENES
 
 MAX_ASSETS = 500
 
@@ -173,7 +174,11 @@ def find(session, settings: Settings, item_id: str) -> Item | None:
         item = _upload(settings, asset) if asset else None
     elif role == "scene":
         project_id, _, number = rest.rpartition(":")
-        if number.isdigit():
+        try:
+            number = int(number)
+        except ValueError:
+            return None
+        if 1 <= number <= MAX_SCENES:
             row = session.execute(
                 select(
                     Scene.project_id,
@@ -187,7 +192,7 @@ def find(session, settings: Settings, item_id: str) -> Item | None:
                 .join(Project, Project.id == Scene.project_id)
                 .where(
                     Scene.project_id == project_id,
-                    Scene.number == int(number),
+                    Scene.number == number,
                     Scene.video_file.is_not(None),
                 )
             ).first()

@@ -84,6 +84,7 @@ export function mediaErrorKey(error: unknown): MediaErrorKey {
 export function validateMediaFiles(
   files: FileList | File[],
   existingCount: number,
+  maxFiles = MEDIA_MAX_FILES,
 ): { accepted: File[]; errorCode: MediaValidationErrorCode | null } {
   const accepted: File[] = [];
   let errorCode: MediaValidationErrorCode | null = null;
@@ -101,7 +102,7 @@ export function validateMediaFiles(
       errorCode ??= "file_too_large";
       continue;
     }
-    if (existingCount + accepted.length >= MEDIA_MAX_FILES) {
+    if (existingCount + accepted.length >= maxFiles) {
       errorCode ??= "too_many_files";
       break;
     }

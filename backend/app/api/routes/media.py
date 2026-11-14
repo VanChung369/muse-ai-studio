@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 from pydantic.alias_generators import to_camel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
@@ -81,7 +81,12 @@ def error(status: int, code: str, message: str) -> HTTPException:
 
 
 def _project(session: Session, project_id: str, *, changing: bool = False) -> Project:
-    project = session.get(Project, project_id)
+    if changing:
+        session.execute(
+            text("UPDATE projects SET status = status WHERE id = :id"),
+            {"id": project_id},
+        )
+    project = session.get(Project, project_id, populate_existing=changing)
     if project is None:
         raise error(404, "project_not_found", "Project not found.")
     if changing and project.status in ("rendering", "cancelling"):
@@ -201,6 +206,7 @@ async def add_media(
             height=None if kind == "audio" else info.height,
             source="upload",
         )
+        _project(session, project_id, changing=True)
         session.add(media)
         session.flush()
         # Counted again now that this request holds the write lock: uploads
@@ -346,6 +352,7 @@ def import_media(
                     source="upload",
                 )
             )
+        _project(session, project_id, changing=True)
         session.add_all(created)
         session.flush()
         # Counted again now that this request holds the write lock.

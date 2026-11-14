@@ -277,9 +277,16 @@ export function AudioLanes({
                       // start is also where the piece now begins in the film,
                       // which cannot be before the film does.
                       const wanted = from.start + seconds;
-                      const start = Math.max(
-                        clampCut(from, "start", wanted),
-                        toTenth(from.start - from.offset),
+                      const maxOffset = Math.max(toTenth(total - 0.5), 0);
+                      const maxStart = toTenth(
+                        from.start + Math.max(maxOffset - from.offset, 0),
+                      );
+                      const start = Math.min(
+                        Math.max(
+                          clampCut(from, "start", wanted),
+                          toTenth(from.start - from.offset),
+                        ),
+                        maxStart,
                       );
                       // Pulled past the file's first second, there is no
                       // earlier sound to uncover: the piece moves earlier.

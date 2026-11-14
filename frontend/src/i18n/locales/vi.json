@@ -504,7 +504,11 @@
         "project_not_found": "Dự án này không còn tồn tại.",
         "unknown": "Không lưu được dòng thời gian. Vui lòng thử lại.",
         "captions_unavailable": "FFmpeg trên máy chủ này không in được phụ đề. Hãy tắt “In phụ đề vào video” rồi thử lại.",
-        "preview_failed": "Không dựng được bản xem thử. Hãy kiểm tra lại chỉnh sửa rồi thử lại."
+        "preview_failed": "Không dựng được bản xem thử. Hãy kiểm tra lại chỉnh sửa rồi thử lại.",
+        "preview_busy": "Một bản xem thử khác đang được dựng. Hãy đợi hoàn tất rồi thử lại.",
+        "scene_missing": "Thiếu clip của một cảnh. Hãy render lại cảnh đó trước khi xem thử.",
+        "media_missing": "Thiếu một tệp đang dùng trong bản chỉnh sửa. Hãy tải lại tệp và thay thế trên dòng thời gian.",
+        "timeline_empty": "Không có clip để xem thử. Hãy giữ lại ít nhất một clip trong phim."
       },
       "shown": "Hiển thị (giây)",
       "speed": "Tốc độ",

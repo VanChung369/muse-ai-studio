@@ -357,7 +357,7 @@ def generate_script_text(
     # Our message is recognised on the page by this label (see ANCHOR_JS).
     marker = f"plan-{uuid4().hex[:8]}"
     with open_composer(client, result, proxy, thread_path) as page:
-        continued = thread_path_of(page.url) is not None
+        continued = bool(thread_path and thread_path_of(page.url) == thread_path)
         attached = 0
         if continued:
             settle_conversation(page)

@@ -123,6 +123,7 @@ def _after_condition(cursor: str, sort: ProjectSort) -> ColumnElement[bool]:
         IndexError,
         TypeError,
         ValueError,
+        OverflowError,
     ) as error:
         raise InvalidCursorError from error
 
@@ -444,6 +445,13 @@ def delete_project(session: Session, project_id: str) -> None:
             .where(
                 Project.id == project_id,
                 Project.status.not_in(("planning", "rendering", "cancelling")),
+                ~select(Task.id)
+                .where(
+                    Task.project_id == Project.id,
+                    Task.kind.in_(RENDER_KINDS),
+                    Task.status == "running",
+                )
+                .exists(),
                 ~select(Task.id)
                 .where(
                     Task.project_id == Project.id,

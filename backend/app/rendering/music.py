@@ -7,7 +7,7 @@ audio file among the project's media. The picture is thrown away.
 
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
@@ -45,6 +45,10 @@ def music_prompt(description: str, aspect_ratio: str) -> str:
 def enqueue_music(session, project_id: str, description: str):
     """Queue one piece of music for the project. Returns (task, account label)."""
     try:
+        session.execute(
+            text("UPDATE projects SET status = status WHERE id = :id"),
+            {"id": project_id},
+        )
         project = session.get(Project, project_id)
         if project is None:
             raise MusicRequestError("project_not_found", 404)
@@ -152,6 +156,10 @@ def make_music_handler(app):
             if not info.has_audio or not info.seconds:
                 raise TaskFailure("music_missing", suggested_action="retry")
             with database.sessions() as session:
+                session.execute(
+                    text("UPDATE projects SET status = status WHERE id = :id"),
+                    {"id": context.project_id},
+                )
                 if session.get(Project, context.project_id) is None:
                     # The project was deleted while its music was generating.
                     raise TaskFailure("project_not_found")

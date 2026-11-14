@@ -94,7 +94,7 @@ export function SettingsPage() {
           />
           <PageLoading />
         </>
-      ) : settings.isError ? (
+      ) : settings.isError && !settings.data ? (
         <>
           <PageHeader
             title={title}

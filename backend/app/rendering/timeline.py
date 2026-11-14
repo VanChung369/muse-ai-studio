@@ -388,7 +388,7 @@ def validate(
             )
             if not text:
                 continue
-            if entry["end"] - entry["start"] < 0.2:
+            if entry["end"] - entry["start"] < 0.2 - 1e-6:
                 raise TimelineError(f"A {what} must stay on screen for a moment.")
             kept.append(
                 {
