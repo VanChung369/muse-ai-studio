@@ -1,6 +1,7 @@
 """Isolated Muse composer client, using the reference UI selectors (see LICENSE)."""
 
 import json
+import os
 import re
 import shutil
 import time
@@ -133,15 +134,25 @@ def _open_thread(page, client, thread_path) -> bool:
     return False
 
 
+def _installed(*parts: str) -> list[str]:
+    """Where Windows installs a browser: under each program folder."""
+    roots = (os.environ.get(name) for name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"))
+    return [str(Path(root, *parts)) for root in roots if root]
+
+
 def _first_browser(configured: str | None, bundled: str | None) -> str | None:
-    """The Chromium to drive: the configured one, one installed on the
-    machine, or the one Playwright downloaded."""
+    """The Chromium to drive: the configured one, Chrome or Chromium installed
+    on the machine, the one Playwright downloaded, or (on Windows, where it
+    is always there) Edge."""
     candidates = [
         configured,
         shutil.which("chromium"),
         shutil.which("google-chrome"),
+        shutil.which("chrome"),
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        *_installed("Google", "Chrome", "Application", "chrome.exe"),
         bundled,
+        *_installed("Microsoft", "Edge", "Application", "msedge.exe"),
     ]
     return next((path for path in candidates if path and Path(path).is_file()), None)
 
