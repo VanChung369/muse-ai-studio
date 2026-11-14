@@ -62,7 +62,7 @@
     },
     "library": {
       "title": "Media Library",
-      "description": "A shared space for your images and videos.",
+      "description": "Every video made in Video Studio, and the pictures, videos and audio you upload.",
       "headline": "Keep your favorite frames together."
     },
     "tasks": {
@@ -1067,5 +1067,74 @@
     "activeCount_other": "{{count}} active tasks",
     "attentionCount_one": "{{count}} task needs attention",
     "attentionCount_other": "{{count}} tasks need attention"
+  },
+  "library": {
+    "filterLabel": "Kind of media",
+    "filters": {
+      "all": "All",
+      "image": "Pictures",
+      "video": "Videos",
+      "audio": "Audio"
+    },
+    "sourceLabel": "Source",
+    "sources": {
+      "all": "All sources",
+      "studio": "Video Studio",
+      "upload": "Uploaded"
+    },
+    "searchLabel": "Search media",
+    "searchPlaceholder": "Search by name or project",
+    "upload": "Upload files",
+    "uploading": "Uploading…",
+    "dropHint": "Drop files here to add them to the library",
+    "empty": "Nothing here yet. Upload a file, or render a project in Video Studio.",
+    "emptyFiltered": "Nothing matches these filters.",
+    "loadError": "Could not load the library. Please try again.",
+    "loadMore": "Load more",
+    "showing": "Showing {{shown}} of {{total}}",
+    "select": "Select {{name}}",
+    "open": "Open {{name}}",
+    "scene": "Scene {{number}}",
+    "film": "Finished film",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "download": "Download",
+    "delete": "Delete",
+    "deselect": "Deselect",
+    "deleteNote": "Only files you uploaded can be deleted. Videos made in Video Studio belong to their project.",
+    "deleteTitle_one": "Delete {{count}} file?",
+    "deleteTitle_other": "Delete {{count}} files?",
+    "deleteDescription": "They are removed from the library for good. Projects that already took a copy keep it.",
+    "deleting": "Deleting…",
+    "openProject": "Open project",
+    "failed_one": "{{count}} file could not be uploaded.",
+    "failed_other": "{{count}} files could not be uploaded.",
+    "errors": {
+      "unsupported_file": "Upload a video (MP4, WebM, MOV), a picture (PNG, JPEG, WebP) or audio (MP3, WAV, M4A, OGG).",
+      "file_too_large": "A file can be {{size}} MB at most.",
+      "too_many_files": "The library is full. Delete some files first.",
+      "ffmpeg_unavailable": "FFmpeg is needed to read uploaded media. Install it on the server first.",
+      "empty_file": "The file is empty.",
+      "unreadable_file": "This file could not be read as video, picture or audio.",
+      "not_deletable": "This video belongs to a project and cannot be deleted here.",
+      "library_item_not_found": "This file is no longer in the library.",
+      "unknown": "The request failed. Please try again."
+    },
+    "picker": {
+      "open": "Choose from library",
+      "title": "Choose from the library",
+      "description": "Pick pictures, videos or audio for this project. Each is copied into the project, so the film keeps working if the original is deleted.",
+      "add_one": "Add {{count}} file",
+      "add_other": "Add {{count}} files",
+      "adding": "Adding…",
+      "errors": {
+        "too_many_files": "A project can hold {{count}} media files. Remove some from the project first.",
+        "project_busy": "The film is being merged. Wait for it to finish first.",
+        "ffmpeg_unavailable": "FFmpeg is needed to read media. Install it on the server first.",
+        "library_item_not_found": "One of these files is no longer in the library.",
+        "project_not_found": "This project no longer exists.",
+        "unknown": "The files could not be added. Please try again."
+      }
+    }
   }
 }

@@ -401,11 +401,19 @@ export function AudioEditor({
   const id = useId();
 
   return (
-    <fieldset disabled={!editable} className="min-w-0 space-y-3">
-      <legend className="text-sm font-semibold">
-        {t("projects.timeline.audio.title")}
+    <fieldset disabled={!editable} className="min-w-0 space-y-4">
+      <legend className="mb-1 w-full text-sm font-semibold">
+        <span className="flex items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-running-soft text-running">
+            <AudioLines className="size-4" aria-hidden="true" />
+          </span>
+          {t("projects.timeline.audio.title")}
+        </span>
       </legend>
-      <p className="truncate text-xs text-muted-foreground" title={track.name}>
+      <p
+        className="line-clamp-2 rounded-lg bg-secondary/60 px-3 py-2 text-xs leading-5 text-muted-foreground"
+        title={track.name}
+      >
         {track.name}
       </p>
       <audio
@@ -414,8 +422,8 @@ export function AudioEditor({
         src={track.url}
         className="h-9 w-full min-w-0"
       />
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-1.5">
+      <div className="grid grid-cols-2 gap-3 rounded-lg border bg-background/50 p-3">
+        <div className="col-span-2 space-y-2 border-b pb-3">
           <Label htmlFor={`${id}-offset`} className="text-xs">
             {t("projects.timeline.audio.offset")}
           </Label>
@@ -432,7 +440,7 @@ export function AudioEditor({
           />
         </div>
         {(["start", "end"] as const).map((edge) => (
-          <div key={edge} className="space-y-1.5">
+          <div key={edge} className="min-w-0 space-y-2">
             <Label htmlFor={`${id}-${edge}`} className="text-xs">
               {t(`projects.timeline.audio.${edge}`)}
             </Label>
@@ -446,18 +454,20 @@ export function AudioEditor({
           </div>
         ))}
       </div>
-      <p className="text-xs text-faint">
+      <p className="text-xs leading-5 text-faint">
         {t("projects.timeline.audio.length", {
           seconds: track.clipSeconds.toFixed(1),
         })}
       </p>
-      <VolumeField
-        id={`${id}-volume`}
-        label={t("projects.timeline.audio.volume")}
-        value={track.volume}
-        onChange={(volume) => onChange({ volume })}
-      />
-      <label className="flex items-start gap-2 text-[13px]">
+      <div className="rounded-lg border bg-background/50 p-3">
+        <VolumeField
+          id={`${id}-volume`}
+          label={t("projects.timeline.audio.volume")}
+          value={track.volume}
+          onChange={(volume) => onChange({ volume })}
+        />
+      </div>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border bg-background/50 p-3 text-[13px]">
         <input
           type="checkbox"
           checked={track.loop}
@@ -471,7 +481,13 @@ export function AudioEditor({
           </span>
         </span>
       </label>
-      <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="w-full"
+        onClick={onRemove}
+      >
         <Trash2 aria-hidden="true" />
         {t("projects.timeline.remove")}
       </Button>

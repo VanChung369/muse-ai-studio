@@ -92,6 +92,18 @@ Projects also carry `language` (`auto`, `vi`, `en`, `zh`, `ja`, `ko`, `es`, `fr`
 
 `POST /api/projects/{project_id}/media/music` with `{description}` (1 to 500 characters) asks Muse for background music (HTTP 202, a `generate_music` task). Muse makes videos, not audio files, so a 10-second clip is requested in a conversation of its own whose soundtrack is the music described; only that soundtrack is kept, as an audio file with `source: "muse"` among the project's media. One request runs per project at a time (409 `generation_active`); 409 `account_unavailable` without an enabled, verified account; 409 `too_many_files`. The task fails with `music_missing` when the clip has no sound and `ffmpeg_unavailable` without FFmpeg (checked before any quota is spent). `GET .../media/music` returns the latest such task, or null.
 
+## Media library
+
+The library is one list of everything made in Video Studio (each rendered scene clip and each finished film, which stay in their project) and of files uploaded to the library itself, which belong to no project.
+
+`GET /api/library` returns `{items, total, counts}`, newest first. Optional query: `kind` (`image`, `video`, `audio`), `source` (`studio` for scenes and films, `upload`), `q` (matched against the title and the project's name, ignoring case and accents), `limit` (default 60, at most 200) and `offset`. `total` counts what matches all three filters; `counts` is `{all, image, video, audio}` for the source and search alone, for filter chips. An item is `{id, role, kind, source, title, projectId, projectName, sceneNumber, assetId, seconds, size, url, thumbnailUrl, waveformUrl, createdAt, deletable}`: `id` is `upload:<asset id>`, `scene:<project id>:<number>` or `film:<project id>`; `role` is `upload`, `scene` or `film`; `title` is the file's name, the scene's title, or the project's name for a film; `seconds` is null for a picture and for a film; `deletable` is true only for uploads. Entries whose file is missing from disk are left out.
+
+`POST /api/library?name=<file name>` uploads one file as the raw request body with its type in `Content-Type` (201, the new item). It accepts the same types and sizes as a project's media and fails the same way: 415 `unsupported_file`, 413 `file_too_large` above 200 MB, 422 `empty_file` or `unreadable_file`, 409 `ffmpeg_unavailable`, and 409 `too_many_files` above 500 files. `GET /api/library/assets/{asset_id}/file` serves an uploaded file (`?download=true` to save it under its name), `.../thumbnail` a still of a video or picture, `.../waveform` the drawn sound of an audio file, and `DELETE /api/library/assets/{asset_id}` removes it (204; 404 `library_item_not_found`). Scenes and films are served by their project's routes and cannot be deleted here.
+
+`GET /api/library/archive?ids=<id>&ids=<id>` downloads the chosen items (up to 100) as one zip, each under a name of its own; ids that do not exist are skipped, and 404 `library_item_not_found` is returned when none do.
+
+`POST /api/projects/{project_id}/media/import` with `{ids}` (1 to 20 library item ids) copies those files into the project's media and returns the new media objects (201). The project gets copies of its own, so deleting the original later does not affect it. It is all or nothing: 404 `library_item_not_found` when any id is unknown, 409 `too_many_files` when the project would hold more than 30 files, 409 `project_busy` while rendering or merging, and 409 `ffmpeg_unavailable` when a scene or film has to be measured without FFmpeg.
+
 ## Timeline
 
 `GET /api/projects/{project_id}/timeline` returns the film's edit: `{projectId, status, editable, items, audio, volume, captions, burnCaptions, captionStyle, canBurnCaptions, totalSeconds}`.

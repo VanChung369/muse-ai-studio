@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from typing import Annotated, Literal
 from uuid import uuid4
@@ -12,13 +13,21 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
 from app.models import Media, Project
-from app.rendering import storage, timeline
+from app.rendering import library, storage, timeline
 from app.rendering.ffmpeg import (
     MergeError,
     find_ffmpeg,
     inspect,
     thumbnail,
     waveform,
+)
+from app.rendering.intake import (
+    MAX_BYTES,
+    TYPES,
+    base_name,
+    readable,
+    thumbnail_name,
+    waveform_name,
 )
 from app.rendering.music import MusicRequestError, enqueue_music, latest_music_task
 from app.schemas.task import TaskResponse
@@ -27,25 +36,6 @@ router = APIRouter(prefix="/projects", tags=["Media"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
 
 MAX_FILES = 30
-MAX_BYTES = 200 * 1024 * 1024
-# What can be cut into a film or laid over it: type -> (kind, file extension).
-TYPES = {
-    "video/mp4": ("video", ".mp4"),
-    "video/webm": ("video", ".webm"),
-    "video/quicktime": ("video", ".mov"),
-    "image/png": ("image", ".png"),
-    "image/jpeg": ("image", ".jpg"),
-    "image/webp": ("image", ".webp"),
-    "audio/mpeg": ("audio", ".mp3"),
-    "audio/mp3": ("audio", ".mp3"),
-    "audio/wav": ("audio", ".wav"),
-    "audio/x-wav": ("audio", ".wav"),
-    "audio/wave": ("audio", ".wav"),
-    "audio/mp4": ("audio", ".m4a"),
-    "audio/x-m4a": ("audio", ".m4a"),
-    "audio/aac": ("audio", ".aac"),
-    "audio/ogg": ("audio", ".ogg"),
-}
 
 
 class MediaResponse(BaseModel):
@@ -88,16 +78,6 @@ class MediaResponse(BaseModel):
 
 def error(status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status, detail={"code": code, "message": message})
-
-
-def waveform_name(file: str) -> str:
-    """The drawing of an audio file's sound, kept next to it."""
-    return Path(file).stem + ".wave.png"
-
-
-def thumbnail_name(file: str) -> str:
-    """The still kept next to a video or picture (never the file's own name)."""
-    return Path(file).stem + ".thumb.jpg"
 
 
 def _project(session: Session, project_id: str, *, changing: bool = False) -> Project:
@@ -282,6 +262,104 @@ def get_music_generation(project_id: str, session: DatabaseSession):
     _project(session, project_id)
     latest = latest_music_task(session, project_id)
     return TaskResponse.from_task(*latest) if latest else None
+
+
+class LibraryImport(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
+    # Library entries to copy into the project: "upload:<id>",
+    # "scene:<project id>:<number>" or "film:<project id>".
+    ids: list[str] = Field(min_length=1, max_length=20)
+
+
+@router.post(
+    "/{project_id}/media/import",
+    response_model=list[MediaResponse],
+    status_code=201,
+    responses={
+        404: {"description": "Project or library entry not found"},
+        409: {"description": "Merging, too many files, or FFmpeg is missing"},
+    },
+)
+def import_media(
+    project_id: str, values: LibraryImport, request: Request, session: DatabaseSession
+):
+    """Copy files from the media library into the project's media. The
+    project gets copies of its own, so it does not depend on the library."""
+    settings = request.app.state.settings
+    _project(session, project_id, changing=True)
+    wanted = list(dict.fromkeys(values.ids))
+    if _count(session, project_id) + len(wanted) > MAX_FILES:
+        raise too_many()
+    items = [library.find(session, settings, item_id) for item_id in wanted]
+    session.rollback()  # No transaction is held while files are copied.
+    if not all(items):
+        raise error(
+            404, "library_item_not_found", "One of these files is not in the library."
+        )
+    ffmpeg = find_ffmpeg(settings)
+    # An uploaded file was measured when it arrived; a clip made in Video
+    # Studio has to be read now.
+    if ffmpeg is None and any(item.role != "upload" for item in items):
+        raise error(409, "ffmpeg_unavailable", "FFmpeg is needed to read this video.")
+
+    folder = storage.media_dir(settings, project_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    created: list[Media] = []
+    try:
+        for item in items:
+            extension = TYPES.get(item.mime, (None, item.path.suffix))[1]
+            file = f"{uuid4().hex}{extension}"
+            target, still = folder / file, folder / thumbnail_name(file)
+            written += [target, still]
+            shutil.copyfile(item.path, target)
+            seconds, width, height = item.seconds, item.width, item.height
+            if item.role != "upload":
+                try:
+                    info = inspect(ffmpeg, target)
+                except MergeError:
+                    info = None
+                if not readable(info, item.kind):
+                    raise error(
+                        404,
+                        "library_item_not_found",
+                        "One of these files could not be read.",
+                    )
+                seconds, width, height = round(info.seconds, 3), info.width, info.height
+            if item.kind != "audio":
+                made = library.still_of(item)
+                if made is not None:
+                    shutil.copyfile(made, still)
+                elif ffmpeg:
+                    thumbnail(ffmpeg, target, still)  # Best effort.
+            created.append(
+                Media(
+                    project_id=project_id,
+                    kind=item.kind,
+                    name=base_name(item.file_name, file),
+                    file=file,
+                    mime=item.mime,
+                    size=target.stat().st_size,
+                    seconds=None if item.kind == "image" else seconds,
+                    width=None if item.kind == "audio" else width,
+                    height=None if item.kind == "audio" else height,
+                    source="upload",
+                )
+            )
+        session.add_all(created)
+        session.flush()
+        # Counted again now that this request holds the write lock.
+        if _count(session, project_id) > MAX_FILES:
+            raise too_many()
+        session.commit()
+        for media in created:
+            session.refresh(media)
+    except Exception:
+        session.rollback()
+        for path in written:
+            path.unlink(missing_ok=True)
+        raise
+    return created
 
 
 def _media(session: Session, project_id: str, media_id: str) -> Media:

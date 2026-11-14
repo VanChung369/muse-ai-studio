@@ -20,9 +20,14 @@ const featurePages: Partial<Record<NavigationItem["id"], ComponentType>> = {
       default: module.AccountsPage,
     })),
   ),
-  projects: lazy(() =>
+    projects: lazy(() =>
     import("@/pages/projects-page").then((module) => ({
       default: module.ProjectsPage,
+    })),
+  ),
+  library: lazy(() =>
+    import("@/pages/library-page").then((module) => ({
+      default: module.LibraryPage,
     })),
   ),
 };

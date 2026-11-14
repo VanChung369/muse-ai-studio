@@ -3,12 +3,13 @@ import {
   Download,
   EyeOff,
   FileText,
-  Film,
+    Film,
+  Images,
   Layers,
   LoaderCircle,
   Music,
   Pencil,
-    Sparkles,
+  Sparkles,
   Terminal,
   Trash2,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useOutletContext } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { LibraryPickerDialog } from "@/features/library/components/library-picker-dialog";
 import type { ProjectMedia } from "@/features/projects/api/media";
 import { MediaLibrary } from "@/features/projects/components/media-library";
 import { MuseMusicDialog } from "@/features/projects/components/muse-music-dialog";
@@ -62,7 +64,7 @@ import {
   itemSeconds,
   MAX_AUDIO_TRACKS,
   MAX_TIMELINE_ITEMS,
-    moveItem,
+  moveItem,
   SPEEDS,
   type TimelineDraft,
   timelineErrorKey,
@@ -148,6 +150,7 @@ function Output({
   const [selection, setSelection] = useState<Selection>(null);
   const [panel, setPanel] = useState<"media" | "captions">("media");
   const [askingMusic, setAskingMusic] = useState(false);
+  const [picking, setPicking] = useState(false);
   // An audio file from the media library is being dragged over its track.
   const [audioDrop, setAudioDrop] = useState(false);
   const [time, setTime] = useState(0);
@@ -603,6 +606,62 @@ function Output({
               </Link>
             </Button>
           </section>
+          {draft.items.length > 0 && (
+            <section className="space-y-5 bg-background/40 p-4 tablet:p-5">
+              <div className="min-w-0 space-y-5 rounded-xl border bg-card p-4 shadow-sm">
+                {cut ? (
+                  <TimelineCutEditor
+                    item={cut}
+                    index={cutIndex}
+                    count={draft.items.length}
+                    editable={editable}
+                    onChange={(patch) => patchItem(cut.key, patch)}
+                    onMove={move}
+                    onRemove={
+                      cut.mediaId === null
+                        ? undefined
+                        : () => {
+                            setItems((items) =>
+                              items.filter((item) => item.key !== cut.key),
+                            );
+                            setSelection(null);
+                          }
+                    }
+                  />
+                ) : track ? (
+                  <AudioEditor
+                    track={track}
+                    total={total}
+                    editable={editable}
+                    onChange={(patch) => patchAudio(track.key, patch)}
+                    onRemove={() => {
+                      setDraft((edit) => ({
+                        ...edit,
+                        audio: edit.audio.filter(
+                          (item) => item.key !== track.key,
+                        ),
+                      }));
+                      setSelection(null);
+                    }}
+                  />
+                ) : (
+                  <p className="text-[13px] leading-6 text-muted-foreground">
+                    {t("projects.timeline.inspectorHint")}
+                  </p>
+                )}
+                <div className="border-t pt-4">
+                  <SceneVolume
+                    volume={draft.volume}
+                    muted={project.mute}
+                    editable={editable}
+                    onChange={(volume) =>
+                      setDraft((edit) => ({ ...edit, volume }))
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+          )}
         </aside>
       </div>
 
@@ -902,160 +961,115 @@ function Output({
             </p>
           )}
 
-          {/* Under the tracks, so selecting something never moves them. */}
-          <div className="grid items-start gap-4 pt-1 desktop:grid-cols-[22rem_minmax(0,1fr)]">
-            <div className="min-w-0 space-y-4 rounded-lg border p-4">
-              {cut ? (
-                <TimelineCutEditor
-                  item={cut}
-                  index={cutIndex}
-                  count={draft.items.length}
-                  editable={editable}
-                  onChange={(patch) => patchItem(cut.key, patch)}
-                  onMove={move}
-                  onRemove={
-                    cut.mediaId === null
-                      ? undefined
-                      : () => {
-                          setItems((items) =>
-                            items.filter((item) => item.key !== cut.key),
-                          );
-                          setSelection(null);
-                        }
-                  }
-                />
-              ) : track ? (
-                <AudioEditor
-                  track={track}
-                  total={total}
-                  editable={editable}
-                  onChange={(patch) => patchAudio(track.key, patch)}
-                  onRemove={() => {
-                    setDraft((edit) => ({
-                      ...edit,
-                      audio: edit.audio.filter(
-                        (item) => item.key !== track.key,
-                      ),
-                    }));
-                    setSelection(null);
-                  }}
-                />
-              ) : (
-                <p className="text-[13px] leading-6 text-muted-foreground">
-                  {t("projects.timeline.inspectorHint")}
-                </p>
-              )}
-              <div className="border-t pt-4">
-                <SceneVolume
-                  volume={draft.volume}
-                  muted={project.mute}
-                  editable={editable}
-                  onChange={(volume) =>
-                    setDraft((edit) => ({ ...edit, volume }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="min-w-0 space-y-4 rounded-lg border p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <div role="tablist" className="flex gap-1">
-                  {(["media", "captions"] as const).map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      role="tab"
-                      aria-selected={panel === name}
-                      onClick={() => setPanel(name)}
-                      className={cn(
-                        "h-8 rounded-md px-3 text-[13px] font-medium",
-                        panel === name
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {t(
-                        name === "media"
-                          ? "projects.media.title"
-                          : "projects.timeline.captions.title",
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {panel === "media" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="ml-auto"
-                    onClick={() => setAskingMusic(true)}
+          <div className="min-w-0 space-y-4 rounded-xl border p-4 tablet:p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="tablist" className="flex gap-1">
+                {(["media", "captions"] as const).map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    role="tab"
+                    aria-selected={panel === name}
+                    onClick={() => setPanel(name)}
+                    className={cn(
+                      "h-8 rounded-md px-3 text-[13px] font-medium",
+                      panel === name
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    <Sparkles aria-hidden="true" />
-                    {t("projects.music.open")}
-                  </Button>
-                )}
+                    {t(
+                      name === "media"
+                        ? "projects.media.title"
+                        : "projects.timeline.captions.title",
+                    )}
+                  </button>
+                ))}
               </div>
-              {panel === "media" ? (
-                <MediaLibrary
-                  projectId={project.id}
-                  // The server refuses changes while the film is merged.
-                  disabled={merging}
-                  usedIds={usedIds}
-                  onAddClip={editable ? (media) => addClip(media) : undefined}
-                  onAddAudio={
-                    editable ? (media) => addAudio(media) : undefined
-                  }
-                />
-              ) : (
-                <CaptionEditor
-                  captions={draft.captions}
-                  burn={draft.burnCaptions}
-                  style={draft.captionStyle}
-                  onStyle={(patch) =>
-                    setDraft((edit) => ({
-                      ...edit,
-                      captionStyle: { ...edit.captionStyle, ...patch },
-                    }))
-                  }
-                  canBurn={timeline?.canBurnCaptions ?? false}
-                  selected={
-                    selection?.kind === "caption" ? selection.index : null
-                  }
-                  editable={editable}
-                  at={cut ? 0 : Math.min(time, Math.max(total - 2, 0))}
-                  onChange={(captions) =>
-                    setDraft((edit) => ({ ...edit, captions }))
-                  }
-                  onBurn={(burnCaptions) =>
-                    setDraft((edit) => ({ ...edit, burnCaptions }))
-                  }
-                  onSelect={(index) =>
-                    setSelection(
-                      index === null ? null : { kind: "caption", index },
-                    )
-                  }
-                  onFromNarration={
-                    narrated
-                      ? () =>
-                          setDraft((edit) => ({
-                            ...edit,
-                            captions: captionsFromNarration(
-                              project,
-                              edit.items,
-                            ),
-                          }))
-                      : undefined
-                  }
-                  onDownload={() =>
-                    downloadText(
-                      project,
-                      "srt",
-                      captionsSrt(draft.captions),
-                      "application/x-subrip",
-                    )
-                  }
-                />
-              )}
+              {panel === "media" && (
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    {/* Files kept in the media library, copied into the project. */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={merging}
+                      onClick={() => setPicking(true)}
+                    >
+                      <Images aria-hidden="true" />
+                      {t("library.picker.open")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAskingMusic(true)}
+                    >
+                      <Sparkles aria-hidden="true" />
+                      {t("projects.music.open")}
+                    </Button>
+                  </div>
+                )}
             </div>
+            {panel === "media" ? (
+              <MediaLibrary
+                projectId={project.id}
+                // The server refuses changes while the film is merged.
+                disabled={merging}
+                usedIds={usedIds}
+                onAddClip={editable ? (media) => addClip(media) : undefined}
+                onAddAudio={
+                  editable ? (media) => addAudio(media) : undefined
+                }
+              />
+            ) : (
+              <CaptionEditor
+                captions={draft.captions}
+                burn={draft.burnCaptions}
+                style={draft.captionStyle}
+                onStyle={(patch) =>
+                  setDraft((edit) => ({
+                    ...edit,
+                    captionStyle: { ...edit.captionStyle, ...patch },
+                  }))
+                }
+                canBurn={timeline?.canBurnCaptions ?? false}
+                selected={
+                  selection?.kind === "caption" ? selection.index : null
+                }
+                editable={editable}
+                at={cut ? 0 : Math.min(time, Math.max(total - 2, 0))}
+                onChange={(captions) =>
+                  setDraft((edit) => ({ ...edit, captions }))
+                }
+                onBurn={(burnCaptions) =>
+                  setDraft((edit) => ({ ...edit, burnCaptions }))
+                }
+                onSelect={(index) =>
+                  setSelection(
+                    index === null ? null : { kind: "caption", index },
+                  )
+                }
+                onFromNarration={
+                  narrated
+                    ? () =>
+                        setDraft((edit) => ({
+                          ...edit,
+                          captions: captionsFromNarration(
+                            project,
+                            edit.items,
+                          ),
+                        }))
+                    : undefined
+                }
+                onDownload={() =>
+                  downloadText(
+                    project,
+                    "srt",
+                    captionsSrt(draft.captions),
+                    "application/x-subrip",
+                  )
+                }
+              />
+            )}
           </div>
 
           <p className="text-xs leading-5 text-faint">
@@ -1071,6 +1085,12 @@ function Output({
         <MuseMusicDialog
           project={project}
           onClose={() => setAskingMusic(false)}
+        />
+      )}
+      {picking && (
+        <LibraryPickerDialog
+          projectId={project.id}
+          onClose={() => setPicking(false)}
         />
       )}
     </>

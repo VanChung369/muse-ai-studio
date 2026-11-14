@@ -1,4 +1,12 @@
-import { ArrowLeft, ArrowRight, Film, Image, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Film,
+  Image,
+  Scissors,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -372,19 +380,30 @@ export function TimelineCutEditor({
   const picture = item.kind === "image";
 
   return (
-    <fieldset disabled={!editable} className="min-w-0 space-y-3">
-      <legend className="text-sm font-semibold">
-        {t("projects.timeline.cut")}
+    <fieldset disabled={!editable} className="min-w-0 space-y-4">
+      <legend className="mb-1 w-full text-sm font-semibold">
+        <span className="flex items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+            <Scissors className="size-4" aria-hidden="true" />
+          </span>
+          {t("projects.timeline.cut")}
+        </span>
       </legend>
-      <p className="truncate text-xs text-muted-foreground" title={item.title}>
+      <p
+        className="line-clamp-2 rounded-lg bg-secondary/60 px-3 py-2 text-xs leading-5 text-muted-foreground"
+        title={item.title}
+      >
         {item.scene === null
           ? item.title
           : `${t("projects.details.scene", { number: item.scene })} · ${item.title}`}
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 rounded-lg border bg-background/50 p-3">
         {(picture ? (["end"] as const) : (["start", "end"] as const)).map(
           (edge) => (
-            <div key={edge} className="space-y-1.5">
+            <div
+              key={edge}
+              className={cn("min-w-0 space-y-2", picture && "col-span-2")}
+            >
               <Label htmlFor={`${id}-${edge}`} className="text-xs">
                 {t(
                   picture
@@ -403,14 +422,14 @@ export function TimelineCutEditor({
           ),
         )}
         {!picture && (
-          <div className="col-span-2 space-y-1.5">
+          <div className="col-span-2 space-y-2 border-t pt-3">
             <span id={`${id}-speed`} className="block text-xs font-medium">
               {t("projects.timeline.speed")}
             </span>
             <div
               role="radiogroup"
               aria-labelledby={`${id}-speed`}
-              className="flex flex-wrap gap-1"
+              className="grid grid-cols-3 gap-1.5"
             >
               {SPEEDS.map((speed) => (
                 <button
@@ -420,10 +439,10 @@ export function TimelineCutEditor({
                   aria-checked={item.speed === speed}
                   onClick={() => onChange({ speed })}
                   className={cn(
-                    "h-7 rounded-md border px-2 font-mono text-xs disabled:opacity-50",
+                    "h-9 rounded-lg border px-2 font-mono text-xs transition-colors disabled:opacity-50",
                     item.speed === speed
                       ? "border-primary bg-primary-soft text-primary"
-                      : "border-input text-muted-foreground hover:text-foreground",
+                      : "border-transparent bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
                   {speedLabel(speed)}
@@ -433,7 +452,7 @@ export function TimelineCutEditor({
           </div>
         )}
       </div>
-      <p className="text-xs text-faint">
+      <p className="text-xs leading-5 text-faint">
         {picture
           ? t("projects.timeline.pictureLength")
           : t("projects.timeline.clipLength", {
@@ -445,16 +464,16 @@ export function TimelineCutEditor({
             full: fullSeconds(item).toFixed(1),
           })}`}
       </p>
-      <label className="flex items-center gap-2 text-[13px]">
+      <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border bg-background/50 p-3 text-[13px] leading-5">
         <input
           type="checkbox"
           checked={item.enabled}
           onChange={(event) => onChange({ enabled: event.target.checked })}
-          className="size-4 accent-primary"
+          className="size-4 shrink-0 accent-primary"
         />
         {t("projects.timeline.include")}
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 border-t pt-4">
         <Button
           type="button"
           variant="outline"
@@ -476,7 +495,13 @@ export function TimelineCutEditor({
           <ArrowRight aria-hidden="true" />
         </Button>
         {onRemove && (
-          <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="col-span-2"
+            onClick={onRemove}
+          >
             <Trash2 aria-hidden="true" />
             {t("projects.timeline.remove")}
           </Button>

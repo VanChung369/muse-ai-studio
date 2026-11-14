@@ -62,7 +62,7 @@
     },
     "library": {
       "title": "Thư viện",
-      "description": "Không gian dành cho hình ảnh và video của bạn.",
+      "description": "Mọi video đã tạo ở Video Studio, cùng ảnh, video và âm thanh bạn tải lên.",
       "headline": "Giữ những khung hình bạn yêu thích."
     },
     "tasks": {
@@ -1067,5 +1067,74 @@
     "activeCount_other": "{{count}} tác vụ đang hoạt động",
     "attentionCount_one": "{{count}} tác vụ cần xử lý",
     "attentionCount_other": "{{count}} tác vụ cần xử lý"
+  },
+  "library": {
+    "filterLabel": "Loại tư liệu",
+    "filters": {
+      "all": "Tất cả",
+      "image": "Ảnh",
+      "video": "Video",
+      "audio": "Âm thanh"
+    },
+    "sourceLabel": "Nguồn",
+    "sources": {
+      "all": "Mọi nguồn",
+      "studio": "Video Studio",
+      "upload": "Tải lên"
+    },
+    "searchLabel": "Tìm tư liệu",
+    "searchPlaceholder": "Tìm theo tên hoặc dự án",
+    "upload": "Tải tệp lên",
+    "uploading": "Đang tải lên…",
+    "dropHint": "Thả tệp vào đây để thêm vào thư viện",
+    "empty": "Chưa có gì. Hãy tải tệp lên, hoặc render một dự án ở Video Studio.",
+    "emptyFiltered": "Không có gì khớp với bộ lọc này.",
+    "loadError": "Không tải được thư viện. Vui lòng thử lại.",
+    "loadMore": "Xem thêm",
+    "showing": "Đang hiện {{shown}} / {{total}}",
+    "select": "Chọn {{name}}",
+    "open": "Mở {{name}}",
+    "scene": "Cảnh {{number}}",
+    "film": "Phim hoàn chỉnh",
+    "selected_one": "Đã chọn {{count}}",
+    "selected_other": "Đã chọn {{count}}",
+    "download": "Tải xuống",
+    "delete": "Xóa",
+    "deselect": "Bỏ chọn",
+    "deleteNote": "Chỉ xóa được tệp bạn tải lên. Video tạo ở Video Studio thuộc về dự án của nó.",
+    "deleteTitle_one": "Xóa {{count}} tệp?",
+    "deleteTitle_other": "Xóa {{count}} tệp?",
+    "deleteDescription": "Các tệp bị xóa hẳn khỏi thư viện. Dự án nào đã lấy bản sao thì vẫn giữ bản sao đó.",
+    "deleting": "Đang xóa…",
+    "openProject": "Mở dự án",
+    "failed_one": "{{count}} tệp không tải lên được.",
+    "failed_other": "{{count}} tệp không tải lên được.",
+    "errors": {
+      "unsupported_file": "Hãy tải video (MP4, WebM, MOV), ảnh (PNG, JPEG, WebP) hoặc âm thanh (MP3, WAV, M4A, OGG).",
+      "file_too_large": "Mỗi tệp tối đa {{size}} MB.",
+      "too_many_files": "Thư viện đã đầy. Hãy xóa bớt tệp.",
+      "ffmpeg_unavailable": "Cần FFmpeg để đọc tệp tải lên. Hãy cài FFmpeg trên máy chủ trước.",
+      "empty_file": "Tệp rỗng.",
+      "unreadable_file": "Không đọc được tệp này như video, ảnh hay âm thanh.",
+      "not_deletable": "Video này thuộc về một dự án nên không xóa được ở đây.",
+      "library_item_not_found": "Tệp này không còn trong thư viện.",
+      "unknown": "Yêu cầu thất bại. Vui lòng thử lại."
+    },
+    "picker": {
+      "open": "Chọn từ Thư viện",
+      "title": "Chọn từ Thư viện",
+      "description": "Chọn ảnh, video hoặc âm thanh cho dự án này. Mỗi tệp được sao chép vào dự án, nên phim vẫn chạy nếu bản gốc bị xóa.",
+      "add_one": "Thêm {{count}} tệp",
+      "add_other": "Thêm {{count}} tệp",
+      "adding": "Đang thêm…",
+      "errors": {
+        "too_many_files": "Một dự án chứa tối đa {{count}} tệp tư liệu. Hãy gỡ bớt trong dự án trước.",
+        "project_busy": "Phim đang được ghép. Hãy chờ ghép xong.",
+        "ffmpeg_unavailable": "Cần FFmpeg để đọc tư liệu. Hãy cài FFmpeg trên máy chủ trước.",
+        "library_item_not_found": "Một trong các tệp không còn trong thư viện.",
+        "project_not_found": "Dự án này không còn tồn tại.",
+        "unknown": "Không thêm được tệp. Vui lòng thử lại."
+      }
+    }
   }
 }

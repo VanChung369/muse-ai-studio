@@ -58,6 +58,11 @@ def media_dir(settings: Settings, project_id: str) -> Path:
     return settings.data_dir / "projects" / project_id / "media"
 
 
+def library_dir(settings: Settings) -> Path:
+    """Files uploaded to the media library, belonging to no project."""
+    return settings.data_dir / "library"
+
+
 def remove_project(settings: Settings, project_id: str) -> None:
     shutil.rmtree(project_dir(settings, project_id), ignore_errors=True)
     shutil.rmtree(

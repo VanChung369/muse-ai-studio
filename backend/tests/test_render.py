@@ -1,6 +1,8 @@
+import io
 import json
 import threading
 import time
+import zipfile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1283,3 +1285,146 @@ def test_caption_style_is_saved_and_used_and_audio_gets_a_waveform(
     assert client.delete(song["url"]).status_code == 204
     folder = settings.data_dir / "projects" / pid / "media"
     assert [path.suffix for path in folder.iterdir()] == [".png"]
+
+
+@pytest.fixture
+def library_tools(monkeypatch, media_tools):
+    """Stand in for FFmpeg where library uploads are read."""
+
+    def inspect(binary, path):
+        if path.read_bytes() == b"junk":
+            raise MergeError
+        return {
+            ".mp4": MediaInfo(4.0, 640, 360, True),
+            ".png": MediaInfo(None, 800, 600, False),
+            ".mp3": MediaInfo(20.0, None, None, True),
+        }[path.suffix]
+
+    monkeypatch.setattr("app.api.routes.library.find_ffmpeg", lambda settings: "ffmpeg")
+    monkeypatch.setattr("app.api.routes.library.inspect", inspect)
+    monkeypatch.setattr("app.api.routes.library.thumbnail", lambda binary, clip, target: False)
+
+
+def keep(client, name, mime, content=b"bytes"):
+    return client.post(
+        "/api/library", params={"name": name}, content=content, headers={"Content-Type": mime}
+    )
+
+
+def test_library_holds_uploads_and_everything_made_in_video_studio(
+    client, muse, ffmpeg, library_tools, settings
+):
+    assert client.get("/api/library").json() == {
+        "items": [], "total": 0, "counts": {"all": 0, "image": 0, "video": 0, "audio": 0},
+    }
+    assert keep(client, "notes.txt", "text/plain").status_code == 415
+    assert keep(client, "empty.png", "image/png", b"").json()["detail"]["code"] == "empty_file"
+    junk = keep(client, "broken.mp4", "video/mp4", b"junk")
+    assert junk.status_code == 422 and junk.json()["detail"]["code"] == "unreadable_file"
+    folder = settings.data_dir / "library"
+    assert list(folder.iterdir()) == []
+
+    logo = keep(client, "..\\..\\Logo quán.png", "image/png").json()
+    assert (logo["id"], logo["role"], logo["source"], logo["kind"]) == (
+        f"upload:{logo['assetId']}", "upload", "upload", "image",
+    )
+    assert (logo["title"], logo["deletable"], logo["size"], logo["seconds"]) == ("Logo quán.png", True, 5, None)
+    song = keep(client, "Nhạc nền.mp3", "audio/mpeg").json()
+    assert song["thumbnailUrl"] is None and song["waveformUrl"].endswith("/waveform")
+    served = client.get(logo["url"])
+    assert served.content == b"bytes" and served.headers["x-content-type-options"] == "nosniff"
+    assert client.get(logo["thumbnailUrl"]).content == b"bytes"  # A picture is its own still.
+
+    # A rendered project puts its scene clips and its film in the library.
+    add_account(client)
+    project = add_project(client)
+    client.post(f"/api/projects/{project['id']}/render")
+    wait_status(client, project["id"], "completed")
+    page = client.get("/api/library").json()
+    assert page["counts"] == {"all": 5, "image": 1, "video": 3, "audio": 1} and page["total"] == 5
+    by_id = {item["id"]: item for item in page["items"]}
+    scene = by_id[f"scene:{project['id']}:2"]
+    assert (scene["role"], scene["source"], scene["title"], scene["projectName"], scene["sceneNumber"]) == (
+        "scene", "studio", "Harvest", "Coffee film", 2,
+    )
+    assert not scene["deletable"] and scene["assetId"] is None and scene["seconds"] == 5
+    assert client.get(scene["url"]).content == b"clip-2"
+    film = by_id[f"film:{project['id']}"]
+    assert (film["role"], film["title"], film["kind"]) == ("film", "Coffee film", "video")
+    assert client.get(film["url"]).content == b"clip-1|clip-2"
+
+    # Filters: kind, source, and a search that ignores accents and case.
+    videos = client.get("/api/library", params={"kind": "video"}).json()
+    assert videos["total"] == 3 and videos["counts"]["all"] == 5
+    uploads = client.get("/api/library", params={"source": "upload"}).json()
+    assert {item["title"] for item in uploads["items"]} == {"Logo quán.png", "Nhạc nền.mp3"}
+    assert uploads["counts"] == {"all": 2, "image": 1, "video": 0, "audio": 1}
+    found = client.get("/api/library", params={"q": "nhac NEN"}).json()["items"]
+    assert [item["title"] for item in found] == ["Nhạc nền.mp3"]
+    assert client.get("/api/library", params={"q": "coffee"}).json()["total"] == 3
+    paged = client.get("/api/library", params={"limit": 2, "offset": 4}).json()
+    assert len(paged["items"]) == 1 and paged["total"] == 5
+
+    # Several files in one archive, each under a name of its own.
+    archive = client.get(
+        "/api/library/archive", params={"ids": [logo["id"], scene["id"], film["id"], "upload:missing"]}
+    )
+    assert archive.status_code == 200
+    names = zipfile.ZipFile(io.BytesIO(archive.content)).namelist()
+    assert names == ["Logo quán.png", "Coffee film - scene 02.mp4", "Coffee film.mp4"]
+    assert client.get("/api/library/archive", params={"ids": ["upload:missing"]}).status_code == 404
+
+    # Only uploads can be deleted, with everything kept next to them.
+    assert client.delete(f"/api/library/assets/{logo['assetId']}").status_code == 204
+    assert client.delete(f"/api/library/assets/{logo['assetId']}").status_code == 404
+    assert client.get(logo["url"]).status_code == 404
+    assert [path.suffix for path in folder.iterdir()] == [".mp3"]
+    assert client.get("/api/library").json()["counts"]["all"] == 4
+
+
+def test_a_project_takes_copies_of_library_files(
+    client, muse, ffmpeg, library_tools, monkeypatch, settings
+):
+    add_account(client)
+    source = add_project(client)
+    client.post(f"/api/projects/{source['id']}/render")
+    wait_status(client, source["id"], "completed")
+    logo = keep(client, "logo.png", "image/png", b"logo").json()
+    song = keep(client, "song.mp3", "audio/mpeg", b"song").json()
+    target = client.post("/api/projects", json={"name": "Second film", "durationSeconds": 10}).json()
+    take = f"/api/projects/{target['id']}/media/import"
+
+    assert client.post("/api/projects/missing/media/import", json={"ids": [logo["id"]]}).status_code == 404
+    assert client.post(take, json={"ids": []}).status_code == 422
+    missing = client.post(take, json={"ids": [logo["id"], "upload:nope"]})
+    assert missing.status_code == 404 and missing.json()["detail"]["code"] == "library_item_not_found"
+    assert client.get(f"/api/projects/{target['id']}/media").json() == []
+
+    taken = client.post(
+        take,
+        json={"ids": [logo["id"], song["id"], f"scene:{source['id']}:1", f"film:{source['id']}", logo["id"]]},
+    )
+    assert taken.status_code == 201, taken.text
+    media = taken.json()
+    assert [(m["kind"], m["name"], m["seconds"], m["width"]) for m in media] == [
+        ("image", "logo.png", None, 800),
+        ("audio", "song.mp3", 20.0, None),
+        # A clip made in Video Studio is measured as it is copied.
+        ("video", "Coffee film - scene 01.mp4", 4.0, 640),
+        ("video", "Coffee film.mp4", 4.0, 640),
+    ]
+    assert client.get(media[0]["url"]).content == b"logo"
+    assert client.get(media[2]["url"]).content == b"clip-1"
+
+    # Copies: deleting the original leaves the project's file alone.
+    assert client.delete(f"/api/library/assets/{logo['assetId']}").status_code == 204
+    assert client.get(media[0]["url"]).content == b"logo"
+    assert len(client.get(f"/api/projects/{target['id']}/media").json()) == 4
+
+    # The project's own limit still holds, and nothing is half-copied.
+    for _ in range(26):
+        assert client.post(take, json={"ids": [song["id"]]}).status_code == 201
+    over = client.post(take, json={"ids": [song["id"]]})
+    assert over.status_code == 409 and over.json()["detail"]["code"] == "too_many_files"
+    folder = settings.data_dir / "projects" / target["id"] / "media"
+    assert len(list(folder.iterdir())) == 30
