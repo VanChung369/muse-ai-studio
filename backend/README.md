@@ -1,6 +1,6 @@
 # Muse AI Studio — Backend
 
-FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Local Muse account management is also available. AI script proposals run through the durable task coordinator and the Muse browser session; video rendering is a later step.
+FastAPI backend with Pydantic settings, SQLite, SQLAlchemy, and Alembic. Includes health checks and a persistent, paginated project list with server-side search, filters, and sorting, plus draft creation, project details, and editable scripts with scene timelines. Local Muse account management is also available. AI script proposals, scene rendering, the film editor, Quick Create, the media library, API keys and the OpenAI-compatible `/v1` API all run through the durable task coordinator and the Muse browser session; [the API contract](api-contract.md) describes each of them. Start with the [README at the repository root](../README.md).
 
 ## Requirements
 
@@ -38,6 +38,28 @@ The default database is `data/muse-ai-studio.db` at the repository root. Relativ
 
 Use one application process for this initial architecture. Runtime data and virtual environments are ignored by Git.
 
+Settings read from the environment when the server starts (the Settings page lists the values in use):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MUSE_DATA_DIR` | `data` | Data folder, relative to the repository root. |
+| `MUSE_FFMPEG_PATH` | found on `PATH` | FFmpeg binary. Needs `libass` to draw captions and titles. |
+| `MUSE_BROWSER_PATH` | found automatically | Chrome/Chromium used for Muse. Without it the app looks for Chromium or Chrome on the machine, then the Chromium Playwright downloaded (`uv run playwright install chromium`), then Edge on Windows. |
+| `MUSE_TASK_WORKERS` | `2` | Background tasks at once (each also holds its account). |
+| `MUSE_BROWSER_SLOTS` | `3` | Browsers open at once. |
+| `MUSE_PLANNING_TIMEOUT` | `300` | Longest wait for a script, in seconds. |
+| `MUSE_RENDER_TIMEOUT` | `600` | Longest wait for one scene, in seconds; extended while Muse is visibly still working. |
+| `MUSE_THREAD_SCENE_LIMIT` | `12` | Scenes rendered in one Muse conversation before a new one is started. |
+| `MUSE_SESSION_REFRESH_MINUTES` | `360` | How often account sessions are re-checked; `0` turns it off. |
+| `MUSE_SESSION_REFRESH_WAKE` | `false` | Also wake the Muse workspace on each re-check. |
+| `MUSE_CORS_ORIGINS` | the Vite dev server | Origins allowed to call the API from a browser. |
+
+What the user changes while the app runs (defaults for new projects, the public address) is stored in the database and edited on the Settings page.
+
+With `--reload`, every change to a backend source file restarts the server and cuts off any task that is running; a request already sent to Muse then ends as `interrupted`.
+
+Everything the app stores is in the data folder: `muse-ai-studio.db` (projects, scripts, tasks, accounts, API keys, settings), `account-secret.key` (encrypts account cookies and API keys), and `projects/`, `media/`, `library/` (clips, films, added files, the media library). Back up the whole folder, with the server stopped so the database is consistent.
+
 ## Migrations
 
 Migrations run automatically on application startup. They can also be managed from `backend/`:
@@ -60,19 +82,27 @@ Review generated migrations before applying them. Alembic is configured for SQLi
 
 ```text
 app/
-  main.py             Application factory and startup/shutdown lifecycle
+  main.py             Application factory, start-up and shutdown
   api/
-    router.py         API route registration
-    dependencies.py   Request-scoped database sessions
-    routes/           Health and project endpoints
-  models/             SQLAlchemy project, scene, and account models
-  schemas/project.py  Request and response contracts
-  repositories/       Project queries and transaction handling
-  core/config.py      Environment settings and stable data paths
-  db/
-    base.py           SQLAlchemy model base
-    session.py        SQLite engine, sessions, and startup migration
+    router.py         Registers the internal routes under /api
+    routes/           One module per area: projects, planning, render, timeline,
+                      media, references, library, quick_create, tasks, accounts,
+                      api_keys, settings, health, and public_api (mounted at /v1)
+  accounts/           Account sessions for tasks, background session refresher
+  core/               Environment settings, cookie parsing, the encryption vault
+  db/                 SQLite engine, sessions, start-up migration
+  integrations/muse/  Driving the Muse web chat with Playwright (chat, media, quota, proxy)
+  models/             SQLAlchemy models
+  planning/           Script prompts, validation and the planning task
+  rendering/          Scene rendering, FFmpeg, the timeline, film building,
+                      project media, the library, Quick Create, music
+  repositories/       Queries and transactions (projects, tasks, accounts, settings)
+  schemas/            Request and response contracts
+  tasks/              The in-process task coordinator (state kept in SQLite)
 migrations/           Alembic environment and migration history
+tests/                Test suite (isolated databases, a fake Muse)
+api-contract.md       The internal API and the public /v1 API in prose
+openapi.json          Committed snapshot of the live OpenAPI schema
 ```
 
 ## Project API
@@ -83,9 +113,9 @@ migrations/           Alembic environment and migration history
 - `PUT /api/projects/{id}/script`: atomically save a complete script and its scene order, with revision conflict protection.
 - `DELETE /api/projects/{id}`: delete a project and its scenes in one transaction; returns HTTP 204. Unknown projects return 404; projects in `planning`, `rendering`, or `cancelling` return 409 without changes.
 
-Names are required and trimmed. Duration must be an integer from 10 to 300 in steps of 5; aspect ratios are `16:9`, `9:16`, or `1:1`. A new database contains no sample projects. Browser demo data from the previous UI is not imported. The current API serves local development without authentication and does not call external services.
+Names are required and trimmed. Duration must be an integer from 10 to 3,600 in steps of 5; aspect ratios are `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `4:5`, or `21:9`. Fields a request leaves out take the defaults saved on the Settings page. A new database contains no sample projects. Browser demo data from the previous UI is not imported. The current API serves local development without authentication and does not call external services.
 
-Scripts contain 1–30 scenes lasting 5 or 10 seconds each, totaling the project target duration. A save increments `scriptRevision` and sets status to `ready`. Only `draft` and `ready` projects are editable. Stale revisions and locked statuses return HTTP 409; invalid scripts return HTTP 422. Failed writes leave the previous script unchanged.
+Scripts contain 1–720 scenes lasting 5 or 10 seconds each, totaling the project target duration. A save increments `scriptRevision` and sets status to `ready`. Only `draft` and `ready` projects are editable. Stale revisions and locked statuses return HTTP 409; invalid scripts return HTTP 422. Failed writes leave the previous script unchanged.
 
 See [the API contract](api-contract.md) for payloads and errors. FastAPI's live OpenAPI schema is authoritative; `openapi.json` is its committed snapshot.
 

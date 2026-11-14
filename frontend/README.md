@@ -1,6 +1,6 @@
 # Muse AI Studio — Frontend
 
-React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list connected to the FastAPI backend and SQLite. Muse account management is also available; other feature pages remain placeholders.
+React, TypeScript, and Vite frontend for Muse AI Studio. Includes the shared application shell, English and Vietnamese translations, and a Video Studio project list connected to the FastAPI backend and SQLite. Every page in the navigation is built: Overview, Video Studio (idea, script, render and the output editor), Quick Create, Media Library, Tasks, Muse Accounts, Connection & API, Playground, Documentation and Settings. Start with the [README at the repository root](../README.md).
 
 ## Development
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Start the backend in a second terminal (see [backend setup](../backend/README.md)), then open the URL printed by Vite (defaults to `http://localhost:5173`). Vite proxies `/api` to `http://127.0.0.1:18610`. To use a different backend, copy `.env.example` to `.env` and set `MUSE_API_TARGET`; restart Vite after changing it. This variable configures the development proxy and is not a client credential.
+Start the backend in a second terminal (see [backend setup](../backend/README.md)), then open the URL printed by Vite (defaults to `http://localhost:5173`). Vite proxies `/api` and `/v1` to `http://127.0.0.1:18610`. To use a different backend, copy `.env.example` to `.env` and set `MUSE_API_TARGET`; restart Vite after changing it. This variable configures the development proxy and is not a client credential.
 
 ## Type Checking and Production Build
 
@@ -50,10 +50,32 @@ npx shadcn@latest add button
 - Press `Ctrl+K` or `Cmd+K` to find a page. Search is case- and accent-insensitive. Press Enter to open the first match or Tab to select another result.
 - `src/components/shared/page-header.tsx` provides the shared page heading.
 - `src/pages/workspace-page.tsx` holds temporary route content until feature pages are built. Unknown URLs show a 404 page.
-- Theme tokens in `src/index.css` mirror `design/design-system/muse.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
+- Theme tokens live in `src/index.css`: surfaces, `muted-foreground` (secondary text), `faint` (labels and placeholders), primary hover/press, and the `running`, `success`, `warning`, `destructive`, and `danger` status colors. Be Vietnam Pro and JetBrains Mono are bundled.
 - `src/components/ui/button.tsx` uses the design button sizes (36px default, 44px on phones) and variants, including `danger` for solid destructive actions in dialogs.
 
 Projects, accounts, and tasks use the real local API. The header task indicator reports active work and tasks needing attention from `GET /api/tasks/summary`.
+
+## Structure
+
+```text
+src/
+  App.tsx               Routes; every page is loaded on demand
+  app/                  Providers and the navigation definition
+  components/           Layout (sidebar, header), shared pieces, UI primitives
+  constants/            Routes, API paths, breakpoints, storage keys
+  features/             Code by feature, each with api/, hooks/, components/, lib/
+    projects/             Video Studio: list, workspace steps, timeline editor
+    create/               Quick Create
+    library/              Media library
+    tasks/                Background tasks
+    accounts/             Muse accounts
+    api-access/           API keys, Playground helpers, documentation pieces
+    settings/             Settings and system status
+  hooks/                Shared hooks (language, local storage, clock, media query)
+  i18n/locales/         English and Vietnamese strings (keys type-checked from en.json)
+  lib/                  HTTP client, formatting, small utilities
+  pages/                One file per page
+```
 
 ## Tasks
 
@@ -72,7 +94,7 @@ Projects, accounts, and tasks use the real local API. The header task indicator 
 - Search, status, sorting, and the selected project use the `q`, `status`, `sort`, and `project` query parameters, so the view can be refreshed or shared.
 - Project cards and the featured project open a detail sheet with metadata, the story idea, and available scene prompts via `GET /api/projects/{id}`. Loading, connection failures, and missing projects have separate states with retry controls.
 - **New project** uses React Hook Form and Zod, then saves with `POST /api/projects`. SQLite persists drafts across page reloads and backend restarts. A failed save preserves the form input. Submitting disables dismissal and duplicate submits; writes are never retried automatically.
-- The script editor supports manual scene planning and AI-generated script proposals. Video rendering and playback are not implemented yet.
+- A project opens as a workspace with one page per step (`/projects/:id/idea`, `script`, `render`, `output`): the brief and reference material, the script editor with AI proposals, the scene render board, and the film editor (timeline, added media, captions, titles, logo, export settings, preview).
 - The trash button on each card, or **Delete project** in the detail sheet, opens a confirmation naming the project. Confirming deletes its saved script and scenes. Running projects must be stopped first. Failed requests keep the dialog open for retry; successful deletion clears the selection and refreshes counts and pagination from the first page.
 - Project names, ideas, and scene prompts are user content; switching interface language does not translate that content.
 
@@ -97,7 +119,7 @@ TanStack Query manages server data and cache updates; the project list uses `use
 Open a project, then select **Write script** (or **Edit script** for a saved script).
 
 - An empty outline divides the target duration into 10-second scenes and a final 5-second scene when needed. This creates fields to fill in; it does not generate AI content.
-- Add, remove, and reorder up to 30 scenes. Each scene has a title, visual prompt, duration (5 or 10 seconds), and optional narration. Shared character and visual style descriptions are optional.
+- Add, remove, and reorder up to 720 scenes. Each scene has a title, visual prompt, duration (5 or 10 seconds), and optional narration. Shared character and visual style descriptions are optional.
 - Every scene needs a title and visual prompt. The total duration must match the project's target before saving.
 - **Save script** persists the entire script through `PUT /api/projects/{id}/script`. The project becomes ready for review; rendering does not start.
 - Only drafts and projects awaiting review can be edited. Concurrent saves use `scriptRevision` to prevent overwrites. A conflict refreshes the project data and keeps the current form; close and reopen the editor to load the latest saved version.
