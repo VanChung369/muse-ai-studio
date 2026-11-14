@@ -58,6 +58,7 @@ export const TASK_ERROR_CODES = [
   "generation_browser_error",
   "quota_exhausted",
   "generation_timeout",
+  "message_not_delivered",
   "generation_refused",
   "media_download_failed",
   "scene_missing",

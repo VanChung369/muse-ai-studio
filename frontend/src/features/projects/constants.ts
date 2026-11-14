@@ -148,6 +148,7 @@ export const GENERATION_ERROR_CODES = [
   "browser_unavailable",
   "browser_busy",
   "reply_timeout",
+  "message_not_delivered",
   "composer_unavailable",
   "workspace_not_running",
   "account_changed",

@@ -8,6 +8,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.integrations.muse.chat import (
+    DELIVERY_ATTEMPTS,
+    UNDELIVERED_WAIT,
+    reopen_conversation,
+    undelivered_since,
     ANCHOR_JS,
     ANCHOR_WAIT,
     attach_files,
@@ -199,47 +203,18 @@ def _generate_media(
 
     The request is sent once. A timeout or an unknown outcome is reported,
     never resent: the caller decides whether to spend another generation.
+    Only a copy Muse flagged as not delivered (never stored, nothing made)
+    is sent again, in the same conversation.
     """
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
     )
-    # Our message is recognised on the page by this label (see ANCHOR_JS).
-    marker = f"shot-{uuid4().hex[:8]}"
     with open_composer(client, result, proxy, thread_path) as page:
         # A fresh composer can receive its thread id before the first send.
         # Only the requested saved conversation counts as a continuation.
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
         if require_thread and thread_path and not continued:
             raise MuseError("conversation_unavailable", partial=result)
-        if continued:
-            settle_conversation(page)
-        files = []
-        if attachments and (not continued or attach_on_continue):
-            # Films attach references once; Quick Create explicitly attaches
-            # its selected reference even when resuming the same conversation.
-            files += [str(file) if isinstance(file, (str, Path)) else file for file in attachments]
-        if reference:
-            files.append(
-                {
-                    "name": "previous-shot.jpg",
-                    "mimeType": "image/jpeg",
-                    "buffer": reference,
-                }
-            )
-        attached = attach_files(page, files, result) if files else 0
-        point = fill_composer(
-            page,
-            f"[{marker}] {prompt}",
-            check_cancelled,
-            result,
-            wait=120 if files else 15,
-            attached=attached,
-        )
-        baseline = page.evaluate(MEDIA_STATE_JS, [None, True])
-        check_cancelled()
-        # Record submission BEFORE the click; refreshed cookies are already saved.
-        before_send(result)
-        page.mouse.click(point["x"], point["y"])
         downloaded = []
         saved_thread = None
 
@@ -268,21 +243,69 @@ def _generate_media(
                 on_media(media)
             downloaded.append(media)
 
-        _wait_for_media(
-            page,
-            marker,
-            baseline,
-            continued,
-            check_cancelled,
-            result,
-            timeout,
-            grace,
-            media_kind=media_kind,
-            count=count,
-            on_ready=receive,
-            on_poll=remember_thread,
-        )
-        return downloaded if many else downloaded[0]
+        for attempt in range(DELIVERY_ATTEMPTS):
+            if attempt:
+                # Muse did not take the last copy and did not keep it: the
+                # same conversation, loaded again, gets it once more.
+                reopen_conversation(
+                    page, client, thread_path if continued else None,
+                    attempt, check_cancelled, result,
+                )
+            # Our message is recognised on the page by this label (see ANCHOR_JS).
+            marker = f"shot-{uuid4().hex[:8]}"
+            if continued:
+                settle_conversation(page)
+            files = []
+            if attachments and (not continued or attach_on_continue):
+                # Films attach references once; Quick Create explicitly attaches
+                # its selected reference even when resuming the same conversation.
+                files += [str(file) if isinstance(file, (str, Path)) else file for file in attachments]
+            if reference:
+                files.append(
+                    {
+                        "name": "previous-shot.jpg",
+                        "mimeType": "image/jpeg",
+                        "buffer": reference,
+                    }
+                )
+            attached = attach_files(page, files, result) if files else 0
+            point = fill_composer(
+                page,
+                f"[{marker}] {prompt}",
+                check_cancelled,
+                result,
+                wait=120 if files else 15,
+                attached=attached,
+            )
+            baseline = page.evaluate(MEDIA_STATE_JS, [None, True])
+            check_cancelled()
+            # Record submission BEFORE the click; refreshed cookies are already saved.
+            before_send(result)
+            page.mouse.click(point["x"], point["y"])
+            try:
+                _wait_for_media(
+                    page,
+                    marker,
+                    baseline,
+                    continued,
+                    check_cancelled,
+                    result,
+                    timeout,
+                    grace,
+                    media_kind=media_kind,
+                    count=count,
+                    on_ready=receive,
+                    on_poll=remember_thread,
+                )
+            except MuseError as error:
+                if (
+                    error.code == "message_not_delivered"
+                    and not downloaded
+                    and attempt + 1 < DELIVERY_ATTEMPTS
+                ):
+                    continue
+                raise
+            return downloaded if many else downloaded[0]
 
 
 def _read_state(page, marker, baseline, anchor_wait, sent_at):
@@ -331,6 +354,7 @@ def _wait_for_media(
     asked_to_attach = denied = busy = False
     seen = set()
     collected = []
+    undelivered = None
     while True:
         elapsed = time.monotonic() - started
         if elapsed >= timeout and not (busy and elapsed < timeout * OVERRUN_FACTOR):
@@ -345,6 +369,9 @@ def _wait_for_media(
             denied, text_done_at = True, None
             continue
         busy = state["generating"]
+        undelivered = undelivered_since(page, marker, undelivered)
+        if undelivered and time.monotonic() - undelivered > UNDELIVERED_WAIT:
+            raise MuseError("message_not_delivered", partial=result)
         if not state["sent"]:
             # Our message is not on the page yet.
             continue
