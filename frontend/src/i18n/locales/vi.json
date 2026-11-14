@@ -897,6 +897,31 @@
       "noResultsDescription": "Thử tên khác hoặc xóa bộ lọc hiện tại.",
       "clear": "Xóa bộ lọc"
     },
+    "guide": {
+      "action": "Hướng dẫn lấy token",
+      "title": "Cách lấy token phiên đăng nhập Muse",
+      "description": "Ứng dụng đăng nhập Muse bằng phiên của một trình duyệt mà bạn đã đăng nhập sẵn: cookie tên hatch_sess. Làm theo một trong hai cách dưới đây.",
+      "network": {
+        "title": "Cách 1 · Lấy từ một request (nên dùng)",
+        "open": "Mở Muse bằng Chrome hoặc Edge và đăng nhập tài khoản bạn muốn thêm:",
+        "devtools": "Nhấn F12 để mở DevTools, chọn tab Network (Mạng), rồi tải lại trang (F5).",
+        "request": "Bấm vào một request bất kỳ tới muse.ai trong danh sách (ví dụ “session”), mở Headers → Request Headers.",
+        "copy": "Sao chép toàn bộ giá trị của dòng “cookie”. Dễ hơn nữa: chuột phải vào request → Copy → Copy as cURL.",
+        "paste": "Quay lại đây, bấm “Nhập tài khoản”, dán nội dung vừa chép, đặt tên cho tài khoản, rồi bấm Kiểm tra để xác nhận phiên dùng được."
+      },
+      "cookie": {
+        "title": "Cách 2 · Lấy từ bảng cookie",
+        "application": "Khi Muse đang mở và đã đăng nhập, nhấn F12, mở Application → Cookies → https://muse.ai (Firefox: Storage → Cookies).",
+        "value": "Tìm dòng có tên hatch_sess và sao chép cột Value.",
+        "paste": "Trong “Nhập tài khoản”, dán theo dạng:"
+      },
+      "notes": {
+        "secret": "Token có giá trị như mật khẩu. Đừng chia sẻ hay dán nó ở nơi nào khác.",
+        "expiry": "Phiên sẽ hết hạn sau một thời gian, hoặc khi bạn đăng xuất Muse trên trình duyệt đó. Khi tài khoản báo “Phiên hết hạn”, hãy lấy token mới theo cách trên rồi nhập lại.",
+        "stored": "Token được lưu mã hóa trên máy đang chạy ứng dụng này và chỉ được gửi tới muse.ai."
+      },
+      "close": "Đã hiểu"
+    },
     "import": {
       "action": "Nhập tài khoản",
       "title": "Nhập tài khoản Muse",
@@ -1338,5 +1363,348 @@
     "dismissed": "Đã gỡ lượt tạo khỏi danh sách. Các tệp vẫn được giữ trong Thư viện.",
     "undoDismiss": "Hoàn tác",
     "dismissError": "Không cập nhật được danh sách. Vui lòng thử lại."
+  },
+  "overview": {
+    "quickCreate": "Tạo nhanh",
+    "newProject": "Dự án mới",
+    "allProjects": "Tất cả dự án",
+    "allTasks": "Tất cả tác vụ",
+    "loading": "Đang tải…",
+    "loadError": "Không tải được phần này.",
+    "retry": "Thử lại",
+    "continue": {
+      "title": "Tiếp tục làm",
+      "empty": "Chưa có dự án nào. Hãy bắt đầu từ một ý tưởng.",
+      "none": "Mọi dự án đều đã xong. Bắt đầu dự án mới khi bạn sẵn sàng.",
+      "steps": {
+        "idea": "Tiếp tục với ý tưởng",
+        "script": "Tiếp tục với kịch bản",
+        "render": "Tới bước dựng cảnh",
+        "output": "Mở thành phẩm"
+      }
+    },
+    "running": {
+      "title": "Đang chạy",
+      "empty": "Không có gì đang chạy.",
+      "queued": "{{count}} tác vụ nữa đang chờ trong hàng"
+    },
+    "recent": {
+      "title": "Dự án gần đây",
+      "empty": "Dự án bạn làm sẽ hiện ở đây."
+    },
+    "attention": {
+      "title": "Cần chú ý",
+      "empty": "Hiện không có gì cần bạn xử lý.",
+      "more": "Còn {{count}} mục nữa trong Tác vụ"
+    },
+    "accounts": {
+      "title": "Tài khoản Muse",
+      "manage": "Quản lý",
+      "usable": "tài khoản đang nhận việc",
+      "empty": "Chưa có tài khoản Muse nào. Hãy nhập một tài khoản để bắt đầu tạo.",
+      "import": "Nhập tài khoản"
+    },
+    "shortcuts": {
+      "title": "Lối tắt",
+      "create": "Tạo ảnh hoặc video ngắn",
+      "importAccount": "Nhập tài khoản Muse",
+      "copyBaseUrl": "Sao chép Base URL của API",
+      "copied": "Đã sao chép Base URL.",
+      "copyFailed": "Không sao chép được ở đây. Hãy chép tay:",
+      "apiKeys": "Khóa API và kết nối",
+      "playground": "Mở Playground"
+    }
+  },
+  "apiAccess": {
+    "links": {
+      "docs": "Tài liệu",
+      "playground": "Mở Playground"
+    },
+    "connection": {
+      "title": "Thông tin kết nối",
+      "description": "Dùng Base URL này cùng một API key bên dưới để gửi yêu cầu tương thích OpenAI tới Muse AI Studio.",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "Trỏ OpenAI SDK hoặc HTTP client của bạn tới địa chỉ này.",
+      "envVar": "Biến môi trường",
+      "envVarHint": "Lưu key trong biến môi trường — tuyệt đối không dán key thật trực tiếp vào mã nguồn."
+    },
+    "keys": {
+      "title": "API key",
+      "description": "Các key dùng để xác thực khi gọi endpoint /v1.",
+      "countDescription": "Đang dùng {{count}}/{{max}} key. Key mới nhất hiển thị trước.",
+      "refresh": "Làm mới danh sách API key",
+      "createAction": "Tạo key",
+      "limitReached": "Bạn đã đạt tối đa {{max}} API key. Hãy thu hồi bớt key không dùng trước khi tạo mới.",
+      "neverUsed": "Chưa từng dùng",
+      "copyForKey": "Sao chép key của {{name}}",
+      "createdNotice": "Đã tạo API key \"{{name}}\".",
+      "revokedNotice": "Đã thu hồi API key \"{{name}}\"."
+    },
+    "fields": {
+      "name": "Tên",
+      "masked": "Key",
+      "created": "Ngày tạo",
+      "lastUsed": "Dùng lần cuối",
+      "actions": "Thao tác"
+    },
+    "empty": {
+      "title": "Chưa có API key nào",
+      "description": "Tạo một API key để gọi các endpoint /v1 từ script, công cụ tự động hóa hoặc Playground."
+    },
+    "create": {
+      "title": "Tạo API key",
+      "description": "Đặt tên dễ nhớ để biết key này được dùng ở đâu.",
+      "nameLabel": "Tên key",
+      "namePlaceholder": "Ví dụ: Zapier, Script cá nhân",
+      "nameHint": "Từ 1 đến {{max}} ký tự.",
+      "creating": "Đang tạo…",
+      "createdTitle": "Đã tạo API key",
+      "createdDescription": "Hãy sao chép key cho \"{{name}}\" ngay bây giờ.",
+      "keyLabel": "API key đầy đủ",
+      "keepSafeNote": "Hãy lưu lại ở nơi an toàn — key đầy đủ chỉ hiển thị một lần tại đây. Sau này bạn vẫn có thể bấm Sao chép ở bảng key mà không hiện key lên màn hình.",
+      "done": "Xong"
+    },
+    "revoke": {
+      "action": "Thu hồi",
+      "forKey": "Thu hồi key {{name}}",
+      "title": "Thu hồi API key?",
+      "description": "Thu hồi \"{{name}}\" ({{masked}}).",
+      "warning": "Mọi ứng dụng đang dùng key này sẽ lập tức nhận lỗi 401. Thao tác này không thể hoàn tác.",
+      "confirm": "Thu hồi key",
+      "revoking": "Đang thu hồi…"
+    },
+    "quickstart": {
+      "title": "Bắt đầu nhanh",
+      "description": "Tạo một ảnh bằng Base URL ở trên và biến môi trường MUSE_API_KEY.",
+      "languagesLabel": "Ngôn ngữ hướng dẫn nhanh",
+      "tabs": {
+        "curl": "cURL",
+        "python": "Python",
+        "node": "Node"
+      }
+    },
+    "clipboard": {
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "failed": "Không thể tự động ghi vào clipboard (thường gặp trên địa chỉ LAN HTTP thường). Hãy nhấn Ctrl+C hoặc Cmd+C với đoạn đã chọn bên dưới.",
+      "manualLabel": "Nội dung đã chọn để sao chép"
+    },
+    "errors": {
+      "load": "Không tải được danh sách API key. Vui lòng thử lại.",
+      "create": "Không tạo được API key. Vui lòng thử lại.",
+      "tooManyKeys": "Đã có đủ 20 API key. Hãy thu hồi bớt trước khi tạo thêm.",
+      "invalidName": "Nhập tên key từ 1 đến 60 ký tự.",
+      "reveal": "Không lấy được key này. Vui lòng thử lại.",
+      "notFound": "API key này không còn tồn tại.",
+      "revoke": "Không thu hồi được API key này. Vui lòng thử lại.",
+      "network": "Lỗi mạng — không kết nối được tới máy chủ."
+    }
+  },
+  "playground": {
+    "realRequestNote": "Yêu cầu gửi từ đây là yêu cầu thật — tiêu tốn hạn mức tài khoản Muse và xuất hiện trong Tác vụ cũng như Thư viện.",
+    "noKeys": {
+      "title": "Hãy tạo một API key trước",
+      "description": "Playground gửi yêu cầu có xác thực thật tới /v1. Hãy tạo ít nhất một API key ở trang Kết nối & API để thử nghiệm.",
+      "action": "Đi tới Kết nối & API"
+    },
+    "formLabel": "Cấu hình yêu cầu Playground",
+    "fields": {
+      "key": "API key",
+      "endpoint": "Endpoint",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Mô tả nội dung bạn muốn Muse tạo…",
+      "count": "Số lượng ảnh (n)",
+      "shape": "Khung hình (size)",
+      "responseFormat": "Định dạng trả về",
+      "aspectRatio": "Tỉ lệ khung hình",
+      "model": "Model",
+      "stream": "Nhận luồng trực tiếp (stream)",
+      "streamHint": "Đọc Server-Sent Events (text/event-stream) ngay khi từng phần dữ liệu tới."
+    },
+    "endpoints": {
+      "images": "POST /v1/images/generations",
+      "videos": "POST /v1/videos/generations",
+      "chat": "POST /v1/chat/completions",
+      "models": "GET /v1/models"
+    },
+    "modelsHint": "GET /v1/models liệt kê các model khả dụng và không cần thân yêu cầu.",
+    "actions": {
+      "send": "Gửi",
+      "sending": "Đang chạy…",
+      "stop": "Dừng",
+      "copyCurl": "Sao chép dạng cURL"
+    },
+    "request": {
+      "title": "Dữ liệu yêu cầu"
+    },
+    "response": {
+      "title": "Phản hồi",
+      "tabsLabel": "Chế độ xem phản hồi",
+      "tabs": {
+        "preview": "Xem trước",
+        "json": "Response JSON"
+      },
+      "waiting": "Đang chờ phản hồi…",
+      "noJson": "Gửi một yêu cầu để xem JSON phản hồi."
+    },
+    "videoStatus": {
+      "queued": "queued",
+      "in_progress": "in_progress",
+      "succeeded": "succeeded",
+      "failed": "failed",
+      "cancelled": "cancelled"
+    },
+    "stoppedNote": "Đã dừng chờ trên trình duyệt. Tác vụ đã được máy chủ tiếp nhận vẫn tiếp tục chạy — xem tiến độ tại trang Tác vụ.",
+    "errors": {
+      "httpStatus": "Yêu cầu thất bại với mã HTTP {{status}}.",
+      "network": "Lỗi mạng — không kết nối được tới máy chủ hoặc kết nối bị ngắt."
+    },
+    "preview": {
+      "empty": "Chưa có nội dung để xem trước.",
+      "waitingStream": "Đang chờ dữ liệu stream…",
+      "modelId": "Mã model",
+      "ownedBy": "Sở hữu bởi",
+      "created": "Thời điểm tạo",
+      "imageAlt": "Ảnh được tạo {{index}}",
+      "openFile": "Mở tệp",
+      "videoLabel": "Video được tạo {{index}}"
+    }
+  },
+  "apiDocs": {
+    "links": {
+      "connection": "Kết nối & API",
+      "playground": "Playground"
+    },
+    "onThisPage": "Trên trang này",
+    "sections": {
+      "baseUrl": "Base URL",
+      "auth": "Xác thực",
+      "waiting": "Cách thức chờ kết quả",
+      "models": "Các model",
+      "endpoints": "Các endpoint",
+      "errors": "Mã lỗi",
+      "notes": "Hành vi chung & lưu ý"
+    },
+    "baseUrl": {
+      "description": "Mọi endpoint công khai tương thích OpenAI đều nằm dưới Base URL này."
+    },
+    "auth": {
+      "description": "Mọi yêu cầu tới /v1 đều cần API key trong header Authorization theo dạng Bearer. Key bắt đầu bằng sk-muse- theo sau là 48 ký tự hex viết thường.",
+      "hint": "Quản lý key tại trang Kết nối & API. Thu hồi key có hiệu lực ngay lập tức."
+    },
+    "waiting": {
+      "sync": "Tạo ảnh (POST /v1/images/generations) và Chat (POST /v1/chat/completions) giữ kết nối HTTP chờ tới khi tạo xong (thường 30–90 giây).",
+      "async": "Tạo video (POST /v1/videos/generations) theo cơ chế tạo rồi kiểm tra định kỳ: trả về 202 ngay với id và trạng thái \"queued\", sau đó client gọi GET /v1/videos/generations/{id} tới khi trạng thái là \"succeeded\", \"failed\" hoặc \"cancelled\".",
+      "timeoutTitle": "Lỗi 504 Timeout & X-Muse-Task-Id",
+      "timeoutBody": "Nếu yêu cầu đồng bộ vượt quá thời gian chờ, máy chủ trả về HTTP 504 với mã lỗi \"timeout\" và header X-Muse-Task-Id. Tác vụ nền vẫn có thể tiếp tục hoàn tất trên máy chủ và xuất hiện trong Tác vụ cùng Thư viện."
+    },
+    "models": {
+      "description": "Muse cung cấp hai model tương ứng với tạo ảnh và tạo video ngắn.",
+      "imageDesc": "Tạo hình ảnh tĩnh.",
+      "videoDesc": "Tạo một video ngắn (~10 giây)."
+    },
+    "tables": {
+      "model": "Model",
+      "output": "Đầu ra",
+      "usedIn": "Endpoint sử dụng",
+      "parameters": "Tham số",
+      "name": "Tên",
+      "type": "Kiểu",
+      "description": "Mô tả",
+      "required": "bắt buộc",
+      "when": "Khi nào",
+      "whatToDo": "Cách xử lý"
+    },
+    "exampleRequest": "Ví dụ request",
+    "exampleResponse": "Ví dụ response",
+    "endpoints": {
+      "models": {
+        "description": "Liệt kê các model Muse khả dụng theo định dạng list của OpenAI."
+      },
+      "images": {
+        "description": "Tạo từ 1 đến 4 ảnh theo prompt và chờ tới khi tệp sẵn sàng.",
+        "note": "Các trường lạ dư thừa được bỏ qua để tương thích OpenAI SDK. Response có header X-Muse-Task-Id chứa id tác vụ nền.",
+        "params": {
+          "prompt": "Mô tả văn bản bắt buộc, 1–4000 ký tự sau khi cắt khoảng trắng đầu cuối.",
+          "model": "Không bắt buộc. Nếu truyền thì phải là \"muse-image\".",
+          "n": "Không bắt buộc, số nguyên từ 1 đến 4. Mặc định là 1.",
+          "size": "Không bắt buộc, chọn khung hình: \"1024x1024\" (1:1 mặc định), \"1792x1024\" hoặc \"1536x1024\" (16:9), \"1024x1792\" hoặc \"1024x1536\" (9:16). Muse quyết định kích thước pixel thực tế.",
+          "aspectRatio": "Trường mở rộng không bắt buộc dùng thay cho size: \"1:1\", \"16:9\" hoặc \"9:16\".",
+          "responseFormat": "Không bắt buộc: \"url\" (mặc định, trả về URL tuyệt đối) hoặc \"b64_json\" (trả về chuỗi ảnh base64)."
+        }
+      },
+      "videosCreate": {
+        "description": "Đưa yêu cầu tạo video ngắn (~10 giây) vào hàng đợi và trả về 202 Accepted ngay lập tức.",
+        "params": {
+          "model": "Phải là \"muse-video\".",
+          "prompt": "Mô tả văn bản bắt buộc cho video.",
+          "aspectRatio": "Không bắt buộc: \"16:9\" (mặc định), \"9:16\" hoặc \"1:1\"."
+        }
+      },
+      "videosPoll": {
+        "description": "Kiểm tra trạng thái của lượt tạo video đã gửi qua POST /v1/videos/generations.",
+        "note": "Trạng thái gồm \"queued\", \"in_progress\", \"succeeded\", \"failed\" hoặc \"cancelled\". Mảng \"data\" chỉ có khi \"succeeded\"; khi \"failed\", đối tượng có thêm \"error\" gồm message, type và code. Bất kỳ API key hợp lệ nào đều đọc được lượt tạo qua API.",
+        "params": {
+          "id": "Generation id trả về từ POST /v1/videos/generations."
+        }
+      },
+      "chat": {
+        "description": "Nhận payload theo kiểu chat completions của OpenAI và tạo ảnh hoặc video từ tin nhắn user cuối cùng.",
+        "note": "Prompt là nội dung văn bản của tin nhắn có role \"user\" cuối cùng (hỗ trợ chuỗi hoặc mảng parts, nối các phần text bằng ký tự xuống dòng và bỏ qua các phần khác). Trả về 400 nếu không có tin nhắn user. Nội dung trả về là ![image](<url>) cho muse-image hoặc [video](<url>) cho muse-video.",
+        "streamTitle": "Streaming (text/event-stream)",
+        "params": {
+          "model": "Bắt buộc: \"muse-image\" hoặc \"muse-video\".",
+          "messages": "Bắt buộc, danh sách tin nhắn chat; lấy tin nhắn \"user\" cuối cùng.",
+          "stream": "Không bắt buộc, boolean (mặc định false). Khi true, trả về các SSE chunk (\"chat.completion.chunk\") kèm dòng chú thích \": waiting\" khoảng mỗi 10 giây, kết thúc bằng finish_reason \"stop\" và \"data: [DONE]\". Nếu lỗi xảy ra sau khi stream đã mở, stream gửi một chunk chứa thông báo lỗi rồi kết thúc bình thường."
+        }
+      }
+    },
+    "errors": {
+      "description": "Mọi lỗi trên /v1 đều trả về cấu trúc lỗi của OpenAI, không dùng cấu trúc nội bộ.",
+      "rows": {
+        "invalid_api_key": {
+          "when": "Thiếu key, sai định dạng, key không tồn tại hoặc đã bị thu hồi.",
+          "action": "Kiểm tra lại Bearer token hoặc tạo key mới ở trang Kết nối & API."
+        },
+        "invalid_request": {
+          "when": "Dữ liệu gửi lên không hợp lệ (sai model, prompt rỗng, size lạ, n ngoài khoảng, thiếu tin nhắn user).",
+          "action": "Sửa lại các tham số đúng theo mô tả endpoint rồi gửi lại."
+        },
+        "content_policy_violation": {
+          "when": "Muse từ chối tạo nội dung này.",
+          "action": "Điều chỉnh prompt cho phù hợp với chính sách nội dung của Muse."
+        },
+        "not_found": {
+          "when": "Không tìm thấy video generation id.",
+          "action": "Kiểm tra lại id nhận được từ POST /v1/videos/generations."
+        },
+        "library_full": {
+          "when": "Thư viện media đã hết dung lượng lưu kết quả.",
+          "action": "Xóa bớt tệp không dùng trong Thư viện để giải phóng chỗ."
+        },
+        "rate_limit_exceeded": {
+          "when": "Hết hạn mức Muse hoặc đang bị Muse giới hạn tần suất.",
+          "action": "Chờ một lát trước khi thử lại hoặc thêm/bật tài khoản Muse khác."
+        },
+        "upstream_error": {
+          "when": "Xảy ra lỗi khác trong lúc tạo nội dung.",
+          "action": "Kiểm tra chi tiết trên trang Tác vụ và thử gửi lại."
+        },
+        "no_account_available": {
+          "when": "Không có tài khoản Muse khả dụng hoặc thiếu FFmpeg trên máy chủ.",
+          "action": "Kiểm tra trạng thái tài khoản trên trang Tài khoản Muse và cài đặt FFmpeg trên máy chủ."
+        },
+        "timeout": {
+          "when": "Kết quả không kịp hoàn thành trong thời gian chờ (response có header X-Muse-Task-Id).",
+          "action": "Kiểm tra mã tác vụ trên trang Tác vụ — công việc vẫn có thể hoàn tất và lưu vào Thư viện."
+        }
+      }
+    },
+    "notes": {
+      "library": "Các tệp tạo ra được lưu vào Thư viện với nguồn (source) là \"api\".",
+      "tasksAndHistory": "Tác vụ chạy trên cùng hàng đợi nền, dùng chung tài khoản và hạn mức Muse với Tạo nhanh, đồng thời hiện trên trang Tác vụ — nhưng lượt tạo qua API không hiện trong lịch sử Tạo nhanh.",
+      "noKeyDownloads": "URL tệp trả về (/api/library/assets/<id>/file) là URL tuyệt đối và tải trực tiếp không cần API key.",
+      "revocationAndUsage": "Thu hồi key khiến mọi yêu cầu dùng key đó bị 401 ngay lập tức. Mỗi lần dùng key sẽ cập nhật lastUsedAt (tối đa mỗi phút một lần)."
+    }
   }
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AccountRow } from "@/features/accounts/components/account-row";
 import { ImportAccountDialog } from "@/features/accounts/components/import-account-dialog";
+import { TokenGuideDialog } from "@/features/accounts/components/token-guide-dialog";
 import {
   ACCOUNT_COLUMNS,
   ACCOUNT_FILTERS,
@@ -26,7 +27,12 @@ export function AccountsPage() {
       <PageHeader
         title={t("pages.accounts.title")}
         description={t("pages.accounts.description")}
-        actions={<ImportAccountDialog onImported={list.imported} />}
+        actions={
+          <>
+            <TokenGuideDialog />
+            <ImportAccountDialog onImported={list.imported} />
+          </>
+        }
       />
       {list.notice && (
         <p

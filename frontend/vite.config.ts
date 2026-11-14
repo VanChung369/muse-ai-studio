@@ -23,6 +23,13 @@ export default defineConfig(({ mode }) => {
           target: env.MUSE_API_TARGET || "http://127.0.0.1:18610",
           changeOrigin: true,
         },
+        // The public API. `xfwd` tells the backend which address the caller
+        // used, so the result URLs it returns work from other machines too.
+        "^/v1/": {
+          target: env.MUSE_API_TARGET || "http://127.0.0.1:18610",
+          changeOrigin: true,
+          xfwd: true,
+        },
       },
     },
   };

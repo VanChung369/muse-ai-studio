@@ -897,6 +897,31 @@
       "noResultsDescription": "Try another label or clear the current filters.",
       "clear": "Clear filters"
     },
+    "guide": {
+      "action": "How to get the token",
+      "title": "Getting your Muse session token",
+      "description": "The app signs in to Muse with the session of a browser where you are already logged in: a cookie named hatch_sess. Either way below gets it.",
+      "network": {
+        "title": "Way 1 · From a request (recommended)",
+        "open": "In Chrome or Edge, open Muse and log in to the account you want to add:",
+        "devtools": "Press F12 to open DevTools, choose the Network tab, then reload the page (F5).",
+        "request": "Click any request to muse.ai in the list (for example “session”), and open Headers → Request Headers.",
+        "copy": "Copy the whole value of the “cookie” line. Easier still: right-click the request → Copy → Copy as cURL.",
+        "paste": "Back here, press “Import account”, paste what you copied, give the account a name, then press Test to confirm the session works."
+      },
+      "cookie": {
+        "title": "Way 2 · From the cookie table",
+        "application": "With Muse open and logged in, press F12 and open Application → Cookies → https://muse.ai (in Firefox: Storage → Cookies).",
+        "value": "Find the row named hatch_sess and copy its Value.",
+        "paste": "In “Import account”, paste it in this form:"
+      },
+      "notes": {
+        "secret": "The token is as good as your password. Do not share it or paste it anywhere else.",
+        "expiry": "A session ends after a while, or when you log out of Muse in that browser. When an account shows “Session expired”, get a new token the same way and re-import it.",
+        "stored": "The token is stored encrypted on the machine running this app and is sent only to muse.ai."
+      },
+      "close": "Got it"
+    },
     "import": {
       "action": "Import account",
       "title": "Import a Muse account",
@@ -1338,5 +1363,348 @@
     "dismissed": "Request removed from the list. Files are still kept in the Library.",
     "undoDismiss": "Undo",
     "dismissError": "The list could not be updated. Please try again."
+  },
+  "overview": {
+    "quickCreate": "Quick Create",
+    "newProject": "New project",
+    "allProjects": "All projects",
+    "allTasks": "All tasks",
+    "loading": "Loading…",
+    "loadError": "This part could not be loaded.",
+    "retry": "Try again",
+    "continue": {
+      "title": "Continue working",
+      "empty": "No project yet. Start one from an idea.",
+      "none": "Every project is finished. Start a new one when you are ready.",
+      "steps": {
+        "idea": "Continue with the idea",
+        "script": "Continue with the script",
+        "render": "Go to rendering",
+        "output": "Open the finished film"
+      }
+    },
+    "running": {
+      "title": "Running now",
+      "empty": "Nothing is running.",
+      "queued": "{{count}} more waiting in the queue"
+    },
+    "recent": {
+      "title": "Recent projects",
+      "empty": "Projects you work on appear here."
+    },
+    "attention": {
+      "title": "Needs attention",
+      "empty": "Nothing needs you right now.",
+      "more": "{{count}} more in Tasks"
+    },
+    "accounts": {
+      "title": "Muse accounts",
+      "manage": "Manage",
+      "usable": "accounts can take work",
+      "empty": "No Muse account yet. Import one to start generating.",
+      "import": "Import an account"
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "create": "Make an image or a short video",
+      "importAccount": "Import a Muse account",
+      "copyBaseUrl": "Copy the API Base URL",
+      "copied": "Base URL copied.",
+      "copyFailed": "Could not copy here. Copy it by hand:",
+      "apiKeys": "API keys and connection",
+      "playground": "Open the Playground"
+    }
+  },
+  "apiAccess": {
+    "links": {
+      "docs": "Documentation",
+      "playground": "Open Playground"
+    },
+    "connection": {
+      "title": "Connection details",
+      "description": "Use this Base URL and an API key from the list below to send OpenAI-compatible requests to Muse AI Studio.",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "Point OpenAI SDKs or HTTP clients at this address.",
+      "envVar": "Environment variable",
+      "envVarHint": "Store your key in an environment variable — never paste a real key into source code."
+    },
+    "keys": {
+      "title": "API keys",
+      "description": "Keys authenticate requests to /v1 endpoints.",
+      "countDescription": "{{count}} of {{max}} keys in use. Newest keys appear first.",
+      "refresh": "Refresh API keys",
+      "createAction": "Create key",
+      "limitReached": "You have reached the maximum of {{max}} API keys. Revoke an unused key before creating a new one.",
+      "neverUsed": "Never used",
+      "copyForKey": "Copy key for {{name}}",
+      "createdNotice": "Created API key \"{{name}}\".",
+      "revokedNotice": "Revoked API key \"{{name}}\"."
+    },
+    "fields": {
+      "name": "Name",
+      "masked": "Key",
+      "created": "Created",
+      "lastUsed": "Last used",
+      "actions": "Actions"
+    },
+    "empty": {
+      "title": "No API keys yet",
+      "description": "Create an API key to call /v1 endpoints from scripts, automation tools, or the Playground."
+    },
+    "create": {
+      "title": "Create API key",
+      "description": "Give this key a recognizable name so you know where it is used.",
+      "nameLabel": "Key name",
+      "namePlaceholder": "e.g. Zapier, Local script",
+      "nameHint": "1 to {{max}} characters.",
+      "creating": "Creating…",
+      "createdTitle": "API key created",
+      "createdDescription": "Copy the key for \"{{name}}\" now.",
+      "keyLabel": "Full API key",
+      "keepSafeNote": "Keep it somewhere safe — the full key is shown once here. You can still copy it later from the keys table without displaying it.",
+      "done": "Done"
+    },
+    "revoke": {
+      "action": "Revoke",
+      "forKey": "Revoke key {{name}}",
+      "title": "Revoke API key?",
+      "description": "Revoke \"{{name}}\" ({{masked}}).",
+      "warning": "Any application using this key will get 401 Unauthorized at once. This cannot be undone.",
+      "confirm": "Revoke key",
+      "revoking": "Revoking…"
+    },
+    "quickstart": {
+      "title": "Quick start",
+      "description": "Generate one image using the Base URL above and your MUSE_API_KEY environment variable.",
+      "languagesLabel": "Quick start language",
+      "tabs": {
+        "curl": "cURL",
+        "python": "Python",
+        "node": "Node"
+      }
+    },
+    "clipboard": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "failed": "Could not write to the clipboard automatically (common on plain HTTP LAN addresses). Press Ctrl+C or Cmd+C with the selected field below.",
+      "manualLabel": "Selected text to copy"
+    },
+    "errors": {
+      "load": "Could not load API keys. Please try again.",
+      "create": "Could not create the API key. Please try again.",
+      "tooManyKeys": "You already have 20 API keys. Revoke one before creating another.",
+      "invalidName": "Enter a key name between 1 and 60 characters.",
+      "reveal": "Could not reveal this API key. Please try again.",
+      "notFound": "This API key no longer exists.",
+      "revoke": "Could not revoke this API key. Please try again.",
+      "network": "Network error — could not reach the server."
+    }
+  },
+  "playground": {
+    "realRequestNote": "Requests sent here are real — they use a Muse account's quota and appear in Tasks and the Media Library.",
+    "noKeys": {
+      "title": "Create an API key first",
+      "description": "The Playground sends real authenticated requests to /v1. Create at least one API key on the Connection & API page to try it out.",
+      "action": "Go to Connection & API"
+    },
+    "formLabel": "Playground request settings",
+    "fields": {
+      "key": "API key",
+      "endpoint": "Endpoint",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Describe what you want Muse to create…",
+      "count": "Number of images (n)",
+      "shape": "Shape (size)",
+      "responseFormat": "Response format",
+      "aspectRatio": "Aspect ratio",
+      "model": "Model",
+      "stream": "Stream response",
+      "streamHint": "Read Server-Sent Events (text/event-stream) as chunks arrive."
+    },
+    "endpoints": {
+      "images": "POST /v1/images/generations",
+      "videos": "POST /v1/videos/generations",
+      "chat": "POST /v1/chat/completions",
+      "models": "GET /v1/models"
+    },
+    "modelsHint": "GET /v1/models lists available models and takes no request body.",
+    "actions": {
+      "send": "Send",
+      "sending": "Running…",
+      "stop": "Stop",
+      "copyCurl": "Copy as cURL"
+    },
+    "request": {
+      "title": "Request payload"
+    },
+    "response": {
+      "title": "Response",
+      "tabsLabel": "Response view",
+      "tabs": {
+        "preview": "Preview",
+        "json": "Response JSON"
+      },
+      "waiting": "Waiting for response…",
+      "noJson": "Send a request to inspect the JSON response."
+    },
+    "videoStatus": {
+      "queued": "queued",
+      "in_progress": "in_progress",
+      "succeeded": "succeeded",
+      "failed": "failed",
+      "cancelled": "cancelled"
+    },
+    "stoppedNote": "Stopped waiting in the browser. Any job already accepted by the server keeps running — check Tasks for its progress.",
+    "errors": {
+      "httpStatus": "Request failed with HTTP {{status}}.",
+      "network": "Network failure — could not reach the server or the connection was interrupted."
+    },
+    "preview": {
+      "empty": "Nothing to preview yet.",
+      "waitingStream": "Waiting for streamed output…",
+      "modelId": "Model ID",
+      "ownedBy": "Owned by",
+      "created": "Created",
+      "imageAlt": "Generated image {{index}}",
+      "openFile": "Open file",
+      "videoLabel": "Generated video {{index}}"
+    }
+  },
+  "apiDocs": {
+    "links": {
+      "connection": "Connection & API",
+      "playground": "Playground"
+    },
+    "onThisPage": "On this page",
+    "sections": {
+      "baseUrl": "Base URL",
+      "auth": "Authentication",
+      "waiting": "How waiting works",
+      "models": "Models",
+      "endpoints": "Endpoints",
+      "errors": "Errors",
+      "notes": "Shared behavior & notes"
+    },
+    "baseUrl": {
+      "description": "All public OpenAI-compatible endpoints live under this Base URL."
+    },
+    "auth": {
+      "description": "Every /v1 request requires an API key in the Authorization header using the Bearer scheme. Keys start with sk-muse- followed by 48 lowercase hex characters.",
+      "hint": "Manage keys on the Connection & API page. Revoking a key takes effect immediately."
+    },
+    "waiting": {
+      "sync": "Images (POST /v1/images/generations) and Chat (POST /v1/chat/completions) wait on the open HTTP connection until generation finishes (typically 30–90 seconds).",
+      "async": "Video (POST /v1/videos/generations) is create-then-poll: it answers 202 immediately with a generation id and status \"queued\", then you poll GET /v1/videos/generations/{id} until status becomes \"succeeded\", \"failed\", or \"cancelled\".",
+      "timeoutTitle": "504 Timeout & X-Muse-Task-Id",
+      "timeoutBody": "If a synchronous request exceeds the server timeout, it returns HTTP 504 with error code \"timeout\" and header X-Muse-Task-Id. The background job may still finish on the server and appear in Tasks and the Media Library."
+    },
+    "models": {
+      "description": "Muse exposes two models corresponding to image and short video generation.",
+      "imageDesc": "Generates still pictures.",
+      "videoDesc": "Generates one short video (~10 seconds)."
+    },
+    "tables": {
+      "model": "Model",
+      "output": "Output",
+      "usedIn": "Endpoints",
+      "parameters": "Parameters",
+      "name": "Name",
+      "type": "Type",
+      "description": "Description",
+      "required": "required",
+      "when": "When",
+      "whatToDo": "What to do"
+    },
+    "exampleRequest": "Example request",
+    "exampleResponse": "Example response",
+    "endpoints": {
+      "models": {
+        "description": "Lists the available Muse models in OpenAI list format."
+      },
+      "images": {
+        "description": "Generates 1 to 4 images for a prompt and waits until the files are ready.",
+        "note": "Unknown extra fields are ignored for OpenAI SDK compatibility. The response carries header X-Muse-Task-Id with the background task id.",
+        "params": {
+          "prompt": "Required text description, 1–4000 characters after trimming.",
+          "model": "Optional. Must be \"muse-image\" when provided.",
+          "n": "Optional integer from 1 to 4. Defaults to 1.",
+          "size": "Optional shape selector: \"1024x1024\" (1:1 default), \"1792x1024\" or \"1536x1024\" (16:9), \"1024x1792\" or \"1024x1536\" (9:16). Muse decides exact pixel dimensions.",
+          "aspectRatio": "Optional extension field used instead of size: \"1:1\", \"16:9\", or \"9:16\".",
+          "responseFormat": "Optional: \"url\" (default, returns absolute asset URLs) or \"b64_json\" (returns base64-encoded image strings)."
+        }
+      },
+      "videosCreate": {
+        "description": "Queues a short video generation (~10 seconds) and returns 202 Accepted immediately.",
+        "params": {
+          "model": "Must be \"muse-video\".",
+          "prompt": "Required text description of the video.",
+          "aspectRatio": "Optional: \"16:9\" (default), \"9:16\", or \"1:1\"."
+        }
+      },
+      "videosPoll": {
+        "description": "Checks the status of a video generation created with POST /v1/videos/generations.",
+        "note": "Status is \"queued\", \"in_progress\", \"succeeded\", \"failed\", or \"cancelled\". The \"data\" array is present only when \"succeeded\"; when \"failed\", the object includes \"error\" with message, type, and code. Any valid API key can read any generation created through the API.",
+        "params": {
+          "id": "The generation id returned by POST /v1/videos/generations."
+        }
+      },
+      "chat": {
+        "description": "Accepts OpenAI chat-completions payloads and generates an image or video from the last user message.",
+        "note": "The prompt is extracted from the last message with role \"user\" (string or content-parts array where text parts are joined with a newline and other parts are ignored). Returns 400 when no user message exists. Content returns ![image](<url>) for muse-image or [video](<url>) for muse-video.",
+        "streamTitle": "Streaming (text/event-stream)",
+        "params": {
+          "model": "Required: \"muse-image\" or \"muse-video\".",
+          "messages": "Required list of chat messages; uses the last \"user\" message.",
+          "stream": "Optional boolean (default false). When true, streams SSE chunks (\"chat.completion.chunk\") with \": waiting\" keepalive comments roughly every 10s, ending with finish_reason \"stop\" and \"data: [DONE]\". If work fails mid-stream, sends one chunk with the error message and finishes normally."
+        }
+      }
+    },
+    "errors": {
+      "description": "All /v1 errors return the OpenAI error envelope rather than internal detail objects.",
+      "rows": {
+        "invalid_api_key": {
+          "when": "Missing, malformed, unknown, or revoked key.",
+          "action": "Check the Bearer token or create a new key on Connection & API."
+        },
+        "invalid_request": {
+          "when": "Body fails validation (bad model, empty prompt, unknown size, n out of range, no user message).",
+          "action": "Fix the request parameters to match the endpoint schema and retry."
+        },
+        "content_policy_violation": {
+          "when": "Muse refused to generate the requested content.",
+          "action": "Adjust the prompt to comply with Muse content policies."
+        },
+        "not_found": {
+          "when": "Unknown video generation id.",
+          "action": "Verify the id returned by POST /v1/videos/generations."
+        },
+        "library_full": {
+          "when": "The Media Library has no room left for the result.",
+          "action": "Delete unused files from Media Library to free space."
+        },
+        "rate_limit_exceeded": {
+          "when": "Muse quota is used up or Muse is rate limiting requests.",
+          "action": "Wait before retrying or add/enable another Muse account."
+        },
+        "upstream_error": {
+          "when": "Any other failure occurred while generating.",
+          "action": "Check Tasks for details and retry the request."
+        },
+        "no_account_available": {
+          "when": "No usable Muse account is ready, or FFmpeg is missing on the server.",
+          "action": "Verify Muse accounts are active on the Accounts page and check server FFmpeg."
+        },
+        "timeout": {
+          "when": "Result did not arrive in time (response carries X-Muse-Task-Id).",
+          "action": "Check the task id on the Tasks page — the job may still finish and land in the Library."
+        }
+      }
+    },
+    "notes": {
+      "library": "Generated files are saved to the Media Library with source \"api\".",
+      "tasksAndHistory": "Work runs in the same background queue using the same Muse accounts and quota as Quick Create, and appears in Tasks — but API-made work does not appear in Quick Create's history.",
+      "noKeyDownloads": "Returned asset URLs (/api/library/assets/<id>/file) are absolute and require no API key to download.",
+      "revocationAndUsage": "Revoking a key returns 401 immediately. Using a key updates its lastUsedAt timestamp (at most once per minute)."
+    }
   }
 }
