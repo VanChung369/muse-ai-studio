@@ -101,8 +101,12 @@ def reopen_conversation(
         page.wait_for_timeout(1000)
     check_cancelled()
     if thread_path:
-        if _open_thread(page, client, thread_path):
-            return
+        try:
+            if _open_thread(page, client, thread_path):
+                return
+        except ConversationBusy:
+            # Busy, so our copy may be in the works after all: never resend.
+            raise MuseError("conversation_busy", 409, partial=result) from None
         if not started:
             raise MuseError("message_not_delivered", partial=result)
     page.goto(client.base + "/thread/new", wait_until="domcontentloaded", timeout=30000)
@@ -170,9 +174,14 @@ GENERATING_JS = """() => !!(document.querySelector('[data-testid="hatch-composer
     || document.querySelector('button[aria-label*="停止"]'))"""
 
 
+class ConversationBusy(Exception):
+    """The saved conversation is still answering an earlier message. It must
+    be waited for, never replaced by a new one (one conversation per film)."""
+
+
 def _open_thread(page, client, thread_path) -> bool:
-    """Open a saved conversation. False when it cannot take a new message:
-    it no longer exists, Muse sent us elsewhere, or it is still busy."""
+    """Open a saved conversation. False when it no longer exists or Muse
+    sent us elsewhere; ConversationBusy while it is still answering."""
     try:
         page.goto(
             client.base + thread_path, wait_until="domcontentloaded", timeout=30000
@@ -186,8 +195,8 @@ def _open_thread(page, client, thread_path) -> bool:
                 return True
             page.wait_for_timeout(500)
     except BrowserError:
-        pass
-    return False
+        return False
+    raise ConversationBusy()
 
 
 def _installed(*parts: str) -> list[str]:
@@ -266,7 +275,14 @@ def open_composer(client, result, proxy, thread_path=None):
                     ]
                 )
                 page = context.new_page()
-                if not (thread_path and _open_thread(page, client, thread_path)):
+                try:
+                    opened = bool(thread_path) and _open_thread(page, client, thread_path)
+                except ConversationBusy:
+                    # Nothing was sent: the task waits and tries again.
+                    error = MuseError("conversation_busy", 409, partial=result)
+                    error.unsent = True
+                    raise error from None
+                if not opened:
                     page.goto(
                         client.base + "/thread/new",
                         wait_until="domcontentloaded",
@@ -421,8 +437,13 @@ def generate_script_text(
     )
     with open_composer(client, result, proxy, thread_path) as page:
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
-        if thread_path and not continued and fresh is not None:
-            prompt, attachments = fresh
+        if thread_path and not continued:
+            if on_thread is not None:
+                # The saved conversation was not used: until the new one
+                # shows its id, nothing is known about where this went.
+                on_thread(None)
+            if fresh is not None:
+                prompt, attachments = fresh
         retry_thread = thread_path_of(page.url)
 
         def remember_thread():

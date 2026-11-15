@@ -220,8 +220,13 @@ def _generate_media(
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
         if require_thread and thread_path and not continued:
             raise MuseError("conversation_unavailable", partial=result)
-        if thread_path and not continued and fresh is not None:
-            prompt, attachments = fresh
+        if thread_path and not continued:
+            if on_thread:
+                # The saved conversation was not used: until the new one
+                # shows its id, a retry must not take the old path for it.
+                on_thread(None)
+            if fresh is not None:
+                prompt, attachments = fresh
         downloaded = []
         saved_thread = None
         retry_thread = thread_path_of(page.url)

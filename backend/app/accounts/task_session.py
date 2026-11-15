@@ -71,6 +71,10 @@ class TaskAccountSession:
             # Nothing was sent yet (the browser slot was taken before the
             # composer opened): wait for a slot instead of failing.
             return TaskDeferred("browser_busy", delay=15)
+        if error.code == "conversation_busy" and getattr(error, "unsent", False):
+            # The film's conversation is still answering an earlier request
+            # and nothing was sent: wait for it rather than open another one.
+            return TaskDeferred("conversation_busy", delay=30)
         partial = error.partial
         if partial and partial.cookies.get("hatch_sess") and not saved:
             # Only save cookies `persist` did not already store, so a late

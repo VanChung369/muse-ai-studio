@@ -53,13 +53,13 @@ QUALITY = (
 # How the attached frame of the previous shot is to be used.
 CONTINUITY = {
     "reference": (
-        "The attached image is a frame from the previous shot of this film. Use it "
+        "The attached image previous-shot.jpg is a frame from the previous shot of this film. Use it "
         "as a visual reference so the characters, wardrobe, props, lighting and "
         "color grade match it. Start from that exact frame only if this shot "
         "continues in the same place."
     ),
     "seamless": (
-        "The attached image is the final frame of the previous shot. Begin this "
+        "The attached image previous-shot.jpg is the final frame of the previous shot. Begin this "
         "shot on exactly that frame and continue the action without a cut: same "
         "characters, wardrobe, location, lighting and color grade."
     ),

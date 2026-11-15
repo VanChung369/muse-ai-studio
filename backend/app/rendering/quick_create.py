@@ -128,6 +128,9 @@ def make_quick_handler(app):
         # The conversation an earlier attempt of this request was sent to.
         thread = own = context.checkpoint.get("threadPath")
         sent = context.checkpoint.get("sent", False)
+        if not sent:
+            # A page can get an id before sending; that one may never be kept.
+            thread = own = None
         if thread and context.checkpoint.get("accountId") != context.account_id:
             raise TaskFailure("conversation_unavailable")
         reference = []

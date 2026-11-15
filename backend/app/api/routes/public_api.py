@@ -236,7 +236,7 @@ class ChatRequest(BaseModel):
             and (text := self._text(message))
         )
         room = 4000 - len(content) - len("\nInstructions: ")
-        if instructions and room > 20:
+        if instructions and room > 0:
             if len(instructions) > room:
                 instructions = instructions[: room - 1].rstrip() + "…"
             content += "\nInstructions: " + instructions
