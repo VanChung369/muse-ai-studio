@@ -71,6 +71,16 @@ Dừng app: bấm `Ctrl+C` trong cửa sổ đang chạy.
 
 Trang **Settings** cho biết app đã tìm thấy FFmpeg và trình duyệt hay chưa.
 
+## Hiện trên Google (SEO)
+
+Mỗi trang đã có sẵn tiêu đề, mô tả và ảnh xem trước cho kết quả tìm kiếm và khi chia sẻ link, kèm `robots.txt` và `sitemap.xml`. Mặc định app **ẩn** khỏi công cụ tìm kiếm. Khi đã đưa app lên tên miền công khai:
+
+1. Vào **Settings** → **Public address**, điền địa chỉ (ví dụ `https://studio.example.com`).
+2. Ở mục **Search engines**, chọn **Shown in search engines**, rồi bấm **Save changes**.
+3. Gửi `https://<tên miền>/sitemap.xml` cho Google Search Console để Google tìm thấy nhanh hơn.
+
+Chỉ Video Studio, Quick Create, Overview và Documentation được đưa lên. Tài khoản Muse, khóa API, cài đặt và các dự án luôn bị ẩn.
+
 ## Lưu ý
 
 - App **không có đăng nhập**: ai mở được địa chỉ của app là dùng được tất cả. Chỉ dùng `-Lan` / `--lan` trong mạng bạn tin cậy.

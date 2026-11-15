@@ -92,6 +92,8 @@ bash install.sh
 
 Then open `http://127.0.0.1:18610`. Next time, start it with `start.cmd` (Windows) or `bash start.sh` (macOS/Linux). One server answers the interface, the API (`/api`, documentation at `/api/docs`) and the public API (`/v1`). `-Port 8080` / `--port 8080` changes the port; `-Lan` / `--lan` makes it reachable from other machines on your network. Hướng dẫn tiếng Việt: [INSTALL.vi.md](INSTALL.vi.md).
 
+Search engines: every page carries its own title, description and preview picture for search results and shared links, and `robots.txt` and `sitemap.xml` are served for you. Nothing is offered to search engines until **Settings → Public address → Search engines** is set to *Shown* (set the public address too, so links name your domain). Then only Video Studio, Quick Create, Overview and Documentation are listed; accounts, API keys, settings and projects stay out. The app has no login, so anyone who finds it can use it and your Muse accounts.
+
 ### Run for development
 
 You need Python 3.12+ with [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22.12+, FFmpeg, Chrome (or Chromium/Edge) and a Muse account.

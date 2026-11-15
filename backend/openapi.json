@@ -5858,10 +5858,14 @@
               }
             ],
             "title": "Publicurl"
+          },
+          "searchIndexing": {
+            "type": "boolean",
+            "title": "Searchindexing"
           }
         },
         "type": "object",
-        "required": ["projectDefaults", "publicUrl"],
+        "required": ["projectDefaults", "publicUrl", "searchIndexing"],
         "title": "SettingsResponse"
       },
       "SettingsUpdate": {
@@ -5887,6 +5891,17 @@
               }
             ],
             "title": "Publicurl"
+          },
+          "searchIndexing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchindexing"
           }
         },
         "additionalProperties": false,
