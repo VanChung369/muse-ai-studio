@@ -11,7 +11,7 @@ from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, StrictBool, field_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,7 @@ class ProjectDefaults(CamelModel):
 class SettingsResponse(CamelModel):
     project_defaults: ProjectDefaults
     public_url: str | None
+    search_indexing: bool
 
 
 class SettingsUpdate(CamelModel):
@@ -56,6 +57,8 @@ class SettingsUpdate(CamelModel):
     project_defaults: ProjectDefaults | None = None
     # Null or empty: back to using each request's own address.
     public_url: str | None = Field(default=None, max_length=200)
+    # Left out or null: unchanged.
+    search_indexing: StrictBool | None = None
 
     @field_validator("public_url")
     @classmethod
@@ -67,7 +70,9 @@ class SettingsUpdate(CamelModel):
         try:
             parts.port
         except ValueError:
-            raise ValueError("Enter an address such as https://studio.example.com.") from None
+            raise ValueError(
+                "Enter an address such as https://studio.example.com."
+            ) from None
         if (
             parts.scheme not in ("http", "https")
             or not parts.hostname
@@ -84,6 +89,7 @@ def respond(values: dict) -> SettingsResponse:
     return SettingsResponse(
         project_defaults=ProjectDefaults.model_validate(values["projectDefaults"]),
         public_url=values["publicUrl"],
+        search_indexing=values["searchIndexing"],
     )
 
 
@@ -93,12 +99,16 @@ def get_settings(session: DatabaseSession) -> SettingsResponse:
 
 
 @router.patch("/settings", response_model=SettingsResponse)
-def update_settings(values: SettingsUpdate, session: DatabaseSession) -> SettingsResponse:
+def update_settings(
+    values: SettingsUpdate, session: DatabaseSession
+) -> SettingsResponse:
     changes = {}
     if values.project_defaults is not None:
         changes["projectDefaults"] = values.project_defaults.model_dump(by_alias=True)
     if "public_url" in values.model_fields_set:
         changes["publicUrl"] = values.public_url
+    if values.search_indexing is not None:
+        changes["searchIndexing"] = values.search_indexing
     return respond(app_settings.write(session, changes))
 
 
@@ -193,7 +203,9 @@ def system_status(request: Request, session: DatabaseSession) -> SystemResponse:
     data = settings.data_dir
     library = storage.library_dir(settings)
     database = sum(
-        file.stat().st_size for file in data.glob(settings.database_path.name + "*") if file.is_file()
+        file.stat().st_size
+        for file in data.glob(settings.database_path.name + "*")
+        if file.is_file()
     )
     # Everything in the data folder that is not the library or the database
     # belongs to projects (clips, films, added media, reference files).

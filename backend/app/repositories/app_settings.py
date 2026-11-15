@@ -21,7 +21,8 @@ PROJECT_DEFAULTS = {
 
 def read(session: Session) -> dict:
     stored = {
-        row.key: json.loads(row.value_json) for row in session.scalars(select(AppSetting))
+        row.key: json.loads(row.value_json)
+        for row in session.scalars(select(AppSetting))
     }
     saved = stored.get("projectDefaults")
     return {
@@ -33,6 +34,9 @@ def read(session: Session) -> dict:
         # The address other machines reach this app at, or None to use the
         # address of each request.
         "publicUrl": stored.get("publicUrl") or None,
+        # Whether search engines may list the pages about what the app does
+        # (app/frontend.py). Off until chosen: the app has no login.
+        "searchIndexing": stored.get("searchIndexing") is True,
     }
 
 

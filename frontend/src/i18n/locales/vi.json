@@ -1740,6 +1740,13 @@
       "invalid": "Nhập địa chỉ dạng https://studio.example.com, không kèm tham số.",
       "result": "Base URL của API:"
     },
+    "search": {
+      "label": "Công cụ tìm kiếm",
+      "off": "Ẩn khỏi công cụ tìm kiếm",
+      "on": "Hiện trên công cụ tìm kiếm",
+      "hint": "Khi bật, Google và các công cụ tìm kiếm khác có thể hiển thị Video Studio, Tạo nhanh, Tổng quan và Tài liệu kèm tiêu đề, mô tả và ảnh xem trước, theo địa chỉ ở trên. Tài khoản Muse, khóa API, cài đặt và các dự án của bạn không bao giờ được đưa lên.",
+      "warning": "Ứng dụng không có đăng nhập: ai tìm thấy nó qua công cụ tìm kiếm cũng mở được và dùng được các tài khoản Muse của bạn."
+    },
     "system": {
       "title": "Hệ thống",
       "description": "Máy chủ hiện đang chạy với những gì. Các mục này không đổi được từ trang này.",

@@ -3,11 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f2b84b'/%3E%3Ctext x='16' y='22.5' font-family='Arial,sans-serif' font-size='18' font-weight='700' text-anchor='middle' fill='%23161616'%3EM%3C/text%3E%3C/svg%3E"
-    />
+    <!-- The server (backend/app/frontend.py) gives each page its own title,
+         description, preview and robots tags; these are the defaults. -->
     <title>Muse AI Studio</title>
+    <meta
+      name="description"
+      content="Muse AI Studio turns an idea into a script, separate scenes and a finished AI film, and makes quick pictures and short videos with Muse."
+    />
+    <meta name="application-name" content="Muse AI Studio" />
+    <meta name="theme-color" content="#111214" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Muse AI Studio" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="vi_VN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Muse AI Studio",
+        "description": "Turn an idea into a script, separate scenes and a finished AI film, make quick pictures and short videos, and reach it all through an OpenAI-compatible API.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "inLanguage": ["en", "vi"]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

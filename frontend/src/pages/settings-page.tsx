@@ -52,12 +52,14 @@ const formSchema = z.object({
     .max(200)
     // What the server accepts: http(s), a host, maybe a port and a path.
     .regex(/^(https?:\/\/[^\s/?#@]+(\/[^\s?#]*)?)?$/),
+  searchIndexing: z.enum(["off", "on"]),
 });
 type FormValues = z.infer<typeof formSchema>;
 
 const toForm = (settings: AppSettings): FormValues => ({
   projectDefaults: settings.projectDefaults,
   publicUrl: settings.publicUrl ?? "",
+  searchIndexing: settings.searchIndexing ? "on" : "off",
 });
 
 // The server's start-up limits, each with the variable that sets it.
@@ -147,9 +149,9 @@ function SettingsForm({
     resolver: zodResolver(formSchema),
     defaultValues: toForm(settings),
   });
-  const [durationSeconds, publicUrl] = useWatch({
+  const [durationSeconds, publicUrl, searchIndexing] = useWatch({
     control,
-    name: ["projectDefaults.durationSeconds", "publicUrl"],
+    name: ["projectDefaults.durationSeconds", "publicUrl", "searchIndexing"],
   });
   const pending = update.isPending;
   const address = (publicUrl ?? "").trim().replace(/\/+$/, "");
@@ -158,6 +160,7 @@ function SettingsForm({
     update.mutate({
       projectDefaults: values.projectDefaults,
       publicUrl: values.publicUrl.replace(/\/+$/, "") || null,
+      searchIndexing: values.searchIndexing === "on",
     });
   }
 
@@ -360,6 +363,29 @@ function SettingsForm({
               </p>
             )}
           </div>
+          <div className="mt-5 max-w-160 space-y-2 border-t pt-5">
+            <Choice
+              id={`${id}-search`}
+              label={t("appSettings.search.label")}
+              name="searchIndexing"
+              control={control}
+              options={[
+                ["off", t("appSettings.search.off")],
+                ["on", t("appSettings.search.on")],
+              ]}
+            />
+            <p className="text-xs leading-5 text-faint">
+              {t("appSettings.search.hint")}
+            </p>
+            {searchIndexing === "on" && (
+              <p
+                role="status"
+                className="rounded-lg border border-warning/40 bg-warning-soft p-2.5 text-xs leading-5 text-warning"
+              >
+                {t("appSettings.search.warning")}
+              </p>
+            )}
+          </div>
         </Card>
       </div>
     </form>
@@ -406,7 +432,8 @@ function Choice({
     | "projectDefaults.aspectRatio"
     | "projectDefaults.language"
     | "projectDefaults.look"
-    | "projectDefaults.continuity";
+    | "projectDefaults.continuity"
+    | "searchIndexing";
   control: ReturnType<typeof useForm<FormValues>>["control"];
   options: (readonly [string, string])[];
 }) {

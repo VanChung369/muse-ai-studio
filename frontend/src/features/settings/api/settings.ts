@@ -31,6 +31,8 @@ export const settingsSchema = z.object({
   // The address other machines reach the app at; null means "the address
   // of each request".
   publicUrl: z.string().nullable(),
+  // Whether search engines may list the pages about what the app does.
+  searchIndexing: z.boolean(),
 });
 
 const bytes = z.number().int().nonnegative();

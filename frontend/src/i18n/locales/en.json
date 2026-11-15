@@ -1740,6 +1740,13 @@
       "invalid": "Enter an address such as https://studio.example.com, without a query string.",
       "result": "API Base URL:"
     },
+    "search": {
+      "label": "Search engines",
+      "off": "Hidden from search engines",
+      "on": "Shown in search engines",
+      "hint": "When shown, Google and other search engines may list Video Studio, Quick Create, Overview and Documentation with their titles, descriptions and preview picture, at the address above. Accounts, API keys, settings and your projects are never listed.",
+      "warning": "This app has no login: anyone who finds it through a search can open it and use your Muse accounts."
+    },
     "system": {
       "title": "System",
       "description": "What the server is running with right now. Nothing here can be changed from this page.",
