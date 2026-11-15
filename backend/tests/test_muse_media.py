@@ -533,3 +533,21 @@ def test_video_link_is_only_taken_from_real_media_urls():
         "https://cdn.example/a/clip.MP4?sig=1"
     )
     assert pick_video_link(["https://muse.ai/thread/1", "mailto:a@b.c"]) is None
+
+
+def test_a_snap_chromium_is_passed_over_for_the_one_playwright_downloaded(
+    tmp_path, monkeypatch
+):
+    from app.integrations.muse import chat
+
+    wrapper = tmp_path / "chromium-browser"
+    wrapper.write_text('#!/bin/sh\nexec /snap/bin/chromium "$@"\n')
+    bundled = tmp_path / "chrome"
+    bundled.write_bytes(b"\x7fELF")
+    monkeypatch.setattr(
+        chat.shutil, "which", lambda name: str(wrapper) if "chromium" in name else None
+    )
+    monkeypatch.setattr(chat, "_installed", lambda *parts: [])
+
+    assert chat._first_browser(None, str(bundled)) == str(bundled)
+    assert chat._first_browser(str(wrapper), str(bundled)) == str(wrapper)

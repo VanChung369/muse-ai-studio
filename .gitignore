@@ -59,6 +59,9 @@ test-results/
 /muse2api-profiles/
 /browser-profiles/
 
+# Node.js and FFmpeg the installers download when the machine has none
+/.tools/
+
 # Logs and temporary files
 *.log
 *.pid

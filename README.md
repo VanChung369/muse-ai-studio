@@ -71,10 +71,17 @@ print(image.data[0].url)
 
 ### Install with one command
 
-The installer adds what is missing (uv, Node.js, FFmpeg), sets up the server, builds the interface for production and starts the app. You need Chrome, Edge, Brave or Chromium and a Muse account.
+The installer sets up the server, builds the interface for production and starts the app. It runs on Windows 10/11, macOS 13.5+ and 64-bit Linux with glibc 2.28+ (x64 or ARM64), needs no administrator rights, winget or Homebrew, and adds what is missing:
+
+- uv, which brings Python 3.12+.
+- Node.js 24, downloaded into `.tools/node` and checked against its SHA-256.
+- FFmpeg, from the `imageio-ffmpeg` package, into `.tools/ffmpeg`.
+- Playwright's Chromium when there is no Chrome, Edge, Brave or Chromium. On Debian/Ubuntu its system libraries are installed too, the only step that asks for `sudo`.
+
+At the end it starts the browser once to check that it works. You need a Muse account.
 
 ```powershell
-# Windows (PowerShell, in the project folder)
+# Windows: double-click install.cmd, or in PowerShell in the project folder
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
@@ -83,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 bash install.sh
 ```
 
-Then open `http://127.0.0.1:18610`. Next time, start it with `powershell -ExecutionPolicy Bypass -File start.ps1` (Windows) or `bash start.sh` (macOS/Linux). One server answers the interface, the API (`/api`, documentation at `/api/docs`) and the public API (`/v1`). `-Port 8080` / `--port 8080` changes the port; `-Lan` / `--lan` makes it reachable from other machines on your network. Hướng dẫn tiếng Việt: [INSTALL.vi.md](INSTALL.vi.md).
+Then open `http://127.0.0.1:18610`. Next time, start it with `start.cmd` (Windows) or `bash start.sh` (macOS/Linux). One server answers the interface, the API (`/api`, documentation at `/api/docs`) and the public API (`/v1`). `-Port 8080` / `--port 8080` changes the port; `-Lan` / `--lan` makes it reachable from other machines on your network. Hướng dẫn tiếng Việt: [INSTALL.vi.md](INSTALL.vi.md).
 
 ### Run for development
 

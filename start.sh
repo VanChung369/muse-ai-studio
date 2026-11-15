@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Muse AI Studio: start the installed app (macOS / Linux). Run ./install.sh first.
+# Muse AI Studio: start the installed app (macOS / Linux). Run bash install.sh first.
 #
-#   ./start.sh [--port 18610] [--lan] [--no-browser]
+#   bash start.sh [--port 18610] [--lan] [--no-browser]
 #
 # One server answers the interface, the API (/api) and the public API (/v1).
 # --lan listens on every network address instead of this computer only; the
@@ -21,8 +21,12 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-[ -f "$ROOT/frontend/dist/index.html" ] || { echo "The interface is not built yet. Run ./install.sh first." >&2; exit 1; }
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+# uv where its installer puts it, and the FFmpeg install.sh may have downloaded.
+export PATH="$ROOT/.tools/ffmpeg/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+if ! command -v uv >/dev/null 2>&1 || [ ! -f "$ROOT/frontend/dist/index.html" ]; then
+  echo "Muse AI Studio is not installed yet. Run: bash install.sh" >&2
+  exit 1
+fi
 printf '\033[32mMuse AI Studio: http://127.0.0.1:%s\033[0m  (Ctrl+C to stop)\n' "$PORT"
 [ "$BROWSER_OPEN" -eq 1 ] && ( sleep 4; (command -v open >/dev/null && open "http://127.0.0.1:$PORT") || \
   (command -v xdg-open >/dev/null && xdg-open "http://127.0.0.1:$PORT") || true ) >/dev/null 2>&1 &

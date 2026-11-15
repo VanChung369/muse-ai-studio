@@ -207,12 +207,26 @@ def _installed(*parts: str) -> list[str]:
     return [str(Path(root, *parts)) for root in roots if root]
 
 
+def _snap(path: str) -> bool:
+    """Ubuntu's Chromium is a snap, also behind /usr/bin/chromium-browser: its
+    sandbox cannot read the profile Playwright writes, so it cannot be driven."""
+    if "/snap/" in path:
+        return True
+    try:
+        with open(path, "rb") as file:
+            head = file.read(4096)
+    except OSError:
+        return False
+    return head.startswith(b"#!") and b"snap" in head
+
+
 def _first_browser(configured: str | None, bundled: str | None) -> str | None:
     """The Chromium to drive: the configured one, Chrome or Chromium installed
-    on the machine, the one Playwright downloaded, or (on Windows, where it
-    is always there) Edge."""
+    on the machine (not a snap), the one Playwright downloaded, or (on
+    Windows, where it is always there) Edge."""
+    if configured and Path(configured).is_file():
+        return configured
     candidates = [
-        configured,
         shutil.which("chromium"),
         shutil.which("chromium-browser"),
         shutil.which("google-chrome"),
@@ -227,7 +241,14 @@ def _first_browser(configured: str | None, bundled: str | None) -> str | None:
         bundled,
         *_installed("Microsoft", "Edge", "Application", "msedge.exe"),
     ]
-    return next((path for path in candidates if path and Path(path).is_file()), None)
+    return next(
+        (
+            path
+            for path in candidates
+            if path and Path(path).is_file() and (path == bundled or not _snap(path))
+        ),
+        None,
+    )
 
 
 @lru_cache(maxsize=4)
