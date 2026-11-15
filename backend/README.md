@@ -25,7 +25,7 @@ The local environment has already been created during initialization. `uv sync -
 The health endpoint checks database connectivity and returns:
 
 ```json
-{"status": "ok", "database": "ok"}
+{ "status": "ok", "database": "ok" }
 ```
 
 If the database query fails, it returns HTTP 503. Database initialization or migration failures prevent startup.
@@ -40,19 +40,19 @@ Use one application process for this initial architecture. Runtime data and virt
 
 Settings read from the environment when the server starts (the Settings page lists the values in use):
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `MUSE_DATA_DIR` | `data` | Data folder, relative to the repository root. |
-| `MUSE_FFMPEG_PATH` | found on `PATH` | FFmpeg binary. Needs `libass` to draw captions and titles. |
-| `MUSE_BROWSER_PATH` | found automatically | Chrome/Chromium used for Muse. Without it the app looks for Chromium or Chrome on the machine, then the Chromium Playwright downloaded (`uv run playwright install chromium`), then Edge on Windows. |
-| `MUSE_TASK_WORKERS` | `2` | Background tasks at once (each also holds its account). |
-| `MUSE_BROWSER_SLOTS` | `3` | Browsers open at once. |
-| `MUSE_PLANNING_TIMEOUT` | `300` | Longest wait for a script, in seconds. |
-| `MUSE_RENDER_TIMEOUT` | `600` | Longest wait for one scene, in seconds; extended while Muse is visibly still working. |
-| `MUSE_THREAD_SCENE_LIMIT` | `12` | Scenes rendered in one Muse conversation before a new one is started. |
-| `MUSE_SESSION_REFRESH_MINUTES` | `360` | How often account sessions are re-checked; `0` turns it off. |
-| `MUSE_SESSION_REFRESH_WAKE` | `false` | Also wake the Muse workspace on each re-check. |
-| `MUSE_CORS_ORIGINS` | the Vite dev server | Origins allowed to call the API from a browser. |
+| Variable                       | Default             | Meaning                                                                                                                                                                                              |
+| ------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MUSE_DATA_DIR`                | `data`              | Data folder, relative to the repository root.                                                                                                                                                        |
+| `MUSE_FFMPEG_PATH`             | found on `PATH`     | FFmpeg binary. Needs `libass` to draw captions and titles.                                                                                                                                           |
+| `MUSE_BROWSER_PATH`            | found automatically | Chrome/Chromium used for Muse. Without it the app looks for Chromium or Chrome on the machine, then the Chromium Playwright downloaded (`uv run playwright install chromium`), then Edge on Windows. |
+| `MUSE_TASK_WORKERS`            | `2`                 | Background tasks at once (each also holds its account).                                                                                                                                              |
+| `MUSE_BROWSER_SLOTS`           | `3`                 | Browsers open at once.                                                                                                                                                                               |
+| `MUSE_PLANNING_TIMEOUT`        | `300`               | Longest wait for a script, in seconds.                                                                                                                                                               |
+| `MUSE_RENDER_TIMEOUT`          | `600`               | Longest wait for one scene, in seconds; extended while Muse is visibly still working.                                                                                                                |
+| `MUSE_THREAD_SCENE_LIMIT`      | `24`                | Requests (script, scenes, music, Quick Create) sent to one Muse conversation before a new one is started with a summary of it.                                                                       |
+| `MUSE_SESSION_REFRESH_MINUTES` | `360`               | How often account sessions are re-checked; `0` turns it off.                                                                                                                                         |
+| `MUSE_SESSION_REFRESH_WAKE`    | `false`             | Also wake the Muse workspace on each re-check.                                                                                                                                                       |
+| `MUSE_CORS_ORIGINS`            | the Vite dev server | Origins allowed to call the API from a browser.                                                                                                                                                      |
 
 What the user changes while the app runs (defaults for new projects, the public address) is stored in the database and edited on the Settings page.
 
@@ -136,7 +136,7 @@ Credentials are encrypted with Fernet before they enter SQLite. Startup creates 
 
 `POST /api/projects/{id}/render` renders every scene through Muse, one after another, then merges the clips with FFmpeg. Each scene is one `render_scene` task that depends on the previous one; the last task, `merge_video`, needs no account. A failed or cancelled scene holds back the rest of the chain until `POST /api/projects/{id}/render/resume` (or a task-level retry). `app/rendering/tasks.py` derives the project status from the chain wherever a task changes.
 
-One project is rendered in one Muse conversation: the first scene opens it and the next ones continue it on the same account (`Project.muse_thread_path`), up to `MUSE_THREAD_SCENE_LIMIT` scenes (default 12). Our own message is found on the page by a short label it starts with (`[shot-xxxxxxxx]`), and only what follows it counts as that scene's result, because a conversation that already holds earlier scenes renders them lazily.
+One project is made in one Muse conversation: its script, every scene (also when rendered again) and its music go there on the same account (`Project.muse_thread_path`, see `app/rendering/conversation.py`), up to `MUSE_THREAD_SCENE_LIMIT` requests (default 24). A new conversation (after that limit, on another account, or when the saved one cannot be opened) starts with a summary of the film: brief, look and the script with the shots made. Reference files go to the conversation once; files added later are attached to its next message and removed ones are named there as no longer used (`Project.muse_thread_references`). Quick Create keeps one conversation per account the same way, and a new one is told the latest requests. Our own message is found on the page by a short label it starts with (`[shot-xxxxxxxx]`), and only what follows it counts as that scene's result, because a conversation that already holds earlier scenes renders them lazily.
 
 `app/rendering/prompt.py` builds each scene's prompt from the scene, the project's shared style and characters, its `look` and its `continuity` mode; with continuity on, the previous scene's last frame is attached to the message.
 
@@ -153,7 +153,6 @@ uv run --locked pytest -q
 ```
 
 Tests use isolated temporary databases and cover validation, empty state, draft creation, detail lookup, restart persistence, baseline migration, model consistency, script persistence/replacement, duration and input validation, locked statuses, concurrent revision conflicts, rollback behavior, cascading project deletion, deletion status rules and concurrency, the OpenAPI snapshot, account CRUD and duplicate imports, credential redaction, encryption/restart persistence, and missing-key recovery. They do not write to the development database.
-
 
 ## AI Script Generation
 

@@ -82,12 +82,12 @@ def test_system_status_reports_what_the_server_runs_with(client, settings, monke
     body = status.json()
     assert body["ffmpeg"] == {"path": None, "version": None, "captions": False}
     assert body["browserPath"] is None
-    assert body["databaseRevision"] == "0021_app_settings"
+    assert body["databaseRevision"] == "0022_thread_references"
     assert body["dataDir"] == str(settings.data_dir)
     assert body["storage"]["libraryBytes"] == 1000 and body["storage"]["projectsBytes"] == 3000
     assert body["storage"]["databaseBytes"] > 0 and body["storage"]["freeBytes"] > 0
     assert body["limits"] == {"taskWorkers": 2, "browserSlots": 3, "planningTimeout": 300,
-        "renderTimeout": 600, "threadSceneLimit": 12, "sessionRefreshMinutes": 0,
+        "renderTimeout": 600, "threadSceneLimit": 24, "sessionRefreshMinutes": 0,
         "sessionRefreshWake": False}
     assert body["version"] not in ("", "unknown")
 

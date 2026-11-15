@@ -21,7 +21,8 @@ class Project(Base):
             name="ck_projects_duration",
         ),
         CheckConstraint(
-            "aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '21:9')", name="ck_projects_ratio"
+            "aspect_ratio IN ('16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '21:9')",
+            name="ck_projects_ratio",
         ),
         CheckConstraint(
             "status IN ('draft', 'planning', 'ready', 'rendering', 'cancelling', 'cancelled', 'failed', 'completed')",
@@ -34,7 +35,9 @@ class Project(Base):
             "length(visual_style) <= 3000", name="ck_projects_visual_style"
         ),
         CheckConstraint("script_revision >= 0", name="ck_projects_script_revision"),
-        CheckConstraint("scene_count BETWEEN 0 AND 720", name="ck_projects_scene_count"),
+        CheckConstraint(
+            "scene_count BETWEEN 0 AND 720", name="ck_projects_scene_count"
+        ),
         CheckConstraint(
             "look IN ('auto', 'realistic', 'cinematic', 'documentary', 'commercial', 'animation3d', 'anime')",
             name="ck_projects_look",
@@ -100,11 +103,15 @@ class Project(Base):
     # merging. Audio the user adds to the film still plays.
     mute: Mapped[bool] = mapped_column(default=False)
     continuity: Mapped[str] = mapped_column(String(16), default="reference")
-    # The Muse conversation this film is rendered in, the account that
-    # owns it, and how many scenes it already holds.
+    # The Muse conversation this film is made in (script, scenes, music),
+    # the account that owns it, and how many of our requests it holds.
     muse_thread_path: Mapped[str | None] = mapped_column(String(120))
     muse_thread_account_id: Mapped[str | None] = mapped_column(String(36))
     muse_thread_scenes: Mapped[int] = mapped_column(default=0)
+    # The reference files that conversation has been sent, as JSON
+    # {file: name}; null = none. A changed set is sent into it on the next
+    # message (app/rendering/conversation.py).
+    muse_thread_references: Mapped[str | None] = mapped_column(Text)
     # The edit applied when merging (app/rendering/timeline.py): order,
     # trims, speed, added media, the soundtrack and captions. Null = every
     # scene, whole, in order.

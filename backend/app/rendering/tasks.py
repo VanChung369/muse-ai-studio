@@ -14,7 +14,7 @@ from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import generate_video
 from app.models import Account, Project, Scene, Task
-from app.rendering import film, storage, timeline
+from app.rendering import conversation, film, storage, timeline
 from app.rendering.ffmpeg import (
     CaptionError,
     MergeError,
@@ -457,28 +457,38 @@ def make_scene_handler(app):
                 else None
             )
             previous_clip = previous.video_file if previous else None
-            # One conversation per film: continue it while it belongs to
-            # this account and is not too long.
-            thread = (
-                project.muse_thread_path
-                if project.muse_thread_account_id == context.account_id
-                and project.muse_thread_scenes < settings.thread_scene_limit
-                else None
+            # One conversation per film (app/rendering/conversation.py):
+            # carry on in it while this account owns it and it is not too long.
+            thread = conversation.film_thread(project, context.account_id, settings)
+            plan = conversation.reference_plan(project, thread)
+            everything = storage.reference_files(
+                settings, context.project_id, list(plan.current)
             )
-            materials = storage.reference_files(
-                settings,
-                context.project_id,
-                [reference.file for reference in project.references],
-            )
-            prompt = build_scene_prompt(
+            # The first message of a new conversation: every reference file,
+            # and a summary of the film's earlier conversation if it had one.
+            fresh_prompt = build_scene_prompt(
                 project,
                 scene,
                 previous,
                 has_reference=bool(previous_clip),
-                in_thread=bool(thread),
-                # Reference files open a conversation; they are not sent again in it.
-                materials=bool(materials) and thread is None,
+                materials=bool(everything),
+                summary=conversation.film_history(project),
             )
+            if thread:
+                files = storage.reference_files(
+                    settings, context.project_id, plan.attach
+                )
+                prompt = build_scene_prompt(
+                    project,
+                    scene,
+                    previous,
+                    has_reference=bool(previous_clip),
+                    in_thread=True,
+                    new_materials=bool(files),
+                    dropped=plan.dropped,
+                )
+            else:
+                prompt, files = fresh_prompt, everything
         folder = storage.project_dir(settings, context.project_id)
         reference = None
         if previous_clip:
@@ -499,15 +509,8 @@ def make_scene_handler(app):
             if not path or path == thread:
                 return
             with database.sessions() as session:
-                session.execute(
-                    update(Project)
-                    .where(Project.id == context.project_id)
-                    .values(
-                        muse_thread_path=path,
-                        muse_thread_account_id=context.account_id,
-                        muse_thread_scenes=0,
-                    )
-                    .execution_options(synchronize_session=False)
+                conversation.film_started(
+                    session, context.project_id, context.account_id, path
                 )
                 session.commit()
 
@@ -529,7 +532,9 @@ def make_scene_handler(app):
                 reference=reference,
                 thread_path=thread,
                 on_thread=remember_thread,
-                attachments=materials,
+                attachments=files,
+                attach_on_continue=True,
+                fresh=(fresh_prompt, everything) if thread else None,
             )
         except MuseError as error:
             raise account.failure(error) from None
@@ -572,22 +577,16 @@ def make_scene_handler(app):
                 )
                 .execution_options(synchronize_session=False)
             )
-            if video.thread_path:
-                # Where the next scene continues. A new conversation was
-                # started if the saved one was full, gone, or another account's.
-                continued = video.thread_path == thread
-                session.execute(
-                    update(Project)
-                    .where(Project.id == context.project_id)
-                    .values(
-                        muse_thread_path=video.thread_path,
-                        muse_thread_account_id=context.account_id,
-                        muse_thread_scenes=(
-                            Project.muse_thread_scenes + 1 if continued else 1
-                        ),
-                    )
-                    .execution_options(synchronize_session=False)
-                )
+            # Where the next message continues, and the reference files the
+            # conversation has now seen (either way, all the film has).
+            conversation.film_answered(
+                session,
+                context.project_id,
+                context.account_id,
+                asked=thread,
+                used=video.thread_path,
+                references=plan.current,
+            )
             # Keep the rest of the film on this account, where its
             # conversation lives.
             session.execute(

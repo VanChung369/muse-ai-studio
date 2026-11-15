@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
@@ -155,7 +155,6 @@ async def add_reference(
                 "too_many_files",
                 f"A project can have {MAX_FILES} reference files.",
             )
-        _restart_conversation(session, project_id)
         session.commit()
         session.refresh(reference)
     except Exception:
@@ -163,20 +162,6 @@ async def add_reference(
         (folder / file).unlink(missing_ok=True)
         raise
     return reference
-
-
-def _restart_conversation(session: Session, project_id: str) -> None:
-    """Reference files go out with the first message of a Muse conversation.
-    When they change, the project's next message starts a new conversation,
-    so the files Muse sees are the ones the project has now."""
-    session.execute(
-        update(Project)
-        .where(Project.id == project_id)
-        .values(
-            muse_thread_path=None, muse_thread_account_id=None, muse_thread_scenes=0
-        )
-        .execution_options(synchronize_session=False)
-    )
 
 
 def _reference(session: Session, project_id: str, reference_id: str) -> Reference:
@@ -233,7 +218,6 @@ def delete_reference(
     )
     try:
         session.delete(reference)
-        _restart_conversation(session, project_id)
         session.commit()
     except Exception:
         session.rollback()

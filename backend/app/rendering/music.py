@@ -3,6 +3,9 @@
 Muse makes videos with sound, not audio files. So a short clip is asked for
 whose soundtrack is the music described, and that soundtrack is kept as an
 audio file among the project's media. The picture is thrown away.
+
+It is asked for in the film's one Muse conversation, like the script and the
+scenes (app/rendering/conversation.py).
 """
 
 import json
@@ -14,7 +17,7 @@ from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import generate_video, video_prompt
 from app.models import Account, Media, Project, Task
-from app.rendering import storage
+from app.rendering import conversation, storage
 from app.rendering.ffmpeg import MergeError, extract_audio, find_ffmpeg, inspect
 from app.repositories import tasks
 from app.tasks.coordinator import TaskFailure
@@ -31,16 +34,32 @@ class MusicRequestError(ValueError):
         self.code, self.status = code, status
 
 
-def music_prompt(description: str, aspect_ratio: str) -> str:
-    return video_prompt(
+def music_prompt(
+    description: str, aspect_ratio: str, *, in_thread: bool = False, summary: str = ""
+) -> str:
+    """`in_thread`: the film's conversation carries on. `summary`: what an
+    earlier conversation about the film settled, when this request opens a
+    new one (later scenes continue there)."""
+    text = (
         "A calm abstract background of soft, slowly drifting light; no people, "
         "no text, no cuts. The soundtrack is what matters: instrumental "
         f"background music, {description.strip().rstrip('.')}. Music only, steady "
         "from the first second to the last: no speech, no singing, no sound "
-        "effects, and no silence at the start or the end.",
-        aspect_ratio,
-        CLIP_SECONDS,
+        "effects, and no silence at the start or the end."
     )
+    if in_thread:
+        text += (
+            "\nContext: background music for the film this conversation is about, "
+            "not one of its shots: ignore the film's characters and picture for this "
+            "clip. Make a new clip now; do not reuse, re-send or link an earlier one."
+        )
+    elif summary:
+        text += (
+            "\nContext: background music for a film begun in an earlier "
+            "conversation; its shots will follow in this one. What was settled "
+            "there, for later:\n" + summary
+        )
+    return video_prompt(text, aspect_ratio, CLIP_SECONDS)
 
 
 def enqueue_music(session, project_id: str, description: str):
@@ -78,11 +97,25 @@ def enqueue_music(session, project_id: str, description: str):
         )
         if count >= MAX_FILES:
             raise MusicRequestError("too_many_files", 409)
+        # In the film's conversation: on the account that owns it while that
+        # account is usable.
+        pinned = (
+            session.scalar(
+                select(Account.id).where(
+                    Account.id == project.muse_thread_account_id,
+                    Account.enabled.is_(True),
+                    Account.session_status == "valid",
+                )
+            )
+            if project.muse_thread_account_id
+            else None
+        )
         task = tasks.create_task(
             session,
             kind=GENERATE_MUSIC,
             title=f"Music: {project.name}",
             project_id=project_id,
+            account_id=pinned,
             requires_account=True,
             max_attempts=1,
             payload={
@@ -118,8 +151,11 @@ def make_music_handler(app):
         if ffmpeg is None:
             raise TaskFailure("ffmpeg_unavailable", suggested_action="retry")
         with database.sessions() as session:
-            if session.get(Project, context.project_id) is None:
+            project = session.get(Project, context.project_id)
+            if project is None:
                 raise TaskFailure("project_not_found")
+            thread = conversation.film_thread(project, context.account_id, settings)
+            summary = conversation.film_history(project)
             saved_id = context.checkpoint.get("mediaId")
             if saved_id and session.get(Media, saved_id) is not None:
                 return {"projectId": context.project_id, "mediaId": saved_id}
@@ -143,27 +179,55 @@ def make_music_handler(app):
             if stored + reserved > MAX_FILES:
                 raise TaskFailure("too_many_files", suggested_action="retry")
         description = context.payload["description"]
+        ratio = context.payload["aspectRatio"]
+        fresh_prompt = music_prompt(description, ratio, summary=summary)
         account = TaskAccountSession(app, context.account_id)
 
         def before_send(result):
             context.raise_if_cancelled()
             context.mark_submitted()
 
+        def remember_thread(path):
+            if not path or path == thread:
+                return
+            with database.sessions() as session:
+                conversation.film_started(
+                    session, context.project_id, context.account_id, path
+                )
+                session.commit()
+
         try:
-            # Its own conversation: the film's conversation is left as it is.
             video = generate_video(
                 app.state.muse_client,
                 account.cookies,
                 account.expiries,
                 account.proxy,
-                music_prompt(description, context.payload["aspectRatio"]),
+                (
+                    music_prompt(description, ratio, in_thread=True)
+                    if thread
+                    else fresh_prompt
+                ),
                 on_session=account.persist,
                 before_send=before_send,
                 check_cancelled=context.raise_if_cancelled,
                 timeout=settings.render_timeout,
+                thread_path=thread,
+                on_thread=remember_thread,
+                fresh=(fresh_prompt, ()) if thread else None,
             )
         except MuseError as error:
             raise account.failure(error) from None
+        with database.sessions() as session:
+            # No reference file goes with music: a new conversation has seen none.
+            conversation.film_answered(
+                session,
+                context.project_id,
+                context.account_id,
+                asked=thread,
+                used=video.thread_path,
+                references=None,
+            )
+            session.commit()
         if not video.data:
             raise TaskFailure("media_download_failed", suggested_action="retry")
 

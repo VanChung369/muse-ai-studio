@@ -208,11 +208,15 @@ def test_stream_chat_chunks_keepalive_and_errors(client, ready, monkeypatch, fai
         lines = list(response.iter_lines())
     assert ": waiting" in lines and lines[-2] == "data: [DONE]"
     chunks = [json.loads(line[6:]) for line in lines if line.startswith("data: {")]
+    assert chunks[0]["object"] == "chat.completion.chunk"
+    assert chunks[0]["choices"][0]["delta"] == {"role": "assistant"}
+    if fail:
+        # A failure is sent as an OpenAI error object, then [DONE].
+        assert len(chunks) == 2 and chunks[1]["error"]["code"] == "content_policy_violation"
+        return
     assert len(chunks) == 3
     assert all(chunk["object"] == "chat.completion.chunk" for chunk in chunks)
-    assert chunks[0]["choices"][0]["delta"] == {"role": "assistant"}
-    content = chunks[1]["choices"][0]["delta"]["content"]
-    assert "refused" in content if fail else content.startswith("![image](")
+    assert chunks[1]["choices"][0]["delta"]["content"].startswith("![image](")
     assert chunks[2]["choices"][0] == {"index": 0, "delta": {}, "finish_reason": "stop"}
 
 

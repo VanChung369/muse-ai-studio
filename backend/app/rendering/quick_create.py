@@ -1,4 +1,11 @@
-"""One Quick Create request makes all its outputs in one Muse conversation."""
+"""Quick Create: images and videos made by Muse into the media library.
+
+Every request of an account goes into that account's one Quick Create
+conversation, so the agent keeps the context of earlier requests; a retry
+carries on exactly where its request was sent. When the conversation holds
+`thread_scene_limit` requests a new one is opened, told what the latest
+requests were (app/rendering/conversation.py).
+"""
 
 import json
 from uuid import UUID, uuid4, uuid5
@@ -14,7 +21,7 @@ from app.integrations.muse.media import (
     video_prompt,
 )
 from app.models import Account, LibraryAsset, Task
-from app.rendering import library, storage
+from app.rendering import conversation, library, storage
 from app.rendering.ffmpeg import MergeError, find_ffmpeg, inspect, thumbnail
 from app.rendering.intake import TYPES, content_type, readable, thumbnail_name
 from app.repositories import tasks
@@ -118,7 +125,8 @@ def make_quick_handler(app):
         is_batch = values.get("batch", False)
         count = values["count"] if is_batch else 1
         asset_ids = list(context.checkpoint.get("assetIds", []))
-        thread = context.checkpoint.get("threadPath")
+        # The conversation an earlier attempt of this request was sent to.
+        thread = own = context.checkpoint.get("threadPath")
         sent = context.checkpoint.get("sent", False)
         if thread and context.checkpoint.get("accountId") != context.account_id:
             raise TaskFailure("conversation_unavailable")
@@ -195,28 +203,65 @@ def make_quick_handler(app):
             checkpoint()
             context.mark_submitted()
 
+        shared = asked = None
+        if not own:
+            # A first attempt: into the account's Quick Create conversation
+            # while it is not too long, else a new one told what came before.
+            with database.sessions() as session:
+                shared = conversation.quick_conversation(session, context.account_id)
+            if shared["path"] and shared["requests"] < settings.thread_scene_limit:
+                thread = asked = shared["path"]
+
         def remember_thread(path):
             nonlocal thread
             if path != thread:
                 thread = path
                 checkpoint()
+                if shared is not None and path:
+                    with database.sessions() as session:
+                        conversation.quick_started(session, context.account_id, path)
 
         kind = values["kind"]
         remaining = count - len(asset_ids)
-        prompt = (
+        what = "images" if kind == "image" else "video"
+        request = (
             f"Generate exactly {remaining} separate images (aspect ratio {values['aspectRatio']}): {values['prompt']}. "
             "Return each image as its own downloadable image attachment, not a collage or contact sheet."
             if kind == "image"
             else video_prompt(values["prompt"], values["aspectRatio"], 10)
         )
-        if asset_ids:
-            prompt += f" {len(asset_ids)} outputs from this request are already saved. Create only the {remaining} remaining outputs."
         if reference:
-            prompt += (
+            request += (
                 " Use the attached image as the visual reference for every image."
                 if kind == "image"
                 else " Use the attached image as the starting frame."
             )
+        if own:
+            # A retry, in the conversation this request was already sent to.
+            prompt = request + (
+                f"\nContext: this request was sent before in this conversation. "
+                f"{len(asset_ids)} of its outputs are already saved; create only the "
+                f"{remaining} remaining {what}."
+                if asset_ids
+                else "\nContext: this request was sent before in this conversation and "
+                f"nothing from it was saved; create its {what} now."
+            )
+        else:
+            prompt = request + (
+                f"\nContext: a new request in this conversation. Create new {what} for "
+                "it now; do not resend files made for earlier requests. Use the earlier "
+                "requests only where this one refers to them."
+            )
+        earlier = conversation.quick_summary(shared["recent"]) if shared else ""
+        fresh_prompt = request + (
+            "\nContext: this conversation carries on Quick Create requests from an "
+            "earlier conversation. The latest ones there, to use only where this "
+            "request refers to them:\n" + earlier
+            if earlier
+            else ""
+        )
+        if shared is not None and not asked:
+            prompt = fresh_prompt
 
         def save_output(generated):
             mime = content_type(generated.mime)
@@ -301,16 +346,32 @@ def make_quick_handler(app):
                 timeout=settings.render_timeout,
                 attachments=reference,
                 thread_path=thread,
-                require_thread=bool(thread),
+                # A retry must reach the request's own conversation; the shared
+                # one may be replaced by a new one if it cannot be opened.
+                require_thread=bool(own),
                 attach_on_continue=True,
                 on_thread=remember_thread,
                 on_media=save_output,
+                fresh=(fresh_prompt, reference) if asked else None,
                 **options,
             )
         except MuseError as error:
             raise account.failure(error) from None
         if len(asset_ids) < count:
             raise TaskFailure("image_count_mismatch", suggested_action="retry")
+        with database.sessions() as session:
+            conversation.quick_answered(
+                session,
+                context.account_id,
+                thread,
+                {
+                    "kind": kind,
+                    "count": count,
+                    "aspectRatio": values["aspectRatio"],
+                    "prompt": values["prompt"][:300],
+                },
+                adopt=not own,
+            )
         return {"assetIds": asset_ids}
 
     return handler

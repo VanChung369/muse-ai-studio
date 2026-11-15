@@ -1781,7 +1781,7 @@
         "browserSlots": "Số trình duyệt mở cùng lúc",
         "planningTimeout": "Chờ kịch bản tối đa (giây)",
         "renderTimeout": "Chờ một cảnh tối đa (giây)",
-        "threadSceneLimit": "Số cảnh trong một hội thoại Muse",
+        "threadSceneLimit": "Số yêu cầu trong một chat Muse (quá thì sang chat mới kèm tóm tắt)",
         "sessionRefreshMinutes": "Kiểm tra lại phiên tài khoản mỗi (phút)",
         "sessionRefreshWake": "Đánh thức workspace mỗi lần kiểm tra"
       }

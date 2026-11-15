@@ -490,14 +490,33 @@ def test_a_film_is_rendered_in_one_conversation_on_one_account(client, muse, ffm
     # even though another account was free.
     assert muse.threads == [None, "/thread/t-1"]
     assert len(set(muse.accounts)) == 1
-    assert "This is shot 2 of the same film" in muse.prompts[1]
-    assert "same film as the earlier shots" not in muse.prompts[0]
+    assert "Context: shot 2 of 2 of the film this conversation is about" in muse.prompts[1]
+    assert "Context: shot 1 of 2 of a film." in muse.prompts[0]
+    assert "this conversation" not in muse.prompts[0]
 
-    # Rendering again starts a fresh conversation, so Muse does not hand back
-    # the clips it already made.
+    # Rendering again stays in the film's conversation, and asks for a new
+    # take so Muse does not hand back the clip it already made.
     client.post(path + "/render/restart", json={"fromScene": 1})
     wait_status(client, project["id"], "completed")
-    assert muse.threads[2:] == [None, "/thread/t-2"]
+    assert muse.threads[2:] == ["/thread/t-1", "/thread/t-1"]
+    assert "Make a new video for this shot now" in muse.prompts[2]
+    assert "summary" not in muse.prompts[2].lower()
+
+
+def test_a_full_conversation_hands_over_with_a_summary(client, muse, ffmpeg):
+    add_account(client)
+    project = add_project(client)
+    path = f"/api/projects/{project['id']}"
+    client.app.state.settings.thread_scene_limit = 1
+    client.post(path + "/render")
+    wait_status(client, project["id"], "completed")
+    # Scene 1 fills the first conversation; scene 2 opens a new one that is
+    # told what the film is and which shots are made.
+    assert muse.threads == [None, None]
+    assert "began" not in muse.prompts[0] and "earlier conversation" not in muse.prompts[0]
+    assert "a film begun in an earlier conversation" in muse.prompts[1]
+    assert "1. " in muse.prompts[1] and "(5s, made)" not in muse.prompts[1]
+    assert "made)" in muse.prompts[1] and "not made yet" in muse.prompts[1]
 
 
 def test_script_and_scenes_share_one_conversation(client, muse, ffmpeg, monkeypatch):
@@ -708,24 +727,38 @@ def test_reference_files_open_the_conversation_and_fields_reach_the_prompt(
     client.post(path + "/render")
     wait_status(client, project["id"], "completed")
     # The files go with the first message of the conversation only.
-    assert len(muse.attachments[0]) == 2 and muse.attachments[1] == muse.attachments[0]
+    assert len(muse.attachments[0]) == 2 and muse.attachments[1] == []
     assert "Reference material: the attached files" in muse.prompts[0]
-    assert "Reference material" not in muse.prompts[1]
+    assert "eference material" not in muse.prompts[1]
     assert all("Music: Gentle bamboo flute" in prompt for prompt in muse.prompts)
     assert client.get(saved["url"]).headers["x-content-type-options"] == "nosniff"
 
-    # Files go out with a conversation's first message, so a changed set of
-    # files makes the project's next message start a new conversation.
+    # A changed set of files stays in the film's conversation: an added file
+    # goes with the next message there, a removed one is named as unused.
     def thread():
         with client.app.state.database.engine.begin() as connection:
             return connection.exec_driver_sql("select muse_thread_path from projects").scalar()
 
-    assert thread() is not None
+    before = thread()
+    assert before is not None
     extra = client.post(references, params={"name": "extra.png"}, content=b"x", headers=png)
-    assert extra.status_code == 201 and thread() is None
+    assert extra.status_code == 201 and thread() == before
+    assert client.delete(f"{references}/{clip['id']}").status_code == 204
+    client.post(path + "/render/restart", json={"fromScene": 2})
+    wait_status(client, project["id"], "completed")
+    assert muse.threads[-1] == before and thread() == before
+    assert len(muse.attachments[-1]) == 1 and muse.attachments[-1][0].endswith(".png")
+    assert "New reference material: the attached files" in muse.prompts[-1]
+    assert 'Reference files no longer used: "walk.mp4"' in muse.prompts[-1]
+    # Seen once, they are not sent or named again.
+    client.post(path + "/render/restart", json={"fromScene": 2})
+    wait_status(client, project["id"], "completed")
+    assert muse.attachments[-1] == []
+    assert "New reference material" not in muse.prompts[-1]
+    assert "no longer used" not in muse.prompts[-1]
 
     folder = settings.data_dir / "projects" / project["id"] / "references"
-    assert len(list(folder.iterdir())) == 3
+    assert len(list(folder.iterdir())) == 2
     assert client.delete(path).status_code == 204
     assert not folder.exists()
     assert client.get(clip["url"]).status_code == 404

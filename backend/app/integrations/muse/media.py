@@ -189,6 +189,7 @@ def _generate_media(
     on_media=None,
     attach_on_continue=False,
     require_thread=False,
+    fresh=None,
 ) -> GeneratedMedia | list[GeneratedMedia]:
     """Ask Muse for one image or video and download the result.
 
@@ -205,6 +206,10 @@ def _generate_media(
     never resent: the caller decides whether to spend another generation.
     Only a copy Muse flagged as not delivered (never stored, nothing made)
     is sent again, in the same conversation.
+
+    `fresh` is the (prompt, attachments) to send instead when `thread_path`
+    cannot be continued and a new conversation is opened: a first message
+    must stand on its own (see app/rendering/conversation.py).
     """
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
@@ -215,6 +220,8 @@ def _generate_media(
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
         if require_thread and thread_path and not continued:
             raise MuseError("conversation_unavailable", partial=result)
+        if thread_path and not continued and fresh is not None:
+            prompt, attachments = fresh
         downloaded = []
         saved_thread = None
         retry_thread = thread_path_of(page.url)

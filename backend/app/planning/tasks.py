@@ -7,7 +7,7 @@ from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseError
 from app.models import Account, Project, Task
 from app.planning.script import build_script_prompt, parse_script_reply
-from app.rendering import storage
+from app.rendering import conversation, storage
 from app.repositories import tasks
 from app.tasks.coordinator import TaskFailure
 from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
@@ -145,33 +145,39 @@ def make_script_handler(app):
             if project is None:
                 raise TaskFailure("project_not_found")
             # Write the script in the film's own conversation, where its
-            # scenes are rendered later.
-            thread = (
-                project.muse_thread_path
-                if project.muse_thread_account_id == context.account_id
-                and project.muse_thread_scenes < settings.thread_scene_limit
-                else None
+            # scenes are rendered later (app/rendering/conversation.py).
+            thread = conversation.film_thread(project, context.account_id, settings)
+            plan = conversation.reference_plan(project, thread)
+            everything = storage.reference_files(
+                settings, context.project_id, list(plan.current)
             )
-            materials = storage.reference_files(
-                settings,
-                context.project_id,
-                [reference.file for reference in project.references],
+            files = (
+                storage.reference_files(settings, context.project_id, plan.attach)
+                if thread
+                else everything
             )
+        brief = context.payload["brief"]
+        fresh_prompt = build_script_prompt(brief)
+        prompt = (
+            build_script_prompt(
+                brief, in_thread=True, new_materials=bool(files), dropped=plan.dropped
+            )
+            if thread
+            else fresh_prompt
+        )
         account = TaskAccountSession(app, context.account_id)
+        used = thread
 
         def remember_thread(path):
-            if not path or path == thread:
+            nonlocal used
+            if not path:
+                return
+            used = path
+            if path == thread:
                 return
             with database.sessions() as session:
-                session.execute(
-                    update(Project)
-                    .where(Project.id == context.project_id)
-                    .values(
-                        muse_thread_path=path,
-                        muse_thread_account_id=context.account_id,
-                        muse_thread_scenes=0,
-                    )
-                    .execution_options(synchronize_session=False)
+                conversation.film_started(
+                    session, context.project_id, context.account_id, path
                 )
                 session.commit()
 
@@ -185,17 +191,31 @@ def make_script_handler(app):
                 account.cookies,
                 account.expiries,
                 account.proxy,
-                build_script_prompt(context.payload["brief"]),
+                prompt,
                 on_session=account.persist,
                 before_send=before_send,
                 check_cancelled=context.raise_if_cancelled,
                 timeout=settings.planning_timeout,
                 thread_path=thread,
                 on_thread=remember_thread,
-                attachments=materials,
+                attachments=files,
+                attach_on_continue=True,
+                fresh=(fresh_prompt, everything) if thread else None,
             )
         except MuseError as error:
             raise account.failure(error) from None
+        with database.sessions() as session:
+            # The request is in the conversation and the files were seen,
+            # whether or not the reply is a usable script.
+            conversation.film_answered(
+                session,
+                context.project_id,
+                context.account_id,
+                asked=thread,
+                used=used,
+                references=plan.current,
+            )
+            session.commit()
         try:
             script = parse_script_reply(
                 text,

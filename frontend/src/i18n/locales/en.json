@@ -1781,7 +1781,7 @@
         "browserSlots": "Browsers open at once",
         "planningTimeout": "Longest wait for a script (seconds)",
         "renderTimeout": "Longest wait for one scene (seconds)",
-        "threadSceneLimit": "Scenes per Muse conversation",
+        "threadSceneLimit": "Requests per Muse conversation (then a new one, with a summary)",
         "sessionRefreshMinutes": "Re-check account sessions every (minutes)",
         "sessionRefreshWake": "Wake the workspace on each re-check"
       }

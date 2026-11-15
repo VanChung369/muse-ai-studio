@@ -204,27 +204,43 @@ class ChatRequest(BaseModel):
     messages: list[Message]
     stream: bool = False
 
+    @staticmethod
+    def _text(message) -> str:
+        content = message.content
+        if isinstance(content, list):
+            content = "\n".join(
+                part["text"]
+                for part in content
+                if part.get("type") == "text" and isinstance(part.get("text"), str)
+            )
+        return content.strip() if isinstance(content, str) else ""
+
     def prompt(self):
-        for message in reversed(self.messages):
-            if message.role == "user":
-                content = message.content
-                if isinstance(content, list):
-                    content = "\n".join(
-                        part["text"]
-                        for part in content
-                        if part.get("type") == "text"
-                        and isinstance(part.get("text"), str)
-                    )
-                content = content.strip() if isinstance(content, str) else ""
-                if 1 <= len(content) <= 4000:
-                    return content
-                break
-        raise PublicError(
-            400,
-            "invalid_request_error",
-            "invalid_request",
-            "The last user message must contain between 1 and 4000 characters of text.",
+        """The last user message is the request. System (or developer)
+        messages are standing instructions and go with it, cut to fit the
+        4000 characters a request may have."""
+        content = next(
+            (self._text(m) for m in reversed(self.messages) if m.role == "user"), ""
         )
+        if not 1 <= len(content) <= 4000:
+            raise PublicError(
+                400,
+                "invalid_request_error",
+                "invalid_request",
+                "The last user message must contain between 1 and 4000 characters of text.",
+            )
+        instructions = " ".join(
+            text
+            for message in self.messages
+            if message.role in ("system", "developer")
+            and (text := self._text(message))
+        )
+        room = 4000 - len(content) - len("\nInstructions: ")
+        if instructions and room > 20:
+            if len(instructions) > room:
+                instructions = instructions[: room - 1].rstrip() + "…"
+            content += "\nInstructions: " + instructions
+        return content
 
 
 def created(task):

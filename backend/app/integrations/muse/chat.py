@@ -403,18 +403,26 @@ def generate_script_text(
     thread_path=None,
     on_thread=None,
     attachments=(),
+    attach_on_continue=False,
+    fresh=None,
 ):
     """Send once and return the agent's reply. Never resend on timeout.
 
     `thread_path` continues the film's conversation, so the script is
     written in the same chat its scenes are later rendered in; `on_thread`
-    is told which conversation the reply came from.
+    is told which conversation the reply came from. `attachments` go with
+    a conversation's first message, and also with a continued one when
+    `attach_on_continue` (files it has not seen yet). `fresh` is the
+    (prompt, attachments) to send instead when `thread_path` cannot be
+    continued and a new conversation is opened.
     """
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
     )
     with open_composer(client, result, proxy, thread_path) as page:
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
+        if thread_path and not continued and fresh is not None:
+            prompt, attachments = fresh
         retry_thread = thread_path_of(page.url)
 
         def remember_thread():
@@ -443,9 +451,10 @@ def generate_script_text(
             attached = 0
             if continued:
                 settle_conversation(page)
-            elif attachments:
+            if attachments and (not continued or attach_on_continue):
                 # Reference material opens the conversation; later messages
-                # in it rely on the agent having seen it.
+                # in it rely on the agent having seen it, and bring only
+                # files added since.
                 attached = attach_files(
                     page, [str(path) for path in attachments], result
                 )
@@ -454,7 +463,7 @@ def generate_script_text(
                 f"[{marker}] {prompt}",
                 check_cancelled,
                 result,
-                wait=120 if attachments and not continued else 15,
+                wait=120 if attached else 15,
                 attached=attached,
             )
             baseline = page.evaluate(REPLY_STATE_JS, [None, True])

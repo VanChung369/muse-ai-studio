@@ -13,9 +13,11 @@ def _brief_directions(brief: dict) -> str:
     """What the user chose in the dialog, as instructions for the writer."""
     language = LANGUAGES.get(brief.get("language"))
     lines = [
-        f"Write scene titles and narration in {language}."
-        if language
-        else "Write scene titles and requested narration in the language of the user's idea."
+        (
+            f"Write scene titles and narration in {language}."
+            if language
+            else "Write scene titles and requested narration in the language of the user's idea."
+        )
     ]
     if brief.get("mute"):
         lines.append("The film has no sound: leave every narration empty.")
@@ -37,7 +39,9 @@ def _brief_directions(brief: dict) -> str:
         )
     style = (brief.get("visualStyle") or "").strip()
     if style:
-        lines.append("The user asked for this visual style; build visualStyle on it: " + style)
+        lines.append(
+            "The user asked for this visual style; build visualStyle on it: " + style
+        )
     music = (brief.get("music") or "").strip()
     if music and not brief.get("mute"):
         lines.append("The film's music, to match in mood and pacing: " + music)
@@ -53,7 +57,39 @@ def _brief_directions(brief: dict) -> str:
     return " ".join(lines) + " "
 
 
-def build_script_prompt(brief: dict) -> str:
+def _conversation_note(in_thread: bool, new_materials: bool, dropped) -> str:
+    """Where this request sits in the film's one conversation."""
+    lines = []
+    if in_thread:
+        lines.append(
+            "Context: a new script for the film this conversation is about. It "
+            "replaces any script written earlier in this conversation; write it "
+            "from the brief below, not from earlier drafts."
+        )
+    if new_materials:
+        lines.append(
+            "New reference files for this film are attached to this message; use "
+            "them together with the reference files sent earlier."
+        )
+    if dropped:
+        lines.append(
+            "Do not use these reference files sent earlier any more: "
+            + ", ".join(f'"{name}"' for name in dropped)
+            + "."
+        )
+    return "".join(line + "" for line in lines)
+
+
+def build_script_prompt(
+    brief: dict,
+    *,
+    in_thread: bool = False,
+    new_materials: bool = False,
+    dropped=(),
+) -> str:
+    """The request for a script. `in_thread`: the film's conversation
+    carries on; `new_materials` / `dropped`: reference files added to or
+    removed from the film since that conversation last saw them."""
     shape = {
         "characterBible": "Recurring characters, clothing and props; empty if no recurring characters.",
         "visualStyle": "Consistent visual style: medium (live action, 3D animation, ...), lens, lighting and color grade.",
@@ -68,7 +104,8 @@ def build_script_prompt(brief: dict) -> str:
         ],
     }
     return (
-        "Act as a short-film screenwriter and continuity supervisor. Return one complete JSON object only, "
+        _conversation_note(in_thread, new_materials, dropped)
+        + "Act as a short-film screenwriter and continuity supervisor. Return one complete JSON object only, "
         "without Markdown or extra keys, following this schema: "
         + json.dumps(shape)
         + ".\n"
