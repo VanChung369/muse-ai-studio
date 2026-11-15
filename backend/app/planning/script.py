@@ -57,7 +57,9 @@ def _brief_directions(brief: dict) -> str:
     return " ".join(lines) + " "
 
 
-def _conversation_note(in_thread: bool, new_materials: bool, dropped) -> str:
+def _conversation_note(
+    in_thread: bool, new_materials: bool, dropped, kept_materials: bool = False
+) -> str:
     """Where this request sits in the film's one conversation."""
     lines = []
     if in_thread:
@@ -67,17 +69,19 @@ def _conversation_note(in_thread: bool, new_materials: bool, dropped) -> str:
             "from the brief below, not from earlier drafts."
         )
     if new_materials:
+        also = (
+            " together with the reference files sent earlier" if kept_materials else ""
+        )
         lines.append(
-            "New reference files for this film are attached to this message; use "
-            "them together with the reference files sent earlier."
+            f"New reference files for this film are attached to this message; use them{also}."
         )
     if dropped:
         lines.append(
             "Do not use these reference files sent earlier any more: "
-            + ", ".join(f'"{name}"' for name in dropped)
+            + ", ".join(dropped)
             + "."
         )
-    return "".join(line + "" for line in lines)
+    return "".join(line + "\n" for line in lines)
 
 
 def build_script_prompt(
@@ -85,6 +89,7 @@ def build_script_prompt(
     *,
     in_thread: bool = False,
     new_materials: bool = False,
+    kept_materials: bool = False,
     dropped=(),
 ) -> str:
     """The request for a script. `in_thread`: the film's conversation
@@ -104,7 +109,7 @@ def build_script_prompt(
         ],
     }
     return (
-        _conversation_note(in_thread, new_materials, dropped)
+        _conversation_note(in_thread, new_materials, dropped, kept_materials)
         + "Act as a short-film screenwriter and continuity supervisor. Return one complete JSON object only, "
         "without Markdown or extra keys, following this schema: "
         + json.dumps(shape)

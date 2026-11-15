@@ -205,6 +205,15 @@ def make_quick_handler(app):
             sent = True
             checkpoint()
             context.mark_submitted()
+            adopt(thread)
+
+        def adopt(path):
+            # Our request went into a new conversation: from now on it is the
+            # account's Quick Create conversation (not before: a page can
+            # get an id before anything is sent).
+            if shared is not None and path and path != asked:
+                with database.sessions() as session:
+                    conversation.quick_started(session, context.account_id, path)
 
         shared = asked = None
         if not own:
@@ -220,9 +229,8 @@ def make_quick_handler(app):
             if path != thread:
                 thread = path
                 checkpoint()
-                if shared is not None and path:
-                    with database.sessions() as session:
-                        conversation.quick_started(session, context.account_id, path)
+                if sent:
+                    adopt(path)
 
         kind = values["kind"]
         remaining = count - len(asset_ids)

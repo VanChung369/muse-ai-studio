@@ -146,44 +146,45 @@ def make_script_handler(app):
                 raise TaskFailure("project_not_found")
             # Write the script in the film's own conversation, where its
             # scenes are rendered later (app/rendering/conversation.py).
-            thread = conversation.film_thread(project, context.account_id, settings)
-            plan = conversation.reference_plan(project, thread)
+            # The account was chosen by the user: wait for any other request
+            # of the film, but do not move to its account.
+            conversation.take_turn(session, context, follow=False)
+            request = conversation.FilmRequest(database, settings, context, project)
+            plan = request.plan
             everything = storage.reference_files(
                 settings, context.project_id, list(plan.current)
             )
             files = (
                 storage.reference_files(settings, context.project_id, plan.attach)
-                if thread
+                if request.thread
                 else everything
             )
-        brief = context.payload["brief"]
+        # A failed task may be retried after the reference files changed.
+        brief = {**context.payload["brief"], "references": len(everything)}
         fresh_prompt = build_script_prompt(brief)
+        if request.history:
+            fresh_prompt += (
+                "\nContext: a new script for a film begun in an earlier conversation. "
+                "This script replaces any earlier one. What was settled there, to use "
+                "only where it agrees with the brief above:\n" + request.history
+            )
         prompt = (
             build_script_prompt(
-                brief, in_thread=True, new_materials=bool(files), dropped=plan.dropped
+                brief,
+                in_thread=True,
+                new_materials=bool(files),
+                kept_materials=request.kept_materials,
+                dropped=plan.dropped,
             )
-            if thread
+            if request.thread
             else fresh_prompt
         )
         account = TaskAccountSession(app, context.account_id)
-        used = thread
-
-        def remember_thread(path):
-            nonlocal used
-            if not path:
-                return
-            used = path
-            if path == thread:
-                return
-            with database.sessions() as session:
-                conversation.film_started(
-                    session, context.project_id, context.account_id, path
-                )
-                session.commit()
 
         def before_send(result):
             context.raise_if_cancelled()
             context.mark_submitted()
+            request.sending()
 
         try:
             text = generate_script_text(
@@ -196,24 +197,19 @@ def make_script_handler(app):
                 before_send=before_send,
                 check_cancelled=context.raise_if_cancelled,
                 timeout=settings.planning_timeout,
-                thread_path=thread,
-                on_thread=remember_thread,
+                thread_path=request.thread,
+                on_thread=request.on_thread,
                 attachments=files,
                 attach_on_continue=True,
-                fresh=(fresh_prompt, everything) if thread else None,
+                fresh=(fresh_prompt, everything) if request.thread else None,
             )
         except MuseError as error:
             raise account.failure(error) from None
         with database.sessions() as session:
             # The request is in the conversation and the files were seen,
             # whether or not the reply is a usable script.
-            conversation.film_answered(
-                session,
-                context.project_id,
-                context.account_id,
-                asked=thread,
-                used=used,
-                references=plan.current,
+            request.answered(
+                session, request.current, fresh_files=everything, continued_files=files
             )
             session.commit()
         try:

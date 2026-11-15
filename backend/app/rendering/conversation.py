@@ -21,8 +21,10 @@ from dataclasses import dataclass
 from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert
 
-from app.models import AppSetting, Project
+from app.models import AppSetting, Project, Task
 from app.rendering.prompt import LANGUAGES, LOOKS
+from app.tasks.coordinator import TaskDeferred
+from app.tasks.kinds import GENERATE_MUSIC, PLAN_SCRIPT, RENDER_SCENE
 
 # A summary has to fit in one message next to the request itself.
 SUMMARY_LIMIT = 4000
@@ -38,6 +40,9 @@ def _clip(text: str, limit: int) -> str:
 
 # Films -------------------------------------------------------------------
 
+# Requests that go into a film's conversation (the merge does not).
+FILM_KINDS = (PLAN_SCRIPT, RENDER_SCENE, GENERATE_MUSIC)
+
 
 def film_thread(project: Project, account_id: str | None, settings) -> str | None:
     """The film's conversation when this account can carry on in it, else
@@ -51,31 +56,75 @@ def film_thread(project: Project, account_id: str | None, settings) -> str | Non
     return None
 
 
+def take_turn(session, context, *, follow: bool) -> None:
+    """Requests about one film reach its conversation one at a time. Raises
+    TaskDeferred (nothing sent yet) while another request of the film runs.
+    `follow`: this task's account was not chosen by the user (a scene or
+    music, not a script), so it is moved to the running request's account
+    and continues the conversation that request opens instead of starting a
+    second one on its own account."""
+    mine = session.scalar(select(Task.started_at).where(Task.id == context.task_id))
+    earlier = [
+        row
+        for row in session.execute(
+            select(Task.id, Task.account_id, Task.started_at).where(
+                Task.project_id == context.project_id,
+                Task.kind.in_(FILM_KINDS),
+                Task.status == "running",
+                Task.id != context.task_id,
+            )
+        )
+        # The one that started first goes first; the others wait for it.
+        if mine is None
+        or row.started_at is None
+        or (row.started_at, row.id) < (mine, context.task_id)
+    ]
+    if not earlier:
+        session.rollback()
+        return
+    owner = earlier[0].account_id
+    if follow and owner and owner != context.account_id:
+        session.execute(
+            update(Task).where(Task.id == context.task_id).values(account_id=owner)
+        )
+        session.commit()
+    else:
+        session.rollback()
+    raise TaskDeferred("film_busy", delay=10)
+
+
+def _seen(project: Project) -> dict[str, str]:
+    try:
+        seen = json.loads(project.muse_thread_references or "{}")
+    except ValueError:
+        return {}
+    return seen if isinstance(seen, dict) else {}
+
+
 @dataclass
 class ReferencePlan:
     # Every reference file the film has now: file -> the user's file name.
     current: dict[str, str]
+    # What the conversation has already been sent (empty for a new one).
+    seen: dict[str, str]
     # Files to attach to this message: all of them in a new conversation,
     # those the conversation has not seen when it carries on.
     attach: list[str]
-    # Names of files the conversation saw that the film no longer has.
+    # Files the conversation saw that the film no longer has, as Muse knows
+    # them (the uploaded file name) with the user's name for them.
     dropped: list[str]
 
 
 def reference_plan(project: Project, thread: str | None) -> ReferencePlan:
     current = {reference.file: reference.name for reference in project.references}
     if thread is None:
-        return ReferencePlan(current, list(current), [])
-    try:
-        seen = json.loads(project.muse_thread_references or "{}")
-    except ValueError:
-        seen = {}
-    if not isinstance(seen, dict):
-        seen = {}
+        return ReferencePlan(current, {}, list(current), [])
+    seen = _seen(project)
     return ReferencePlan(
         current,
+        seen,
         [file for file in current if file not in seen],
-        [str(name) for file, name in seen.items() if file not in current],
+        [f'{file} ("{name}")' for file, name in seen.items() if file not in current],
     )
 
 
@@ -128,51 +177,119 @@ def film_history(project: Project) -> str:
     return film_summary(project) if project.muse_thread_path else ""
 
 
-def film_started(session, project_id: str, account_id: str, path: str) -> None:
-    """A new conversation was opened for the film. Nothing in it is
-    confirmed yet: no request answered, no reference file seen."""
-    session.execute(
-        update(Project)
-        .where(Project.id == project_id)
-        .values(
-            muse_thread_path=path,
-            muse_thread_account_id=account_id,
-            muse_thread_scenes=0,
-            muse_thread_references=None,
+class FilmRequest:
+    """The bookkeeping of one request (script, scene or music) in a film's
+    conversation. Built while the project is loaded; pass `on_thread` to the
+    generator, call `sending()` from before_send and `answered()` once Muse
+    answered.
+
+    A new conversation becomes the film's only once our message was sent
+    into it: a page can get an id before anything is sent, and an empty
+    conversation must not replace the film's real one."""
+
+    def __init__(self, database, settings, context, project: Project):
+        self.database = database
+        self.project_id = context.project_id
+        self.account_id = context.account_id
+        self.thread = film_thread(project, context.account_id, settings)
+        self.plan = reference_plan(project, self.thread)
+        self.history = film_history(project)
+        # The conversation the page is on: the saved one once it opened, a
+        # new one once its id is known, None until then.
+        self.current = None
+        self.sent = self.counted = False
+        self.adopted = None
+
+    @property
+    def kept_materials(self) -> bool:
+        """The conversation already holds reference files the film still has."""
+        return any(file in self.plan.seen for file in self.plan.current)
+
+    def on_thread(self, path) -> None:
+        self.current = path
+        if self.sent:
+            self._adopt(path)
+
+    def sending(self) -> None:
+        """Before each send. A request into the saved conversation counts
+        towards its length at once, also if no answer comes back."""
+        self.sent = True
+        if self.current and self.current != self.thread:
+            self._adopt(self.current)
+        if self.counted or not self.thread or self.current != self.thread:
+            return
+        self.counted = True
+        with self.database.sessions() as session:
+            session.execute(
+                update(Project)
+                .where(
+                    Project.id == self.project_id,
+                    Project.muse_thread_path == self.thread,
+                )
+                .values(muse_thread_scenes=Project.muse_thread_scenes + 1)
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+
+    def _adopt(self, path) -> None:
+        """Our message went into the new conversation `path`: it is now the
+        film's, with nothing in it answered or seen yet."""
+        if not path or path == self.thread or path == self.adopted:
+            return
+        self.adopted = path
+        with self.database.sessions() as session:
+            session.execute(
+                update(Project)
+                .where(Project.id == self.project_id)
+                .values(
+                    muse_thread_path=path,
+                    muse_thread_account_id=self.account_id,
+                    muse_thread_scenes=0,
+                    muse_thread_references=None,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            session.commit()
+
+    def answered(
+        self, session, used, *, fresh_files=None, continued_files=None
+    ) -> None:
+        """Muse answered in conversation `used`. `fresh_files` /
+        `continued_files`: the reference files (Paths) attached in a new
+        conversation / in the saved one; None for a request that sends
+        none and leaves the record of seen files as it is (music)."""
+        if not used:
+            return
+        continued = used == self.thread
+        values = {
+            "muse_thread_path": used,
+            "muse_thread_account_id": self.account_id,
+            "muse_thread_scenes": (
+                Project.muse_thread_scenes + (0 if self.counted else 1)
+                if continued
+                else 1
+            ),
+        }
+        files = continued_files if continued else fresh_files
+        if files is not None:
+            sent = {path.name for path in files}
+            known = self.plan.seen if continued else {}
+            values["muse_thread_references"] = json.dumps(
+                {
+                    file: name
+                    for file, name in self.plan.current.items()
+                    if file in known or file in sent
+                },
+                ensure_ascii=False,
+            )
+        elif not continued:
+            values["muse_thread_references"] = None
+        session.execute(
+            update(Project)
+            .where(Project.id == self.project_id)
+            .values(**values)
+            .execution_options(synchronize_session=False)
         )
-        .execution_options(synchronize_session=False)
-    )
-
-
-def film_answered(
-    session,
-    project_id: str,
-    account_id: str,
-    *,
-    asked: str | None,
-    used: str | None,
-    references: dict[str, str] | None,
-) -> None:
-    """A request about the film was answered in conversation `used`, which
-    carries on `asked` or was opened instead. `references` is the set of
-    files the conversation has now seen (None: this request sent none)."""
-    if not used:
-        return
-    values = {
-        "muse_thread_path": used,
-        "muse_thread_account_id": account_id,
-        "muse_thread_scenes": (Project.muse_thread_scenes + 1 if used == asked else 1),
-    }
-    if references is not None:
-        values["muse_thread_references"] = json.dumps(references, ensure_ascii=False)
-    elif used != asked:
-        values["muse_thread_references"] = None
-    session.execute(
-        update(Project)
-        .where(Project.id == project_id)
-        .values(**values)
-        .execution_options(synchronize_session=False)
-    )
 
 
 # Quick Create --------------------------------------------------------------

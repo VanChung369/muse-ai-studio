@@ -89,6 +89,7 @@ def build_scene_prompt(
     in_thread: bool = False,
     materials: bool = False,
     new_materials: bool = False,
+    kept_materials: bool = False,
     dropped: tuple[str, ...] | list[str] = (),
     summary: str = "",
 ) -> str:
@@ -112,9 +113,13 @@ def build_scene_prompt(
         parts.append(
             f"Context: shot {scene.number} of {total} of the film this conversation "
             "is about. Keep the characters, wardrobe, locations and style consistent "
-            "with its earlier shots and reference files. Make a new video for this "
-            "shot now, even if this shot was made earlier in this conversation: do "
-            "not reuse, re-send or link an earlier clip."
+            + (
+                "with its earlier shots and reference files. "
+                if scene.number > 1
+                else "with what was established for this film earlier in this conversation. "
+            )
+            + "Make a new video for this shot now, even if this shot was made earlier "
+            "in this conversation: do not reuse, re-send or link an earlier clip."
         )
     elif summary:
         parts.append(
@@ -131,13 +136,17 @@ def build_scene_prompt(
     elif new_materials:
         parts.append(
             "New reference material: the attached files were added to this film's "
-            "references. Match them from this shot on, together with the reference "
-            "files sent earlier in this conversation."
+            "references. Match them from this shot on"
+            + (
+                ", together with the reference files sent earlier in this conversation."
+                if kept_materials
+                else "."
+            )
         )
     if dropped:
         parts.append(
             "Reference files no longer used: "
-            + ", ".join(f'"{name}"' for name in dropped)
+            + ", ".join(dropped)
             + ". They were sent earlier in this conversation; do not follow them any more."
         )
     if project.visual_style.strip():

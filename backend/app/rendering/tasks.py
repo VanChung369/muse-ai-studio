@@ -458,9 +458,11 @@ def make_scene_handler(app):
             )
             previous_clip = previous.video_file if previous else None
             # One conversation per film (app/rendering/conversation.py):
-            # carry on in it while this account owns it and it is not too long.
-            thread = conversation.film_thread(project, context.account_id, settings)
-            plan = conversation.reference_plan(project, thread)
+            # one request at a time, carried on while this account owns it
+            # and it is not too long.
+            conversation.take_turn(session, context, follow=True)
+            request = conversation.FilmRequest(database, settings, context, project)
+            plan = request.plan
             everything = storage.reference_files(
                 settings, context.project_id, list(plan.current)
             )
@@ -472,9 +474,9 @@ def make_scene_handler(app):
                 previous,
                 has_reference=bool(previous_clip),
                 materials=bool(everything),
-                summary=conversation.film_history(project),
+                summary=request.history,
             )
-            if thread:
+            if request.thread:
                 files = storage.reference_files(
                     settings, context.project_id, plan.attach
                 )
@@ -485,6 +487,7 @@ def make_scene_handler(app):
                     has_reference=bool(previous_clip),
                     in_thread=True,
                     new_materials=bool(files),
+                    kept_materials=request.kept_materials,
                     dropped=plan.dropped,
                 )
             else:
@@ -505,18 +508,10 @@ def make_scene_handler(app):
                 ) from None
         account = TaskAccountSession(app, context.account_id)
 
-        def remember_thread(path):
-            if not path or path == thread:
-                return
-            with database.sessions() as session:
-                conversation.film_started(
-                    session, context.project_id, context.account_id, path
-                )
-                session.commit()
-
         def before_send(result):
             context.raise_if_cancelled()
             context.mark_submitted()
+            request.sending()
 
         try:
             video = generate_video(
@@ -530,11 +525,11 @@ def make_scene_handler(app):
                 check_cancelled=context.raise_if_cancelled,
                 timeout=settings.render_timeout,
                 reference=reference,
-                thread_path=thread,
-                on_thread=remember_thread,
+                thread_path=request.thread,
+                on_thread=request.on_thread,
                 attachments=files,
                 attach_on_continue=True,
-                fresh=(fresh_prompt, everything) if thread else None,
+                fresh=(fresh_prompt, everything) if request.thread else None,
             )
         except MuseError as error:
             raise account.failure(error) from None
@@ -578,24 +573,25 @@ def make_scene_handler(app):
                 .execution_options(synchronize_session=False)
             )
             # Where the next message continues, and the reference files the
-            # conversation has now seen (either way, all the film has).
-            conversation.film_answered(
+            # conversation has now seen.
+            request.answered(
                 session,
-                context.project_id,
-                context.account_id,
-                asked=thread,
-                used=video.thread_path,
-                references=plan.current,
+                video.thread_path,
+                fresh_files=everything,
+                continued_files=files,
             )
             # Keep the rest of the film on this account, where its
-            # conversation lives.
+            # conversation lives (also after a retry on another account).
             session.execute(
                 update(Task)
                 .where(
                     Task.project_id == context.project_id,
                     Task.kind == RENDER_SCENE,
                     Task.status == "queued",
-                    Task.account_id.is_(None),
+                    or_(
+                        Task.account_id.is_(None),
+                        Task.account_id != context.account_id,
+                    ),
                 )
                 .values(account_id=context.account_id)
             )
