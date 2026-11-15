@@ -53,7 +53,7 @@ Linux dùng musl như Alpine không được hỗ trợ, vì Chromium và Node.j
 | Chạy app | bấm đúp `start.cmd` | `bash start.sh` |
 | Đổi cổng | `... start.ps1 -Port 8080` | `bash start.sh --port 8080` |
 | Cho máy khác trong mạng LAN truy cập | `... start.ps1 -Lan` | `bash start.sh --lan` |
-| Cập nhật sau khi `git pull` | chạy lại `install.ps1` | chạy lại `bash install.sh` |
+| Cập nhật sau khi `git pull` | bấm đúp lại `install.cmd` | chạy lại `bash install.sh` |
 
 Dừng app: bấm `Ctrl+C` trong cửa sổ đang chạy.
 

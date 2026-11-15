@@ -87,15 +87,15 @@ function Install-Node {
     Use-Tools
 }
 function Install-Ffmpeg {
+    # A failed download only costs the FFmpeg features: the caller warns.
     Write-Host "Downloading FFmpeg into .tools\ffmpeg..."
     $unpacked = "$Tools\ffmpeg-download"
     Remove-Dir $unpacked
     try {
-        Run "Downloading FFmpeg" {
-            uv pip install --quiet --python "$Root\backend\.venv\Scripts\python.exe" --target $unpacked $FfmpegPackage
-        }
-        $binary = Get-ChildItem "$unpacked\imageio_ffmpeg\binaries" -Filter "ffmpeg*.exe" | Select-Object -First 1
-        if (-not $binary) { throw "The FFmpeg download has no ffmpeg.exe." }
+        uv pip install --quiet --python "$Root\backend\.venv\Scripts\python.exe" --target $unpacked $FfmpegPackage
+        if ($LASTEXITCODE -ne 0) { return }
+        $binary = Get-ChildItem "$unpacked\imageio_ffmpeg\binaries" -Filter "ffmpeg*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $binary) { return }
         New-Item -ItemType Directory -Force "$Tools\ffmpeg\bin" | Out-Null
         Copy-Item $binary.FullName "$Tools\ffmpeg\bin\ffmpeg.exe" -Force
     } finally { Remove-Dir $unpacked }

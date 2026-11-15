@@ -6,6 +6,9 @@
 # One server answers the interface, the API (/api) and the public API (/v1).
 # --lan listens on every network address instead of this computer only; the
 # app has no login, so do that only on a network you trust.
+
+# "sh start.sh" runs dash on Debian/Ubuntu, which cannot read this script.
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

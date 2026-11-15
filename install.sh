@@ -12,6 +12,9 @@
 # Then the backend's Python environment and a production build of the
 # interface, which the backend serves. Afterwards start the app with
 # bash start.sh and open http://127.0.0.1:18610.
+
+# "sh install.sh" runs dash on Debian/Ubuntu, which cannot read this script.
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,7 +61,10 @@ node_ok() {
 system_install() {  # system_install <apt packages> <dnf/yum> <pacman> <zypper>; fails when it cannot
   can_be_root || return 1
   # shellcheck disable=SC2086 # each argument is a list of package names
-  if have apt-get; then as_root apt-get update -qq && as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $1
+  if have apt-get; then
+    # A broken third-party source makes the update fail, yet the install still works.
+    as_root apt-get update -qq || true
+    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $1
   elif have dnf; then as_root dnf install -y -q $2
   elif have yum; then as_root yum install -y -q $2
   elif have pacman; then as_root pacman -S --noconfirm --needed $3
@@ -92,11 +98,14 @@ install_node() {
   use_tools
 }
 
-install_ffmpeg() {
+install_ffmpeg() {  # a failed download only costs the FFmpeg features: the caller warns
   local unpacked="$TOOLS/ffmpeg-download" binary
   echo "Downloading FFmpeg into .tools/ffmpeg..."
   rm -rf "$unpacked"
-  uv pip install --quiet --python "$ROOT/backend/.venv/bin/python" --target "$unpacked" "$FFMPEG_PACKAGE"
+  if ! uv pip install --quiet --python "$ROOT/backend/.venv/bin/python" --target "$unpacked" "$FFMPEG_PACKAGE"; then
+    rm -rf "$unpacked"
+    return 0
+  fi
   for binary in "$unpacked"/imageio_ffmpeg/binaries/ffmpeg-*; do
     case "$binary" in *.md|*.txt) continue ;; esac
     if [ -f "$binary" ]; then
