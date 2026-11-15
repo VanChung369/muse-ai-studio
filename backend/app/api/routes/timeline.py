@@ -10,10 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
-from app.models import Project
+from app.models import Media, Project
 from app.rendering import film, storage, timeline
 from app.rendering.ffmpeg import (
     CaptionError,
@@ -527,6 +528,24 @@ def save_timeline(
         raise error(409, "ffmpeg_unavailable", "FFmpeg is needed to merge the film.")
     stored = _checked(request, project, values, ffmpeg)
     session.rollback()  # End the read snapshot before writing (WAL).
+    session.execute(
+        text("UPDATE projects SET status = status WHERE id = :id"),
+        {"id": project_id},
+    )
+    placed = {
+        item["media"]
+        for item in [*stored["items"], *stored["audio"]]
+        if "media" in item
+    }
+    if stored["logo"]:
+        placed.add(stored["logo"]["media"])
+    existing = set(
+        session.scalars(select(Media.id).where(Media.project_id == project_id))
+    )
+    if not placed <= existing:
+        raise error(
+            422, "invalid_timeline", "An added file was removed. Reload the timeline."
+        )
     # Saved together with the claim on the merge: if the project moved on
     # since the check above, nothing is stored and the caller is told.
     if not remerge(session, project_id, timeline_json=json.dumps(stored)):

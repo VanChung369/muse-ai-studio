@@ -20,7 +20,7 @@ class ScriptGenerationRequest(BaseModel):
         alias_generator=to_camel, extra="forbid", str_strip_whitespace=True
     )
     account_id: str = Field(min_length=1, max_length=36)
-    expected_revision: int = Field(strict=True, ge=0)
+    expected_revision: int = Field(strict=True, ge=0, le=2**63 - 1)
     idea: str = Field(min_length=1, max_length=12000)
     # Saved on the project and used for this script; omitted = keep the project's.
     language: ProjectLanguage | None = None

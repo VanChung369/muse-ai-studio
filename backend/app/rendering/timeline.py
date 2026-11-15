@@ -25,7 +25,7 @@ CAPTION_LENGTH = 300
 # Longest fade of a piece of the picture, and of an audio piece.
 MAX_CLIP_FADE = 2.0
 MAX_AUDIO_FADE = 10.0
-# Caption sizes: height of the letters as a share of the frame's height.
+# Caption sizes: height of the letters as a share of the frame's shorter side.
 CAPTION_SIZES = {"small": 0.045, "medium": 0.06, "large": 0.08, "xlarge": 0.105}
 CAPTION_STYLE = {
     "size": "medium",
@@ -41,7 +41,13 @@ CAPTION_STYLE = {
 # The shape and weight of the merged file. `height` is the frame's shorter
 # edge in pixels ("720p"), 0 keeping that of the scenes.
 OUTPUT = {"aspect": "source", "fit": "contain", "height": 0, "quality": "high"}
-LOOK = {"effect": "none", "zoom": "none", "flip": False, "fade_in": 0.0, "fade_out": 0.0}
+LOOK = {
+    "effect": "none",
+    "zoom": "none",
+    "flip": False,
+    "fade_in": 0.0,
+    "fade_out": 0.0,
+}
 
 
 @dataclass(frozen=True)
@@ -210,7 +216,9 @@ def read(saved: dict, project: Project) -> Timeline:
         if key in keys:
             key = f"{key}-{index}"
         keys.add(key)
-        cuts.append(Cut(scene=None if media else number, media=media, key=key, **values))
+        cuts.append(
+            Cut(scene=None if media else number, media=media, key=key, **values)
+        )
     cuts += [
         Cut(scene=number, key=f"scene-{number}")
         for number in rendered
@@ -334,9 +342,11 @@ def validate(
             "key": key,
             "start": 0.0 if whole else round(item["start"], 3),
             # Null keeps following the clip if it is rendered again.
-            "end": None
-            if whole or (kind != "image" and end > length - 0.01)
-            else round(end, 3),
+            "end": (
+                None
+                if whole or (kind != "image" and end > length - 0.01)
+                else round(end, 3)
+            ),
             "enabled": item["enabled"],
             "speed": round(speed, 3),
             "effect": item.get("effect", "none"),

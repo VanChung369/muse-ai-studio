@@ -10,12 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select, text
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 from app.api.dependencies import get_session
-from app.models import LibraryAsset
+from app.models import LibraryAsset, Task
 from app.rendering import library, storage
 from app.rendering.ffmpeg import (
     MergeError,
@@ -33,6 +33,7 @@ from app.rendering.intake import (
     thumbnail_name,
     waveform_name,
 )
+from app.tasks.kinds import ACTIVE_STATUSES, QUICK_KINDS
 
 router = APIRouter(prefix="/library", tags=["Media library"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
@@ -244,7 +245,22 @@ async def add_to_library(
         session.flush()
         # Counted again now that this request holds the write lock: uploads
         # that streamed in at the same time cannot all slip past the limit.
-        if _count(session) > library.MAX_ASSETS:
+        remaining = case(
+            (
+                func.json_extract(Task.payload_json, "$.batch") == 1,
+                func.json_extract(Task.payload_json, "$.count")
+                - func.coalesce(
+                    func.json_array_length(Task.checkpoint_json, "$.assetIds"), 0
+                ),
+            ),
+            else_=1,
+        )
+        reserved = session.scalar(
+            select(func.coalesce(func.sum(remaining), 0)).where(
+                Task.kind.in_(QUICK_KINDS), Task.status.in_(ACTIVE_STATUSES)
+            )
+        )
+        if _count(session) + reserved > library.MAX_ASSETS:
             raise too_many()
         session.commit()
         session.refresh(asset)
@@ -388,6 +404,10 @@ def get_asset_waveform(asset_id: str, request: Request, session: DatabaseSession
 )
 def delete_asset(asset_id: str, request: Request, session: DatabaseSession):
     """Remove an uploaded file. Projects that took a copy keep their copy."""
+    session.execute(
+        text("UPDATE library_assets SET id = id WHERE id = :id"),
+        {"id": asset_id},
+    )
     asset = _asset(session, asset_id)
     folder = storage.library_dir(request.app.state.settings)
     file = asset.file

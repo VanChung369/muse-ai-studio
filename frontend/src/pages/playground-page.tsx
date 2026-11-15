@@ -404,6 +404,18 @@ export function PlaygroundPage() {
             return;
           }
 
+          // A failure after the stream started comes as an `error` object.
+          const streamError = parseOpenAiError(payload);
+          if (streamError) {
+            setResponseData(JSON.parse(payload));
+            setRequestError({
+              kind: "openai",
+              status: response.status,
+              info: streamError,
+            });
+            return;
+          }
+
           try {
             const chunk: unknown = JSON.parse(payload);
             chunks.push(chunk);

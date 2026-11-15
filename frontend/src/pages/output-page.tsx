@@ -380,7 +380,12 @@ function Output({
   // Cuts the selected clip in two where its preview is playing (or in the
   // middle when that is too close to an end).
   function splitSelected() {
-    if (!cut || cut.kind === "image") return;
+    if (
+      !cut ||
+      cut.kind === "image" ||
+      draft.items.length >= MAX_TIMELINE_ITEMS
+    )
+      return;
     const middle = (cut.start + cut.end) / 2;
     const cutAt = splitItem(
       draft.items,

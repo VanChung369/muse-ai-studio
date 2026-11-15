@@ -16,7 +16,7 @@ export const MIN_CUT_SECONDS = 0.5;
 export const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4] as const;
 // How long a picture is shown when it is first placed.
 export const STILL_SECONDS = 3;
-export const MAX_TIMELINE_ITEMS = 60;
+export const MAX_TIMELINE_ITEMS = 1000;
 export const MAX_AUDIO_TRACKS = 8;
 export const MAX_CAPTIONS = 1000;
 export const CAPTION_LENGTH = 300;
@@ -103,7 +103,17 @@ export function timelinePayload(draft: TimelineDraft): TimelinePayload {
         : { mediaId: item.mediaId, ...cut };
     }),
     audio: draft.audio.map(
-      ({ mediaId, key, offset, start, end, volume, loop, fadeIn, fadeOut }) => ({
+      ({
+        mediaId,
+        key,
+        offset,
+        start,
+        end,
+        volume,
+        loop,
+        fadeIn,
+        fadeOut,
+      }) => ({
         mediaId,
         key,
         offset,
@@ -346,10 +356,12 @@ export function followClips<T extends { start: number; end: number }>(
     now.set(item.key, placed);
   });
   return timed.map((entry) => {
+    // Timed entries sit on tenths of a second, while sped-up clips can end
+    // between tenths (e.g. 10s at 3× = 3.333s -> snapped to 3.3s).
     const from = old.find(
       (piece) =>
-        entry.start >= piece.offset - EPSILON &&
-        entry.start < piece.offset + piece.length - EPSILON,
+        entry.start >= toTenth(piece.offset) - EPSILON &&
+        entry.start < toTenth(piece.offset + piece.length) - EPSILON,
     );
     const to = from && now.get(from.key);
     const original = from && before.find((item) => item.key === from.key);
@@ -365,7 +377,15 @@ export function followClips<T extends { start: number; end: number }>(
     // over the next piece's text and both show at once.
     let length = ((entry.end - entry.start) * original.speed) / updated.speed;
     const pieceEnd = to.offset + to.length;
-    if (entry.end <= from.offset + from.length + EPSILON && start < pieceEnd)
+    if (
+      entry.end <=
+        Math.max(
+          from.offset + from.length,
+          toTenth(from.offset + from.length),
+        ) +
+          EPSILON &&
+      start < pieceEnd
+    )
       length = Math.min(length, pieceEnd - start);
     const end = toTenth(start + Math.max(length, 0.2));
     return start === entry.start && end === entry.end

@@ -404,7 +404,7 @@
         "range": "Scenes {{number}}–{{count}} are rendered again so they stay connected.",
         "keptOne": "Scene 1 is kept.",
         "keptRange": "Scenes 1–{{previous}} are kept.",
-        "cost": "The current clips of those scenes and the merged video are replaced, each new scene uses Muse quota, and a new conversation is started on Muse.",
+        "cost": "The current clips of those scenes and the merged video are replaced, and each new scene uses Muse quota. The scenes are made again in the project's Muse chat.",
         "keep": "Keep as is",
         "confirm_one": "Render {{count}} scene again",
         "confirm_other": "Render {{count}} scenes again",

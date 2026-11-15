@@ -12,7 +12,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
-from app.models import Media, Project
+from app.models import Media, Project, Task
 from app.rendering import library, storage, timeline
 from app.rendering.ffmpeg import (
     MergeError,
@@ -31,6 +31,7 @@ from app.rendering.intake import (
 )
 from app.rendering.music import MusicRequestError, enqueue_music, latest_music_task
 from app.schemas.task import TaskResponse
+from app.tasks.kinds import ACTIVE_STATUSES, GENERATE_MUSIC
 
 router = APIRouter(prefix="/projects", tags=["Media"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
@@ -99,9 +100,22 @@ def _project(session: Session, project_id: str, *, changing: bool = False) -> Pr
 
 
 def _count(session: Session, project_id: str) -> int:
-    return session.scalar(
+    stored = session.scalar(
         select(func.count()).select_from(Media).where(Media.project_id == project_id)
     )
+    reserved = session.scalar(
+        select(func.count())
+        .select_from(Task)
+        .where(
+            Task.project_id == project_id,
+            Task.kind == GENERATE_MUSIC,
+            Task.status.in_(ACTIVE_STATUSES),
+            ~func.coalesce(
+                func.json_extract(Task.checkpoint_json, "$.mediaId"), ""
+            ).in_(select(Media.id)),
+        )
+    )
+    return stored + reserved
 
 
 def too_many() -> HTTPException:

@@ -9,9 +9,10 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
-from app.models import Project, Reference
+from app.models import Project, Reference, Task
 from app.rendering import storage
 from app.schemas.project import ProjectReference
+from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT
 
 router = APIRouter(prefix="/projects", tags=["Reference material"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
@@ -43,11 +44,22 @@ def _project(session: Session, project_id: str, *, changing: bool = False) -> Pr
     project = session.get(Project, project_id, populate_existing=changing)
     if project is None:
         raise error(404, "project_not_found", "Project not found.")
-    if changing and project.status in ("rendering", "cancelling"):
+    if changing and (
+        project.status in ("rendering", "cancelling")
+        or session.scalar(
+            select(Task.id)
+            .where(
+                Task.project_id == project_id,
+                Task.kind == PLAN_SCRIPT,
+                Task.status.in_(ACTIVE_STATUSES),
+            )
+            .limit(1)
+        )
+    ):
         raise error(
             409,
             "project_busy",
-            "This project is rendering. Wait or cancel the render first.",
+            "This project is generating a script or rendering. Wait or cancel the task first.",
         )
     return project
 

@@ -25,7 +25,13 @@ from app.rendering.ffmpeg import (
 from app.rendering.prompt import build_scene_prompt
 from app.repositories import tasks
 from app.tasks.coordinator import TaskFailure, utcnow
-from app.tasks.kinds import MERGE_VIDEO, RENDER_KINDS, RENDER_SCENE
+from app.tasks.kinds import (
+    ACTIVE_STATUSES,
+    MERGE_VIDEO,
+    PLAN_SCRIPT,
+    RENDER_KINDS,
+    RENDER_SCENE,
+)
 
 # Failures that call for another account rather than another try.
 ACCOUNT_ACTIONS = ("switch_account", "relogin", "check_proxy")
@@ -65,6 +71,13 @@ def start_render(session, project_id: str) -> None:
                 Project.id == project_id,
                 Project.status == "ready",
                 Project.scene_count > 0,
+                ~select(Task.id)
+                .where(
+                    Task.project_id == project_id,
+                    Task.kind == PLAN_SCRIPT,
+                    Task.status.in_(ACTIVE_STATUSES),
+                )
+                .exists(),
             )
             .values(status="rendering", updated_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
@@ -239,16 +252,19 @@ def restart_render(session, project_id: str, from_scene: int) -> list[str]:
                 Project.id == project_id,
                 Project.status.in_(("completed", "failed", "cancelled")),
                 Project.scene_count >= from_scene,
+                ~select(Task.id)
+                .where(
+                    *_render_tasks(project_id),
+                    Task.status == "running",
+                )
+                .exists(),
             )
             .values(
                 status="rendering",
                 video_file=None,
                 rendered_at=None,
-                # A new conversation: in the old one the agent would
-                # recognise the request and point at the clip it already made.
-                muse_thread_path=None,
-                muse_thread_account_id=None,
-                muse_thread_scenes=0,
+                # The film stays in its one conversation; the scene prompt
+                # asks for a new take there (see build_scene_prompt).
                 updated_at=datetime.now(UTC),
             )
             .execution_options(synchronize_session=False)
@@ -479,6 +495,22 @@ def make_scene_handler(app):
                 ) from None
         account = TaskAccountSession(app, context.account_id)
 
+        def remember_thread(path):
+            if not path or path == thread:
+                return
+            with database.sessions() as session:
+                session.execute(
+                    update(Project)
+                    .where(Project.id == context.project_id)
+                    .values(
+                        muse_thread_path=path,
+                        muse_thread_account_id=context.account_id,
+                        muse_thread_scenes=0,
+                    )
+                    .execution_options(synchronize_session=False)
+                )
+                session.commit()
+
         def before_send(result):
             context.raise_if_cancelled()
             context.mark_submitted()
@@ -496,6 +528,7 @@ def make_scene_handler(app):
                 timeout=settings.render_timeout,
                 reference=reference,
                 thread_path=thread,
+                on_thread=remember_thread,
                 attachments=materials,
             )
         except MuseError as error:

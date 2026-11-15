@@ -101,9 +101,22 @@ export function MuseMusicDialog({
               {t("projects.music.done")}
             </p>
           )}
-          {asked && task?.status === "failed" && (
-            <p className="text-destructive">
-              {t(taskErrorKey(task.error?.code))}
+          {asked &&
+            (task?.status === "failed" || task?.status === "interrupted") && (
+              <p className="text-destructive">
+                {t(
+                  taskErrorKey(
+                    task.error?.code ??
+                      (task.status === "interrupted"
+                        ? "interrupted"
+                        : undefined),
+                  ),
+                )}
+              </p>
+            )}
+          {asked && task?.status === "cancelled" && (
+            <p className="text-muted-foreground">
+              {t("tasks.status.cancelled")}
             </p>
           )}
         </div>

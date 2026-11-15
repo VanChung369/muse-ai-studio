@@ -627,7 +627,8 @@ def compose(
         if fade_out > 0.01:
             tail += f",afade=t=out:st={length - fade_out:.3f}:d={fade_out:.3f}"
         filters.append(
-            f"[{sound}]{tempo}aresample=44100,aformat=channel_layouts=stereo{tail}"
+            f"[{sound}]{tempo}aresample=44100,aformat=channel_layouts=stereo,"
+            f"apad,atrim=duration={length:.3f}{tail}"
             f"[a{index}]"
         )
         pads.append(f"[a{index}]")
@@ -721,10 +722,14 @@ def compose(
         wide = max(round(width * min(max(logo.size, 0.02), 0.6) / 2) * 2, 2)
         margin = round(width * 0.03)
         across = (
-            str(margin) if logo.corner.endswith("left") else f"main_w-overlay_w-{margin}"
+            str(margin)
+            if logo.corner.endswith("left")
+            else f"main_w-overlay_w-{margin}"
         )
         down = (
-            str(margin) if logo.corner.startswith("top") else f"main_h-overlay_h-{margin}"
+            str(margin)
+            if logo.corner.startswith("top")
+            else f"main_h-overlay_h-{margin}"
         )
         filters.append(
             f"[{mark}:v]scale={wide}:-2,format=rgba,"
@@ -894,7 +899,9 @@ def caption_script(
         return f"{hours}:{minutes:02d}:{rest // 100:02d}.{rest % 100:02d}"
 
     def look(name, font, share, color, outline, alignment, bold, box) -> str:
-        size = max(round(height * share), 8)
+        # Of the shorter side: a tall frame's height would make the words
+        # too wide for it.
+        size = max(round(min(width, height) * share), 8)
         # A box is drawn as a thick, half-transparent "outline" in black.
         border = (
             f"3,{round(size * 0.22, 1)},0"

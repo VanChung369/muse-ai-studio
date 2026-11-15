@@ -65,7 +65,8 @@ UNDELIVERED_JS = """(marker) => {
   }
   const group = anchor && anchor.parentElement
     && anchor.parentElement.closest('div[class*="group/msg"]');
-  return !!(group && group.querySelector('[role="alert"]'));
+  return !!(group && [...group.querySelectorAll('[role="alert"]')]
+    .some(alert => /Delivery not confirmed/i.test(alert.textContent || '')));
 }"""
 # How long a message may stay flagged as not delivered before giving up.
 UNDELIVERED_WAIT = 15.0
@@ -85,19 +86,25 @@ DELIVERY_ATTEMPTS = 3
 DELIVERY_RETRY_PAUSE = 20.0
 
 
-def reopen_conversation(page, client, thread_path, attempt, check_cancelled, result):
+def reopen_conversation(
+    page, client, thread_path, attempt, check_cancelled, result, *, started=False
+):
     """Load the conversation again before resending a request Muse flagged as
     not delivered. Loading it reconnects the page to the agent; the earlier
     copy was never stored, so the resend cannot arrive twice. A conversation
-    that was still new opens as a new one again."""
+    that was still new opens as a new one again, and so does one this request
+    started (`started`) that Muse never kept because its only message did not
+    arrive."""
     deadline = time.monotonic() + DELIVERY_RETRY_PAUSE * attempt
     while time.monotonic() < deadline:
         check_cancelled()
         page.wait_for_timeout(1000)
+    check_cancelled()
     if thread_path:
-        if not _open_thread(page, client, thread_path):
+        if _open_thread(page, client, thread_path):
+            return
+        if not started:
             raise MuseError("message_not_delivered", partial=result)
-        return
     page.goto(client.base + "/thread/new", wait_until="domcontentloaded", timeout=30000)
     page.locator("textarea:visible").first.wait_for(state="visible", timeout=30000)
 
@@ -185,7 +192,10 @@ def _open_thread(page, client, thread_path) -> bool:
 
 def _installed(*parts: str) -> list[str]:
     """Where Windows installs a browser: under each program folder."""
-    roots = (os.environ.get(name) for name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"))
+    roots = (
+        os.environ.get(name)
+        for name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")
+    )
     return [str(Path(root, *parts)) for root in roots if root]
 
 
@@ -405,11 +415,28 @@ def generate_script_text(
     )
     with open_composer(client, result, proxy, thread_path) as page:
         continued = bool(thread_path and thread_path_of(page.url) == thread_path)
+        retry_thread = thread_path_of(page.url)
+
+        def remember_thread():
+            nonlocal retry_thread
+            current = thread_path_of(page.url)
+            if current and current != retry_thread:
+                retry_thread = current
+                if on_thread is not None:
+                    on_thread(current)
+
+        if retry_thread and on_thread is not None:
+            on_thread(retry_thread)
         for attempt in range(DELIVERY_ATTEMPTS):
             if attempt:
                 reopen_conversation(
-                    page, client, thread_path if continued else None,
-                    attempt, check_cancelled, result,
+                    page,
+                    client,
+                    retry_thread,
+                    attempt,
+                    check_cancelled,
+                    result,
+                    started=retry_thread != thread_path,
                 )
             # Our message is recognised on the page by this label (see ANCHOR_JS).
             marker = f"plan-{uuid4().hex[:8]}"
@@ -419,7 +446,9 @@ def generate_script_text(
             elif attachments:
                 # Reference material opens the conversation; later messages
                 # in it rely on the agent having seen it.
-                attached = attach_files(page, [str(path) for path in attachments], result)
+                attached = attach_files(
+                    page, [str(path) for path in attachments], result
+                )
             point = fill_composer(
                 page,
                 f"[{marker}] {prompt}",
@@ -437,13 +466,12 @@ def generate_script_text(
             deadline, first_deadline = sent_at + timeout, sent_at + 45
             previous, stable, busy = "", 0, False
             undelivered = None
+            received = False
             while time.monotonic() < deadline:
                 check_cancelled()
+                remember_thread()
                 state = page.evaluate(REPLY_STATE_JS, [marker, False])
                 busy = busy or state["stop"]
-                undelivered = undelivered_since(page, marker, undelivered)
-                if undelivered and time.monotonic() - undelivered > UNDELIVERED_WAIT:
-                    break
                 text = state["txt"]
                 if not state["sent"]:
                     # Our message is not found as text on the page. In a new
@@ -458,6 +486,12 @@ def generate_script_text(
                             or state["txt"] != baseline["txt"]
                         ):
                             text = state["txt"]
+                received = received or bool(text)
+                undelivered = (
+                    None if received else undelivered_since(page, marker, undelivered)
+                )
+                if undelivered and time.monotonic() - undelivered > UNDELIVERED_WAIT:
+                    break
                 if text:
                     if text == previous and not state["stop"]:
                         stable += 1

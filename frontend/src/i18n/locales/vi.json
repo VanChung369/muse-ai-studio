@@ -404,7 +404,7 @@
         "range": "Cảnh {{number}}–{{count}} sẽ được tạo lại để giữ liền mạch.",
         "keptOne": "Cảnh 1 giữ nguyên.",
         "keptRange": "Cảnh 1–{{previous}} giữ nguyên.",
-        "cost": "Video hiện tại của các cảnh đó và video đã ghép sẽ bị thay thế, mỗi cảnh tạo lại dùng thêm quota Muse, và Muse sẽ mở một đoạn chat mới.",
+        "cost": "Video hiện tại của các cảnh đó và video đã ghép sẽ bị thay thế, và mỗi cảnh tạo lại dùng thêm quota Muse. Các cảnh được tạo lại ngay trong đoạn chat Muse của project.",
         "keep": "Giữ nguyên",
         "confirm_one": "Tạo lại {{count}} cảnh",
         "confirm_other": "Tạo lại {{count}} cảnh",

@@ -5,9 +5,10 @@ whose soundtrack is the music described, and that soundtrack is kept as an
 audio file among the project's media. The picture is thrown away.
 """
 
+import json
 from uuid import uuid4
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 
 from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
@@ -116,6 +117,31 @@ def make_music_handler(app):
         ffmpeg = find_ffmpeg(settings)
         if ffmpeg is None:
             raise TaskFailure("ffmpeg_unavailable", suggested_action="retry")
+        with database.sessions() as session:
+            if session.get(Project, context.project_id) is None:
+                raise TaskFailure("project_not_found")
+            saved_id = context.checkpoint.get("mediaId")
+            if saved_id and session.get(Media, saved_id) is not None:
+                return {"projectId": context.project_id, "mediaId": saved_id}
+            stored = session.scalar(
+                select(func.count())
+                .select_from(Media)
+                .where(Media.project_id == context.project_id)
+            )
+            reserved = session.scalar(
+                select(func.count())
+                .select_from(Task)
+                .where(
+                    Task.project_id == context.project_id,
+                    Task.kind == GENERATE_MUSIC,
+                    Task.status.in_(ACTIVE_STATUSES),
+                    ~func.coalesce(
+                        func.json_extract(Task.checkpoint_json, "$.mediaId"), ""
+                    ).in_(select(Media.id)),
+                )
+            )
+            if stored + reserved > MAX_FILES:
+                raise TaskFailure("too_many_files", suggested_action="retry")
         description = context.payload["description"]
         account = TaskAccountSession(app, context.account_id)
 
@@ -175,6 +201,12 @@ def make_music_handler(app):
                         seconds=round(info.seconds, 3),
                         source="muse",
                     )
+                )
+                session.flush()
+                session.execute(
+                    update(Task)
+                    .where(Task.id == context.task_id)
+                    .values(checkpoint_json=json.dumps({"mediaId": media_id}))
                 )
                 session.commit()
         except BaseException:

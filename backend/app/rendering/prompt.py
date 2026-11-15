@@ -94,11 +94,15 @@ def build_scene_prompt(
     first scene)."""
     parts = [scene.prompt.strip()]
     if in_thread:
-        # The earlier shots were made in this same conversation.
+        # The earlier shots were made in this same conversation. A shot is
+        # also asked for again there (a retry, or "render again from here"),
+        # and the agent must not answer with the take it already made.
         parts.append(
             f"This is shot {scene.number} of the same film as the earlier shots in "
             "this conversation. Keep the characters, wardrobe, locations and style "
-            "consistent with them."
+            "consistent with them. Generate a new video for this shot now, even if "
+            "this shot was made earlier in this conversation: do not reuse, re-send "
+            "or link an earlier clip."
         )
     if materials:
         # The user's reference files are attached to this message.

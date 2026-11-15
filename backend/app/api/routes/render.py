@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Path as PathParameter, Request
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, ConfigDict, Field
@@ -282,7 +282,7 @@ def _file(request: Request, project_id: str, name: str | None, download: str):
 )
 def get_scene_video(
     project_id: str,
-    number: int,
+    number: Annotated[int, PathParameter(ge=1, le=MAX_SCENES)],
     request: Request,
     session: DatabaseSession,
     download: bool = False,
@@ -329,7 +329,10 @@ def _thumbnail(request: Request, project_id: str, clip_name: str | None):
     responses={404: {"description": "Project, clip or thumbnail not found"}},
 )
 def get_scene_thumbnail(
-    project_id: str, number: int, request: Request, session: DatabaseSession
+    project_id: str,
+    number: Annotated[int, PathParameter(ge=1, le=MAX_SCENES)],
+    request: Request,
+    session: DatabaseSession,
 ):
     scene = session.get(Scene, (project_id, number))
     if scene is None:
@@ -386,8 +389,7 @@ def get_project_cover(project_id: str, request: Request, session: DatabaseSessio
     if session.get(Project, project_id) is None:
         raise not_found()
     chosen = (
-        storage.project_dir(request.app.state.settings, project_id)
-        / storage.COVER_FILE
+        storage.project_dir(request.app.state.settings, project_id) / storage.COVER_FILE
     )
     if chosen.is_file():
         session.rollback()

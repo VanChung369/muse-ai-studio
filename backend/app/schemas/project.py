@@ -58,7 +58,9 @@ class ProjectCreate(BaseModel):
     visual_style: str = Field(default="", max_length=3000)
     music: str = Field(default="", max_length=500)
     aspect_ratio: AspectRatio = "16:9"
-    duration_seconds: int = Field(default=60, strict=True, ge=10, le=MAX_DURATION, multiple_of=5)
+    duration_seconds: int = Field(
+        default=60, strict=True, ge=10, le=MAX_DURATION, multiple_of=5
+    )
     look: ProjectLook = "auto"
     continuity: ProjectContinuity = "reference"
     language: ProjectLanguage = "auto"
@@ -136,7 +138,7 @@ class ProjectScriptUpdate(BaseModel):
         str_strip_whitespace=True,
     )
 
-    expected_revision: int = Field(strict=True, ge=0)
+    expected_revision: int = Field(strict=True, ge=0, le=2**63 - 1)
     character_bible: str = Field(default="", max_length=10000)
     visual_style: str = Field(default="", max_length=3000)
     scenes: list[ProjectScene] = Field(min_length=1, max_length=MAX_SCENES)

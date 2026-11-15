@@ -69,6 +69,4 @@ def library_dir(settings: Settings) -> Path:
 
 def remove_project(settings: Settings, project_id: str) -> None:
     shutil.rmtree(project_dir(settings, project_id), ignore_errors=True)
-    shutil.rmtree(
-        settings.data_dir / "projects" / project_id, ignore_errors=True
-    )
+    shutil.rmtree(settings.data_dir / "projects" / project_id, ignore_errors=True)

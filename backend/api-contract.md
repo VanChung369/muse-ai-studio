@@ -182,7 +182,7 @@ Scene prompts carry the scene's own prompt, the shared visual style and characte
 
 A scene's narration is sent as its voice-over, and a project `language` other than `auto` is stated for everything spoken.
 
-The script and all scenes of a project are sent to one Muse conversation on one account, so the agent keeps the film's context: a script written by Muse opens the conversation and the render continues it on the same account. A new conversation is started after `MUSE_THREAD_SCENE_LIMIT` scenes (default 12), when the render moves to another account (only after a failure that points at the account), when the saved conversation can no longer be opened, and for every "render again".
+The script and all scenes of a project are sent to one Muse conversation on one account, so the agent keeps the film's context: a script written by Muse opens the conversation and the render continues it on the same account. A new conversation is started after `MUSE_THREAD_SCENE_LIMIT` scenes (default 12), when the render moves to another account (only after a failure that points at the account) and when the saved conversation can no longer be opened. "Render again" from a scene stays in the project's conversation; each scene prompt there asks for a new take, never an earlier clip.
 
 `GET /api/projects/{project_id}/scenes/{number}/thumbnail` and `GET /api/projects/{project_id}/cover` serve JPEG stills (made with FFmpeg when a scene is rendered, or on first request for older clips; 404 `media_not_found` when FFmpeg is unavailable).
 

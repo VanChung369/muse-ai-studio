@@ -1,5 +1,6 @@
 """One Quick Create request makes all its outputs in one Muse conversation."""
 
+import json
 from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import case, func, select, update
@@ -166,6 +167,25 @@ def make_quick_handler(app):
             )
 
         checkpoint()
+        with database.sessions() as session:
+            stored = session.scalar(select(func.count()).select_from(LibraryAsset))
+            remaining_slots = case(
+                (
+                    func.json_extract(Task.payload_json, "$.batch") == 1,
+                    func.json_extract(Task.payload_json, "$.count")
+                    - func.coalesce(
+                        func.json_array_length(Task.checkpoint_json, "$.assetIds"), 0
+                    ),
+                ),
+                else_=1,
+            )
+            reserved = session.scalar(
+                select(func.coalesce(func.sum(remaining_slots), 0)).where(
+                    Task.kind.in_(QUICK_KINDS), Task.status.in_(ACTIVE_STATUSES)
+                )
+            )
+            if stored + reserved > library.MAX_ASSETS:
+                raise TaskFailure("too_many_files", suggested_action="retry")
         account = TaskAccountSession(app, context.account_id)
 
         def before_send(result):
@@ -240,6 +260,20 @@ def make_quick_handler(app):
                         > library.MAX_ASSETS
                     ):
                         raise TaskFailure("too_many_files", suggested_action="retry")
+                    session.execute(
+                        update(Task)
+                        .where(Task.id == context.task_id)
+                        .values(
+                            checkpoint_json=json.dumps(
+                                {
+                                    "assetIds": [*asset_ids, asset_id],
+                                    "threadPath": thread,
+                                    "accountId": context.account_id,
+                                    "sent": sent,
+                                }
+                            )
+                        )
+                    )
                     session.commit()
             except BaseException:
                 target.unlink(missing_ok=True)

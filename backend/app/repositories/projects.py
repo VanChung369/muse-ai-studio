@@ -12,6 +12,7 @@ from app.tasks.kinds import ACTIVE_STATUSES, PLAN_SCRIPT, RENDER_KINDS
 from app.models import Project, Scene
 from app.models.task import Task
 from app.schemas.project import (
+    MAX_DURATION,
     ProjectCreate,
     ProjectUpdate,
     ProjectFilter,
@@ -98,6 +99,8 @@ def _after_condition(cursor: str, sort: ProjectSort) -> ColumnElement[bool]:
                 datetime.fromisoformat(after[1]),
                 str(after[2]),
             )
+            if not 10 <= duration <= MAX_DURATION:
+                raise InvalidCursorError
             return or_(
                 Project.duration_seconds < duration,
                 and_(

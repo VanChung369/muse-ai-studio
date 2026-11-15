@@ -217,12 +217,14 @@ def _generate_media(
             raise MuseError("conversation_unavailable", partial=result)
         downloaded = []
         saved_thread = None
+        retry_thread = thread_path_of(page.url)
 
         def remember_thread():
-            nonlocal saved_thread
+            nonlocal saved_thread, retry_thread
             current = thread_path_of(page.url)
             if current and current != saved_thread:
                 saved_thread = current
+                retry_thread = current
                 if on_thread:
                     on_thread(current)
 
@@ -243,13 +245,19 @@ def _generate_media(
                 on_media(media)
             downloaded.append(media)
 
+        remember_thread()
         for attempt in range(DELIVERY_ATTEMPTS):
             if attempt:
                 # Muse did not take the last copy and did not keep it: the
                 # same conversation, loaded again, gets it once more.
                 reopen_conversation(
-                    page, client, thread_path if continued else None,
-                    attempt, check_cancelled, result,
+                    page,
+                    client,
+                    retry_thread,
+                    attempt,
+                    check_cancelled,
+                    result,
+                    started=retry_thread != thread_path,
                 )
             # Our message is recognised on the page by this label (see ANCHOR_JS).
             marker = f"shot-{uuid4().hex[:8]}"
@@ -259,7 +267,10 @@ def _generate_media(
             if attachments and (not continued or attach_on_continue):
                 # Films attach references once; Quick Create explicitly attaches
                 # its selected reference even when resuming the same conversation.
-                files += [str(file) if isinstance(file, (str, Path)) else file for file in attachments]
+                files += [
+                    str(file) if isinstance(file, (str, Path)) else file
+                    for file in attachments
+                ]
             if reference:
                 files.append(
                     {
@@ -314,7 +325,9 @@ def _read_state(page, marker, baseline, anchor_wait, sent_at):
     state = page.evaluate(MEDIA_STATE_JS, [marker, False])
     if state["sent"]:
         known_sources = {a["src"] for a in baseline["attachments"] if a["src"]}
-        state["attachments"] = [a for a in state["attachments"] if a["src"] not in known_sources]
+        state["attachments"] = [
+            a for a in state["attachments"] if a["src"] not in known_sources
+        ]
         return state
     if time.monotonic() - sent_at < anchor_wait:
         return state  # Not sent yet, as far as we can tell.
@@ -355,6 +368,7 @@ def _wait_for_media(
     seen = set()
     collected = []
     undelivered = None
+    received = False
     while True:
         elapsed = time.monotonic() - started
         if elapsed >= timeout and not (busy and elapsed < timeout * OVERRUN_FACTOR):
@@ -369,14 +383,19 @@ def _wait_for_media(
             denied, text_done_at = True, None
             continue
         busy = state["generating"]
-        undelivered = undelivered_since(page, marker, undelivered)
+        received = received or bool(state["agentCount"] or state["attachments"])
+        undelivered = None if received else undelivered_since(page, marker, undelivered)
         if undelivered and time.monotonic() - undelivered > UNDELIVERED_WAIT:
             raise MuseError("message_not_delivered", partial=result)
         if not state["sent"]:
             # Our message is not on the page yet.
             continue
         fresh = state["attachments"]
-        ready = [a for a in fresh if a["kind"] == media_kind and a["src"] not in seen and a["src"]]
+        ready = [
+            a
+            for a in fresh
+            if a["kind"] == media_kind and a["src"] not in seen and a["src"]
+        ]
         for attachment in ready:
             if on_ready:
                 on_ready(attachment)
@@ -412,9 +431,12 @@ def _wait_for_media(
             request = (
                 f"Please attach all {count} final image files from this request here in the chat, "
                 "as separate attachments. Do not generate more images or upload them elsewhere."
-                if media_kind == "image" and count > 1 else
-                f"Please attach the final {media_kind} file here in the chat" + (
-                    " instead of uploading it." if denied else ", as a single attachment."
+                if media_kind == "image" and count > 1
+                else f"Please attach the final {media_kind} file here in the chat"
+                + (
+                    " instead of uploading it."
+                    if denied
+                    else ", as a single attachment."
                 )
             )
             point = fill_composer(page, request, check_cancelled, result)
