@@ -1786,5 +1786,25 @@
         "sessionRefreshWake": "Đánh thức workspace mỗi lần kiểm tra"
       }
     }
+  },
+  "contentPolicy": {
+    "title": "Nội dung không được phép",
+    "description": "Yêu cầu này chứa “{{term}}”, thuộc nhóm {{category}}. Muse AI Studio không tạo loại nội dung này, nên chưa gửi gì sang Muse và không tốn quota.",
+    "hint": "Hãy bỏ hoặc viết lại phần đó rồi thử lại.",
+    "ok": "Đã hiểu",
+    "categories": {
+      "gambling": "cờ bạc, cá cược",
+      "drugs": "ma túy, chất cấm",
+      "weapons": "vũ khí, chất nổ",
+      "child_abuse": "nội dung tình dục liên quan trẻ em",
+      "sexual": "nội dung khiêu dâm, mại dâm",
+      "terrorism": "khủng bố, cực đoan bạo lực",
+      "fraud": "lừa đảo, rửa tiền, làm giả",
+      "hacking": "hack, chiếm đoạt tài khoản",
+      "trafficking": "buôn người, buôn bán trái phép",
+      "self_harm": "hướng dẫn tự gây hại",
+      "custom": "nội dung bị chặn theo quy định của studio"
+    },
+    "inline": "Chưa lưu: có phần nội dung không được phép. Hãy sửa rồi thử lại."
   }
 }

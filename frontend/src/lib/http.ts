@@ -16,6 +16,31 @@ export class ApiError extends Error {
   }
 }
 
+/** The server refused a request for its content (gambling, drugs, …). */
+export const CONTENT_BLOCKED = "content_blocked";
+export const CONTENT_BLOCKED_EVENT = "muse:content-blocked";
+
+export type ContentBlocked = { category: string; term: string };
+
+/** Tells the app-wide notice (ContentBlockedNotice) why a request was
+ * refused, whichever screen sent it. */
+export function announceContentBlocked(detail: unknown) {
+  const value = (detail ?? {}) as Partial<ContentBlocked>;
+  window.dispatchEvent(
+    new CustomEvent<ContentBlocked>(CONTENT_BLOCKED_EVENT, {
+      detail: {
+        category: typeof value.category === "string" ? value.category : "custom",
+        term: typeof value.term === "string" ? value.term : "",
+      },
+    }),
+  );
+}
+
+/** The request was refused for its content: nothing was saved or sent. */
+export function isContentBlocked(error: unknown): boolean {
+  return error instanceof ApiError && error.code === CONTENT_BLOCKED;
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -47,6 +72,7 @@ export async function requestJson(
     });
     const code =
       typeof body?.detail?.code === "string" ? body.detail.code : undefined;
+    if (code === CONTENT_BLOCKED) announceContentBlocked(body.detail);
     throw new ApiError(response.status, "http", code);
   }
   if (response.status === 204) return undefined;

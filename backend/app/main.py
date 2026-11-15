@@ -12,6 +12,8 @@ from app.api.routes.public_api import install_error_handlers, router as public_r
 from app.core.account_vault import AccountVault
 from app.repositories import accounts
 from app.core.config import Settings
+from app.core.content_policy import ContentPolicyMiddleware
+from app.frontend import mount_frontend
 from app.core.account_operations import AccountOperations
 from app.tasks.coordinator import TaskCoordinator
 from app.integrations.muse.client import MuseClient
@@ -60,7 +62,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await asyncio.to_thread(coordinator.stop)
             await asyncio.to_thread(database.close)
 
-    app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    # The API's own documentation lives under /api: the interface uses /docs.
+    app = FastAPI(
+        title=settings.app_name,
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/api/docs",
+        redoc_url=None,
+        openapi_url="/api/openapi.json",
+    )
     app.state.settings = settings
     app.state.database = database
     app.state.account_vault = vault
@@ -83,6 +93,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         wake=settings.session_refresh_wake,
     )
     app.state.session_refresher = refresher
+    # Inside CORS, so a refusal still carries its headers.
+    app.add_middleware(ContentPolicyMiddleware, settings=settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -92,6 +104,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(api_router, prefix="/api")
     app.include_router(public_router, prefix="/v1")
     install_error_handlers(app)
+    # Last: everything the API does not answer is the interface.
+    mount_frontend(app, settings.frontend_dir)
     return app
 
 

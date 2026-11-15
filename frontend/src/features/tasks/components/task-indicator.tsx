@@ -19,7 +19,7 @@ export function TaskIndicator() {
       {t("pages.tasks.title")}
       {active > 0 && (
         <span
-          className="font-mono text-primary"
+          className="font-mono tabular-nums text-primary"
           aria-label={t("tasks.activeCount", { count: active })}
         >
           {active}

@@ -1,6 +1,6 @@
 # Project API Contract
 
-FastAPI's `/openapi.json` is the authoritative machine-readable contract. The checked-in `openapi.json` is an exported snapshot.
+FastAPI's `/api/openapi.json` is the authoritative machine-readable contract. The checked-in `openapi.json` is an exported snapshot.
 
 - `GET /api/projects`: HTTP 200 with one page of project summaries.
   - Query: `q` (name search, up to 100 characters; case-, accent-, and `đ`-insensitive; `%` and `_` are literal), `status` (`all` default, `inProgress`, `completed`, `cancelled`; `inProgress` is every status except `completed` and `cancelled`, so failed projects are included), `sort` (`updated` default: newest update first; `name`: A–Z by the normalized name; `duration`: longest first, then newest update), `limit` (1–100, default 24), and `cursor`.
@@ -195,6 +195,10 @@ The script, all scenes and the music of a project are sent to one Muse conversat
 Every task in `GET /api/tasks`, `GET /api/tasks/{task_id}` and the other task responses carries `deletable`: whether the rule above lets it go (a waiting dependent is only checked by the request itself).
 
 Reference files sent to Muse (a project's reference material, the frame of the previous scene, a Quick Create reference image) are attached to the message only once the Muse composer displays them; if it never does, the task fails with `reference_upload_failed` and nothing is sent.
+
+## Content policy
+
+Requests that would put refused content into a film or a Muse request are rejected before anything is queued, so no quota is spent: gambling and betting, illegal drugs, weapons and explosives, sexual content (any involving minors above all), terrorism, fraud and money laundering, hacking, trafficking, and self-harm instructions, plus the phrases in `MUSE_BLOCKED_TERMS`. Every JSON `POST`/`PUT`/`PATCH` under `/api/projects`, `/api/quick-create` and `/v1/` is checked (all text values, not identifiers), and a film's stored texts again when a render starts, continues or restarts. The app's API answers 422 `{detail: {code: "content_blocked", message, category, term}}`; `/v1` answers an OpenAI error, 400 with `code: "content_policy_violation"`. Phrases match as whole words, case-insensitively; Vietnamese is matched with its diacritics. `MUSE_CONTENT_POLICY=false` turns the check off.
 
 ## Settings and system status
 

@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
@@ -5,11 +6,12 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
-from app.models import Account
+from app.core.content_policy import _strings, project_violation, violation
+from app.models import Account, Project
 from app.repositories import tasks
 from app.planning.tasks import PlanningRequestError, validate_retry
 from app.rendering.tasks import sync_project
-from app.tasks.kinds import PLAN_SCRIPT, RENDER_KINDS
+from app.tasks.kinds import GENERATE_MUSIC, PLAN_SCRIPT, RENDER_KINDS, RENDER_SCENE
 from app.schemas.task import TaskCounts, TaskFilter, TaskListResponse, TaskResponse, TaskRetry
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -118,6 +120,15 @@ def retry_task(
     found = tasks.get_task(session, task_id)
     if found is None:
         raise not_found()
+    task = found[0]
+    settings = request.app.state.settings
+    bad = violation(*_strings(json.loads(task.payload_json)), settings=settings)
+    if bad is None and task.project_id and task.kind in (RENDER_SCENE, PLAN_SCRIPT, GENERATE_MUSIC):
+        project = session.get(Project, task.project_id)
+        bad = project and project_violation(project, settings)
+    if bad:
+        session.rollback()
+        raise HTTPException(status_code=422, detail=bad.api_detail())
     # Like a new request: with no account to run on, it would wait unseen.
     if found[0].requires_account and not session.scalar(
         select(Account.id)

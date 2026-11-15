@@ -9,7 +9,6 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLanguage } from "@/hooks/use-language";
 import { useNow } from "@/hooks/use-now";
@@ -124,8 +124,8 @@ export function LibraryBrowser({
                 )}
               >
                 {t(`library.filters.${kind}`)}
-                <span className="font-mono text-[11px] tabular-nums opacity-70">
-                  {counts[kind]}
+                <span className="inline-flex min-w-5 justify-center font-mono text-[11px] tabular-nums opacity-70">
+                  {query.isPending ? <Skeleton className="h-3 w-4" /> : counts[kind]}
                 </span>
               </button>
             );
@@ -184,7 +184,25 @@ export function LibraryBrowser({
 
       {notice}
 
-      {query.isPending && <PageLoading />}
+      {query.isPending && (
+        <div
+          aria-busy="true"
+          className={cn(
+            "grid",
+            compact
+              ? "grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3"
+              : "grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-4",
+          )}
+        >
+          {Array.from({ length: 8 }, (_, index) => (
+            <div key={index} className="flex min-w-0 flex-col gap-1.5">
+              <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+              <Skeleton className="h-4.5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {isInitialError && (
         <div

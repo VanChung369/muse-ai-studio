@@ -3,9 +3,9 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AccountRow } from "@/features/accounts/components/account-row";
 import { ImportAccountDialog } from "@/features/accounts/components/import-account-dialog";
 import { TokenGuideDialog } from "@/features/accounts/components/token-guide-dialog";
@@ -51,7 +51,39 @@ export function AccountsPage() {
       <p className="mb-6 rounded-xl border border-dashed p-4 text-xs leading-6 text-muted-foreground">
         {t("accounts.verificationNote")}
       </p>
-      {list.query.isPending && <PageLoading />}
+      {list.query.isPending && (
+        <div aria-busy="true">
+          <dl className="mb-6 grid grid-cols-3 gap-3">
+            {ACCOUNT_FILTERS.map((filter) => (
+              <div key={filter} className="rounded-xl border bg-card p-4">
+                <dt className="text-xs text-faint">
+                  {t(`accounts.filters.${filter}`)}
+                </dt>
+                <dd className="mt-2">
+                  <Skeleton className="h-8 w-10" />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-9 w-64 rounded-lg" />
+          </div>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <div className="h-10 border-b bg-secondary" />
+            <div className="divide-y">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4 px-4 py-3.5">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="ml-auto h-7 w-20" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {list.query.isError && (
         <div
           role="alert"

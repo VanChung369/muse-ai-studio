@@ -17,6 +17,7 @@ import { Link } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/constants/routes";
 import { AccountStatusBadge } from "@/features/accounts/components/account-status-badge";
 import { useAccountsQuery } from "@/features/accounts/hooks/use-account-queries";
@@ -133,6 +134,7 @@ export function OverviewPage() {
             title={t("overview.continue.title")}
             link={{ to: ROUTES.PROJECTS, label: t("overview.allProjects") }}
             query={projects}
+            loading={<ContinueSkeleton />}
           >
             {current ? (
               <ContinueCard project={current} language={language} now={now} />
@@ -157,6 +159,7 @@ export function OverviewPage() {
             count={runningTasks.length + queued || undefined}
             link={{ to: ROUTES.TASKS, label: t("overview.allTasks") }}
             query={running}
+            loading={<TaskListSkeleton rows={2} />}
           >
             {runningTasks.length ? (
               <ul className="divide-y">
@@ -190,6 +193,7 @@ export function OverviewPage() {
             title={t("overview.recent.title")}
             link={{ to: ROUTES.PROJECTS, label: t("overview.allProjects") }}
             query={projects}
+            loading={<RecentListSkeleton rows={3} />}
           >
             {recent.length ? (
               <ul className="divide-y">
@@ -229,6 +233,7 @@ export function OverviewPage() {
             count={failedTotal + troubled.length || undefined}
             tone="alert"
             query={attention}
+            loading={<TaskListSkeleton rows={2} />}
           >
             {failedTasks.length + troubled.length ? (
               <ul className="divide-y">
@@ -278,6 +283,7 @@ export function OverviewPage() {
             title={t("overview.accounts.title")}
             link={{ to: ROUTES.ACCOUNTS, label: t("overview.accounts.manage") }}
             query={accounts}
+            loading={<AccountsSummarySkeleton />}
           >
             {states.length ? (
               <div className="px-4 py-4">
@@ -367,6 +373,7 @@ function Panel({
   link,
   tone,
   query,
+  loading,
   children,
 }: {
   title: string;
@@ -374,6 +381,7 @@ function Panel({
   link?: { to: string; label: string };
   tone?: "alert";
   query?: Loadable;
+  loading?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -406,9 +414,13 @@ function Panel({
         )}
       </header>
       {query?.isPending ? (
-        <p role="status" className="px-4 py-8 text-center text-sm text-faint">
-          {t("overview.loading")}
-        </p>
+        loading ? (
+          <div aria-busy="true">{loading}</div>
+        ) : (
+          <p role="status" className="px-4 py-8 text-center text-sm text-faint">
+            {t("overview.loading")}
+          </p>
+        )
       ) : query?.isError ? (
         <div role="alert" className="space-y-2 px-4 py-6 text-center">
           <p className="text-sm text-destructive">{t("overview.loadError")}</p>
@@ -624,5 +636,77 @@ function CopyBaseUrl() {
         )}
       </p>
     </>
+  );
+}
+
+function ContinueSkeleton() {
+  return (
+    <div className="flex flex-col gap-4 p-4 tablet:flex-row tablet:items-center">
+      <Skeleton className="aspect-video w-full rounded-lg tablet:w-64 tablet:shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <Skeleton className="h-7 w-3/5" />
+        <Skeleton className="h-5 w-44" />
+        <div>
+          <Skeleton className="mt-1 h-9 w-36 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskListSkeleton({ rows }: { rows: number }) {
+  return (
+    <ul className="divide-y">
+      {Array.from({ length: rows }, (_, index) => (
+        <li key={index} className="flex items-center gap-3 px-4 py-3">
+          <Skeleton className="size-8 shrink-0 rounded-lg" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-5 w-44 max-w-full" />
+            <Skeleton className="mt-0.5 h-4 w-32 max-w-full" />
+          </div>
+          <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RecentListSkeleton({ rows }: { rows: number }) {
+  return (
+    <ul className="divide-y">
+      {Array.from({ length: rows }, (_, index) => (
+        <li key={index} className="flex items-center gap-3 px-4 py-3">
+          <Skeleton className="aspect-video w-20 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-5 w-48 max-w-full" />
+            <Skeleton className="mt-0.5 h-4 w-28 max-w-full" />
+          </div>
+          <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AccountsSummarySkeleton() {
+  return (
+    <div className="px-4 py-4">
+      <div className="flex items-baseline gap-2">
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-5 w-16" />
+      </div>
+      <ul className="mt-3 space-y-1.5">
+        {Array.from({ length: 2 }, (_, index) => (
+          <li key={index} className="flex items-center justify-between gap-3">
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-6" />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

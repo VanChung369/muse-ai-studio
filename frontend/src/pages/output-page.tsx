@@ -23,11 +23,12 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useOutletContext } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LibraryPickerDialog } from "@/features/library/components/library-picker-dialog";
 import type { ProjectMedia } from "@/features/projects/api/media";
 import { projectKeys } from "@/features/projects/api/query-keys";
@@ -151,7 +152,9 @@ export function OutputPage() {
       )}
       project={project}
       render={render.query.data}
+      renderPending={render.query.isPending}
       timeline={timeline.query.data}
+      timelinePending={timeline.query.isPending}
       save={timeline.save}
       refreshProject={render.refreshProject}
     />
@@ -161,13 +164,17 @@ export function OutputPage() {
 function Output({
   project,
   render,
+  renderPending,
   timeline,
+  timelinePending,
   save,
   refreshProject,
 }: {
   project: Project;
   render: ProjectRender | undefined;
+  renderPending: boolean;
   timeline: ProjectTimeline | undefined;
+  timelinePending: boolean;
   save: ReturnType<typeof useProjectTimeline>["save"];
   refreshProject: () => void;
 }) {
@@ -241,10 +248,14 @@ function Output({
   const editable = Boolean(timeline?.editable) && !save.isPending;
   const current = segments.length ? segmentAt(segments, time) : undefined;
   const videoUrl = render?.videoUrl ?? null;
-  const finished = new Intl.DateTimeFormat(language, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(project.updatedAt));
+  const finished = useMemo(
+    () =>
+      new Intl.DateTimeFormat(language, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(project.updatedAt)),
+    [language, project.updatedAt],
+  );
   // One card per scene, however many pieces it was cut into.
   const scenes = savedDraft.items.filter(
     (item, index, items) =>
@@ -615,11 +626,20 @@ function Output({
                 className={VIDEO_FRAMES[project.aspectRatio]}
               />
             ) : (
-              <div className="grid aspect-video place-items-center px-6 text-center text-sm text-muted-foreground">
-                {t(
-                  merging
-                    ? "projects.timeline.merging"
-                    : "projects.output.notReady",
+              <div
+                className={cn(
+                  "grid place-items-center px-6 text-center text-sm text-muted-foreground",
+                  VIDEO_FRAMES[project.aspectRatio],
+                )}
+              >
+                {renderPending ? (
+                  <Skeleton className="h-5 w-40" />
+                ) : (
+                  t(
+                    merging
+                      ? "projects.timeline.merging"
+                      : "projects.output.notReady",
+                  )
                 )}
               </div>
             )}
@@ -672,14 +692,23 @@ function Output({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold">
-              {t("projects.sceneCount", { count: scenes.length })}
+              {t("projects.sceneCount", {
+                count: timelinePending ? project.sceneCount : scenes.length,
+              })}
             </h2>
             <p className="text-xs text-faint">
               {t("projects.output.sceneHint")}
             </p>
           </div>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
-            {scenes.map((item) => {
+            {timelinePending && project.sceneCount > 0 && scenes.length === 0
+              ? Array.from({ length: project.sceneCount }, (_, index) => (
+                  <li key={index} aria-hidden="true" className="min-w-0 space-y-1.5">
+                    <Skeleton className="aspect-video w-full rounded-lg" />
+                    <Skeleton className="h-7 w-3/4" />
+                  </li>
+                ))
+              : scenes.map((item) => {
               // A scene cut in pieces: what is kept of it, wherever it plays.
               const kept = savedDraft.items.filter(
                 (other) =>
@@ -763,7 +792,7 @@ function Output({
             scrolls inside itself, so a long panel never pushes the timeline
             down the page. */}
         <aside className="relative min-w-0 border-t desktop:min-h-[32rem] desktop:border-t-0 desktop:border-l">
-          <div className="scroll-subtle divide-y desktop:absolute desktop:inset-0 desktop:overflow-y-auto desktop:overscroll-contain">
+          <div className="scroll-subtle divide-y [scrollbar-gutter:stable] desktop:absolute desktop:inset-0 desktop:overflow-y-auto desktop:overscroll-contain">
             <section className="space-y-3 p-5">
               <h2 className="text-sm font-semibold">
                 {t("projects.output.info")}
@@ -810,21 +839,27 @@ function Output({
               <h2 className="text-sm font-semibold">
                 {t("projects.output.downloads")}
               </h2>
-              {videoUrl && (
+              {videoUrl ? (
                 <FileButton
                   icon={Film}
                   label={t("projects.output.fullVideo")}
                   detail="MP4"
                   href={downloadHref(videoUrl)}
                 />
+              ) : (
+                renderPending &&
+                project.sceneCount > 0 && <Skeleton className="h-9 w-full" />
               )}
-              {scenes.length > 0 && (
+              {scenes.length > 0 ? (
                 <FileButton
                   icon={Layers}
                   label={t("projects.output.allScenes")}
                   detail={t("projects.output.files", { count: scenes.length })}
                   href={`/api/projects/${encodeURIComponent(project.id)}/scenes.zip`}
                 />
+              ) : (
+                timelinePending &&
+                project.sceneCount > 0 && <Skeleton className="h-9 w-full" />
               )}
               <h2 className="pt-2 text-sm font-semibold">
                 {t("projects.output.export")}
@@ -880,7 +915,7 @@ function Output({
                 </Link>
               </Button>
             </section>
-            {draft.items.length > 0 && (
+            {draft.items.length > 0 ? (
               // What is selected in the timeline is edited here, beside the
               // player, so it is in view whichever track it is on.
               <section className="space-y-5 bg-background/40 p-4 tablet:p-5">
@@ -931,11 +966,41 @@ function Output({
                   </div>
                 </div>
               </section>
+            ) : (
+              timelinePending &&
+              project.sceneCount > 0 && (
+                <section
+                  aria-busy="true"
+                  className="space-y-5 bg-background/40 p-4 tablet:p-5"
+                >
+                  <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
+                    <Skeleton className="h-12 w-full" />
+                    <div className="space-y-3 border-t pt-4">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  </div>
+                </section>
+              )
             )}
           </div>
         </aside>
       </div>
 
+      {timelinePending && project.sceneCount > 0 && draft.items.length === 0 && (
+        <section
+          aria-busy="true"
+          aria-label={t("projects.timeline.title")}
+          className="space-y-3 border-t bg-card p-4 tablet:px-6"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-8 w-44" />
+          </div>
+          <Skeleton className="h-44 w-full rounded-lg" />
+          <Skeleton className="h-4 w-72" />
+        </section>
+      )}
       {draft.items.length > 0 && (
         <section
           aria-label={t("projects.timeline.title")}

@@ -74,6 +74,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onCreate: (values: ProjectCreateDraft, files: File[]) => Promise<void>;
   hasError: boolean;
+  // Refused for its content: certainly not saved (see ContentBlockedNotice).
+  blocked?: boolean;
 };
 
 export function NewProjectDialog({
@@ -81,6 +83,7 @@ export function NewProjectDialog({
   onOpenChange,
   onCreate,
   hasError,
+  blocked = false,
 }: Props) {
   const { t } = useTranslation();
   const id = useId();
@@ -178,7 +181,7 @@ export function NewProjectDialog({
         >
           {hasError && (
             <p role="alert" className="text-sm text-destructive">
-              {t("projects.form.saveError")}
+              {t(blocked ? "contentPolicy.inline" : "projects.form.saveError")}
             </p>
           )}
           <fieldset disabled={isSubmitting} className="space-y-5">

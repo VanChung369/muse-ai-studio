@@ -6,10 +6,10 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -87,13 +87,7 @@ export function SettingsPage() {
   return (
     <div className="w-full max-w-340 px-4 pt-5 pb-10 tablet:px-8 tablet:pt-7 tablet:pb-14">
       {settings.isPending ? (
-        <>
-          <PageHeader
-            title={title}
-            description={t("pages.settings.description")}
-          />
-          <PageLoading />
-        </>
+        <SettingsFormSkeleton title={title} />
       ) : settings.isError && !settings.data ? (
         <>
           <PageHeader
@@ -481,9 +475,7 @@ function SystemSection() {
         }
       >
         {system.isPending ? (
-          <p role="status" className="py-6 text-center text-sm text-faint">
-            {t("appSettings.system.loading")}
-          </p>
+          <SystemDetailsSkeleton />
         ) : system.isError ? (
           <p role="alert" className="py-6 text-center text-sm text-destructive">
             {t("appSettings.system.loadError")}
@@ -669,5 +661,157 @@ function Path({ children }: { children: string }) {
     <p className="mt-1.5 font-mono text-xs leading-5 wrap-anywhere text-muted-foreground select-all">
       {children}
     </p>
+  );
+}
+
+function SettingsFormSkeleton({ title }: { title: string }) {
+  const { t } = useTranslation();
+  const choiceLabels = [
+    t("projects.form.ratio"),
+    t("projects.settings.language"),
+    t("projects.settings.look"),
+    t("projects.settings.continuity"),
+  ];
+
+  return (
+    <div aria-busy="true">
+      <PageHeader
+        title={title}
+        description={t("pages.settings.description")}
+        actions={
+          <Button type="button" disabled>
+            {t("appSettings.save")}
+          </Button>
+        }
+      />
+      <div className="space-y-5">
+        <Card
+          title={t("appSettings.defaults.title")}
+          description={t("appSettings.defaults.description")}
+        >
+          <div className="grid min-w-0 gap-5 tablet:grid-cols-2 desktop:grid-cols-3">
+            <div className="space-y-2">
+              <span className="block text-sm leading-none font-medium">
+                {t("projects.form.duration")}
+              </span>
+              <Skeleton className="h-9 w-full max-tablet:h-11" />
+              <p className="text-xs text-faint">
+                {t("projects.form.durationHint")}
+              </p>
+            </div>
+            {choiceLabels.map((label) => (
+              <div key={label} className="space-y-2">
+                <span className="block text-sm leading-none font-medium">
+                  {label}
+                </span>
+                <Skeleton className="h-9 w-full max-tablet:h-11" />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card
+          title={t("appSettings.address.title")}
+          description={t("appSettings.address.description")}
+        >
+          <div className="max-w-160 space-y-2">
+            <span className="block text-sm leading-none font-medium">
+              {t("appSettings.address.label")}
+            </span>
+            <Skeleton className="h-9 w-full max-tablet:h-11" />
+            <p className="text-xs leading-5 text-faint">
+              {t("appSettings.address.hint")}
+            </p>
+            <Skeleton className="h-5 w-64" />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function SystemDetailsSkeleton() {
+  const { t } = useTranslation();
+
+  return (
+    <div aria-busy="true" className="space-y-5">
+      <dl className="grid gap-x-8 gap-y-4 tablet:grid-cols-2">
+        <Fact label={t("appSettings.system.ffmpeg")}>
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="mt-1.5 h-5 w-64" />
+        </Fact>
+        <Fact label={t("appSettings.system.captions")}>
+          <Skeleton className="h-7 w-28" />
+        </Fact>
+        <Fact label={t("appSettings.system.browser")}>
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="mt-1.5 h-5 w-64" />
+        </Fact>
+        <Fact label={t("appSettings.system.version")}>
+          <Skeleton className="h-5 w-36" />
+        </Fact>
+        <Fact label={t("appSettings.system.dataDir")}>
+          <Skeleton className="mt-1.5 h-5 w-72" />
+          <p className="mt-1 text-xs leading-5 text-faint">
+            {t("appSettings.system.backupHint")}
+          </p>
+        </Fact>
+        <Fact label={t("appSettings.system.storage")}>
+          <ul className="space-y-1 text-sm">
+            {(["projects", "library", "database", "free"] as const).map(
+              (name) => (
+                <li key={name} className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    {t(`appSettings.system.sizes.${name}`)}
+                  </span>
+                  <Skeleton className="h-5 w-16" />
+                </li>
+              ),
+            )}
+          </ul>
+        </Fact>
+      </dl>
+
+      <div>
+        <h3 className="text-sm font-semibold">
+          {t("appSettings.limits.title")}
+        </h3>
+        <p className="mt-0.5 mb-3 max-w-180 text-xs leading-5 text-faint">
+          {t("appSettings.limits.description")}
+        </p>
+        <div className="scroll-subtle overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-120 text-left text-sm">
+            <thead className="border-b bg-secondary text-xs text-faint">
+              <tr>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t("appSettings.limits.setting")}
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t("appSettings.limits.value")}
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t("appSettings.limits.variable")}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {LIMITS.map(([name, variable]) => (
+                <tr key={name}>
+                  <td className="px-3 py-2">
+                    {t(`appSettings.limits.names.${name}`)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Skeleton className="h-5 w-12" />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                    {variable}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }

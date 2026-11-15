@@ -1,6 +1,5 @@
 """Isolated Muse composer client, using the reference UI selectors (see LICENSE)."""
 
-import json
 import os
 import re
 import shutil
@@ -215,10 +214,16 @@ def _first_browser(configured: str | None, bundled: str | None) -> str | None:
     candidates = [
         configured,
         shutil.which("chromium"),
+        shutil.which("chromium-browser"),
         shutil.which("google-chrome"),
         shutil.which("chrome"),
+        shutil.which("brave-browser"),
+        shutil.which("brave"),
+        shutil.which("microsoft-edge"),
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
         *_installed("Google", "Chrome", "Application", "chrome.exe"),
+        *_installed("BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
         bundled,
         *_installed("Microsoft", "Edge", "Application", "msedge.exe"),
     ]
@@ -357,8 +362,11 @@ def attach_files(page, files, result) -> int:
                     raise MuseError("reference_upload_failed", partial=result)
                 # Still in the control: the composer never took it. Taken
                 # but not displayed yet: keep watching, a second copy would
-                # be attached twice.
+                # be attached twice. The control is emptied first: given the
+                # same file again it would not report a change, and on a new
+                # conversation the first file was then never taken at all.
                 if state["pending"]:
+                    control.set_input_files([])
                     control.set_input_files(file)
                 watch = min(deadline, time.monotonic() + ATTACH_TRY)
                 while True:
@@ -526,8 +534,8 @@ def generate_script_text(
                     if text == previous and not state["stop"]:
                         stable += 1
                         if stable >= 5:
-                            if on_thread is not None:
-                                on_thread(thread_path_of(page.url))
+                            # Reported once: only if the page moved since.
+                            remember_thread()
                             return text
                     else:
                         previous, stable = text, 0

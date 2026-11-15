@@ -10,10 +10,10 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/constants/routes";
 import { ApiKeyRow } from "@/features/api-access/components/api-key-row";
 import { CodeBlock } from "@/features/api-access/components/code-block";
@@ -241,7 +241,27 @@ export function ConnectionPage() {
             </p>
           )}
 
-          {keysQuery.isPending && <PageLoading />}
+          {keysQuery.isPending && (
+            <div
+              aria-busy="true"
+              className="overflow-hidden rounded-xl border bg-card"
+            >
+              <div className="h-10 border-b bg-secondary" />
+              <div className="divide-y">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-4 px-4 py-3.5"
+                  >
+                    <Skeleton className="h-5 w-36" />
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="ml-auto h-7 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {keysQuery.isError && (
             <div

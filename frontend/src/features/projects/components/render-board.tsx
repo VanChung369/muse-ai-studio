@@ -12,8 +12,8 @@ import {
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TaskStatusBadge } from "@/features/tasks/components/task-status-badge";
 import { taskElapsed, taskErrorKey } from "@/features/tasks/lib/task-format";
 import { formatDuration } from "@/lib/format";
@@ -63,7 +63,37 @@ export function RenderBoard({ project }: { project: Project }) {
         </Button>
       </div>
     ) : (
-      <PageLoading />
+      <div
+        aria-busy="true"
+        className="grid desktop:grid-cols-[minmax(0,1fr)_23rem]"
+      >
+        <div className="min-w-0 space-y-4 p-4 tablet:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-5">
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-44" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-9 w-32 rounded-lg" />
+          </div>
+          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+            {Array.from(
+              { length: Math.max(project.sceneCount, 3) },
+              (_, index) => (
+                <div key={index} className="flex items-center gap-3 p-4">
+                  <Skeleton className="h-5 w-8" />
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="ml-auto h-5 w-20 rounded-full" />
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+        <aside className="min-w-0 border-t p-4 tablet:p-6 desktop:border-t-0 desktop:border-l">
+          <Skeleton className="aspect-video w-full rounded-lg" />
+          <Skeleton className="mt-4 h-5 w-40" />
+          <Skeleton className="mt-2 h-16 w-full" />
+        </aside>
+      </div>
     );
 
   // Until a scene is picked, follow the one being worked on (or that stopped).

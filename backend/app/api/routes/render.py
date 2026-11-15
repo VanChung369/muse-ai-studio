@@ -14,6 +14,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.core.content_policy import project_violation
 from app.models import Account, Project, Scene, Task
 from app.rendering import storage
 from app.rendering.ffmpeg import find_ffmpeg, frame_at, thumbnail
@@ -77,6 +78,15 @@ class RenderResume(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, extra="forbid")
     # Required when a scene was interrupted: it may already exist upstream.
     confirm_duplicate: bool = Field(default=False, strict=True)
+
+
+def check_content(request: Request, session, project_id: str) -> None:
+    """A film whose texts hold refused content is not sent to Muse."""
+    project = session.get(Project, project_id)
+    found = project and project_violation(project, request.app.state.settings)
+    session.rollback()
+    if found:
+        raise HTTPException(status_code=422, detail=found.api_detail())
 
 
 def request_error(error: RenderRequestError) -> HTTPException:
@@ -168,6 +178,7 @@ def start_project_render(
     project_id: str, request: Request, session: DatabaseSession
 ) -> RenderResponse:
     """Render every scene in order, then merge them into one video."""
+    check_content(request, session, project_id)
     try:
         start_render(session, project_id)
     except RenderRequestError as error:
@@ -216,6 +227,7 @@ def resume_project_render(
     values: RenderResume | None = None,
 ) -> RenderResponse:
     """Continue a failed or cancelled render from the first unfinished scene."""
+    check_content(request, session, project_id)
     try:
         resume_render(
             session,
@@ -248,6 +260,7 @@ def restart_project_render(
 ) -> RenderResponse:
     """Render again from one scene to the last, keeping the earlier scenes.
     The current clips of the redone scenes and the merged video are deleted."""
+    check_content(request, session, project_id)
     try:
         stale = restart_render(session, project_id, values.from_scene)
     except RenderRequestError as error:

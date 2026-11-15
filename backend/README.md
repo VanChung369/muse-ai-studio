@@ -19,8 +19,9 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18610
 The local environment has already been created during initialization. `uv sync --locked` reproduces the dependencies on a new checkout using `uv.lock`.
 
 - Health: `http://127.0.0.1:18610/api/health`
-- Swagger UI: `http://127.0.0.1:18610/docs`
-- OpenAPI schema: `http://127.0.0.1:18610/openapi.json`
+- Swagger UI: `http://127.0.0.1:18610/api/docs`
+- OpenAPI schema: `http://127.0.0.1:18610/api/openapi.json`
+- The built interface (`frontend/dist`, from `npm run build`) is served at `/` by the same server when it exists (`MUSE_FRONTEND_DIR` to point elsewhere): one address for everything. While developing, use Vite on port 5173 instead.
 
 The health endpoint checks database connectivity and returns:
 
@@ -52,6 +53,8 @@ Settings read from the environment when the server starts (the Settings page lis
 | `MUSE_THREAD_SCENE_LIMIT`      | `24`                | Requests (script, scenes, music, Quick Create) sent to one Muse conversation before a new one is started with a summary of it.                                                                       |
 | `MUSE_SESSION_REFRESH_MINUTES` | `360`               | How often account sessions are re-checked; `0` turns it off.                                                                                                                                         |
 | `MUSE_SESSION_REFRESH_WAKE`    | `false`             | Also wake the Muse workspace on each re-check.                                                                                                                                                       |
+| `MUSE_CONTENT_POLICY` | `true` | Refuse gambling, drugs, weapons, sexual content, fraud, hacking, trafficking and self-harm requests before they reach Muse (`app/core/content_policy.py`). |
+| `MUSE_BLOCKED_TERMS` | (empty) | More phrases to refuse, comma-separated. |
 | `MUSE_CORS_ORIGINS`            | the Vite dev server | Origins allowed to call the API from a browser.                                                                                                                                                      |
 
 What the user changes while the app runs (defaults for new projects, the public address) is stored in the database and edited on the Settings page.

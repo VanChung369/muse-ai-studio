@@ -1,14 +1,23 @@
 import { Activity, AlertTriangle, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/shared/page-header";
-import { PageLoading } from "@/components/shared/page-loading";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TaskDetailsSheet } from "@/features/tasks/components/task-details-sheet";
 import { TaskRow } from "@/features/tasks/components/task-row";
 import { TASK_FILTERS } from "@/features/tasks/constants";
 import { useTaskList } from "@/features/tasks/hooks/use-task-list";
 import { useDocumentTitle } from "@/hooks/use-document-title";
+
+const TASK_COLUMNS = [
+  "task",
+  "status",
+  "account",
+  "started",
+  "duration",
+  "actions",
+] as const;
 
 export function TasksPage() {
   const { t } = useTranslation();
@@ -54,23 +63,51 @@ export function TasksPage() {
           </ActionBar>
         </div>
       )}
-      {counts && (
-        <dl className="mb-6 grid grid-cols-3 gap-3">
-          {(["running", "queued", "attention"] as const).map((filter) => (
-            <div
-              key={filter}
-              className="rounded-xl border bg-card p-3 tablet:p-4"
-            >
-              <dt className="text-xs text-faint">
-                {t(`tasks.filters.${filter}`)}
-              </dt>
-              <dd className="mt-2 font-mono text-2xl font-semibold">
+      <dl className="mb-6 grid grid-cols-3 gap-3">
+        {(["running", "queued", "attention"] as const).map((filter) => (
+          <div key={filter} className="rounded-xl border bg-card p-3 tablet:p-4">
+            <dt className="text-xs text-faint">
+              {t(`tasks.filters.${filter}`)}
+            </dt>
+            <dd className="mt-2 font-mono text-2xl font-semibold tabular-nums">
+              {counts ? (
+                counts[filter]
+              ) : query.isPending ? (
+                <Skeleton className="h-8 w-10" />
+              ) : (
+                "—"
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div
+        role="group"
+        aria-label={t("tasks.filterLabel")}
+        className="mb-4 flex flex-wrap gap-2"
+      >
+        {TASK_FILTERS.map((filter) => (
+          <Button
+            key={filter}
+            size="sm"
+            variant={list.filter === filter ? "default" : "outline"}
+            aria-pressed={list.filter === filter}
+            onClick={() => list.setFilter(filter)}
+          >
+            {t(`tasks.filters.${filter}`)}
+            {counts ? (
+              <span className="font-mono tabular-nums opacity-70">
                 {counts[filter]}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+              </span>
+            ) : query.isPending ? (
+              <Skeleton className="h-3.5 w-4" />
+            ) : null}
+          </Button>
+        ))}
+      </div>
+      <p className="mb-4 text-xs leading-5 text-faint">
+        {t("tasks.autoUpdate")}
+      </p>
       {counts && counts.attention > 0 && list.filter !== "attention" && (
         <section className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive-soft p-4">
           <AlertTriangle
@@ -96,30 +133,62 @@ export function TasksPage() {
           </ActionBar>
         </section>
       )}
-      <div
-        role="group"
-        aria-label={t("tasks.filterLabel")}
-        className="mb-4 flex flex-wrap gap-2"
-      >
-        {TASK_FILTERS.map((filter) => (
-          <Button
-            key={filter}
-            size="sm"
-            variant={list.filter === filter ? "default" : "outline"}
-            aria-pressed={list.filter === filter}
-            onClick={() => list.setFilter(filter)}
-          >
-            {t(`tasks.filters.${filter}`)}
-            {counts && (
-              <span className="font-mono opacity-70">{counts[filter]}</span>
-            )}
-          </Button>
-        ))}
-      </div>
-      <p className="mb-4 text-xs leading-5 text-faint">
-        {t("tasks.autoUpdate")}
-      </p>
-      {query.isPending && <PageLoading />}
+      {query.isPending && (
+        <section
+          aria-busy="true"
+          aria-label={t("tasks.listLabel")}
+          className="overflow-hidden rounded-xl border bg-card"
+        >
+          <table className="w-full table-fixed text-left text-[13px] max-tablet:block">
+            <colgroup className="max-tablet:hidden">
+              <col className="w-[29%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[15%]" />
+              <col className="w-[9%]" />
+              <col className="w-[17%]" />
+            </colgroup>
+            <thead className="border-b bg-secondary text-xs text-faint max-tablet:hidden">
+              <tr>
+                {TASK_COLUMNS.map((field) => (
+                  <th
+                    key={field}
+                    scope="col"
+                    className="px-4 py-3 last:text-right"
+                  >
+                    {t(`tasks.fields.${field}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y max-tablet:block">
+              {Array.from({ length: 5 }, (_, index) => (
+                <tr key={index} className="max-tablet:block max-tablet:p-4">
+                  <td className="px-4 py-3.5 max-tablet:block max-tablet:px-0 max-tablet:py-1">
+                    <Skeleton className="h-4 w-44" />
+                    <Skeleton className="mt-1.5 h-3 w-28" />
+                  </td>
+                  <td className="px-4 py-3.5 max-tablet:inline-block max-tablet:px-0 max-tablet:py-1">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </td>
+                  <td className="px-4 py-3.5 max-tablet:hidden">
+                    <Skeleton className="h-4 w-24" />
+                  </td>
+                  <td className="px-4 py-3.5 max-tablet:hidden">
+                    <Skeleton className="h-4 w-20" />
+                  </td>
+                  <td className="px-4 py-3.5 max-tablet:hidden">
+                    <Skeleton className="h-4 w-12" />
+                  </td>
+                  <td className="px-4 py-3.5 text-right max-tablet:hidden">
+                    <Skeleton className="ml-auto h-7 w-16" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
       {query.isError && !query.isFetchNextPageError && (
         <div
           role="alert"
@@ -154,16 +223,7 @@ export function TasksPage() {
               </colgroup>
               <thead className="border-b bg-secondary text-xs text-faint max-tablet:hidden">
                 <tr>
-                  {(
-                    [
-                      "task",
-                      "status",
-                      "account",
-                      "started",
-                      "duration",
-                      "actions",
-                    ] as const
-                  ).map((field) => (
+                  {TASK_COLUMNS.map((field) => (
                     <th
                       key={field}
                       scope="col"

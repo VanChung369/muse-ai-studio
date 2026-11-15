@@ -9,6 +9,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.core.content_policy import violation
 from app.models import Project, Reference, Task
 from app.rendering import storage
 from app.schemas.project import ProjectReference
@@ -94,6 +95,9 @@ async def add_reference(
 ):
     """Upload one file as the raw request body, with its type in Content-Type
     and its original name in `name`."""
+    found = violation(name, settings=request.app.state.settings)
+    if found:
+        raise HTTPException(status_code=422, detail=found.api_detail())
     mime = (request.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
     extension = EXTENSIONS.get(mime)
     if extension is None:

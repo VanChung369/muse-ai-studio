@@ -120,9 +120,15 @@ export function AppLayout() {
             tabIndex={-1}
             // Positioned, so visually hidden (absolute) content inside a page
             // scrolls with it instead of stretching the document.
-            className="relative min-h-0 flex-1 overflow-y-auto outline-none"
+            className="relative min-h-0 flex-1 overflow-y-auto outline-none [scrollbar-gutter:stable]"
           >
-            <Suspense fallback={<PageLoading />}>
+            <Suspense
+              fallback={
+                <div className="grid min-h-full place-items-center">
+                  <PageLoading />
+                </div>
+              }
+            >
               <Outlet />
             </Suspense>
           </main>

@@ -1786,5 +1786,25 @@
         "sessionRefreshWake": "Wake the workspace on each re-check"
       }
     }
+  },
+  "contentPolicy": {
+    "title": "Content not allowed",
+    "description": "This request contains “{{term}}”, which falls under {{category}}. Muse AI Studio does not create this kind of content, so nothing was sent to Muse and no quota was used.",
+    "hint": "Remove or reword that part and try again.",
+    "ok": "OK",
+    "categories": {
+      "gambling": "gambling and betting",
+      "drugs": "illegal drugs",
+      "weapons": "weapons and explosives",
+      "child_abuse": "sexual content involving minors",
+      "sexual": "sexual or pornographic content",
+      "terrorism": "terrorism and violent extremism",
+      "fraud": "fraud and money laundering",
+      "hacking": "hacking and account theft",
+      "trafficking": "trafficking",
+      "self_harm": "self-harm instructions",
+      "custom": "content blocked by this studio"
+    },
+    "inline": "Not saved: part of this text is not allowed. Change it and try again."
   }
 }

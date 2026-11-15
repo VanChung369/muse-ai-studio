@@ -1,4 +1,5 @@
 import json
+import os
 import stat
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -10,6 +11,10 @@ from fastapi.testclient import TestClient
 from app.core.account_vault import AccountVault
 from app.core.config import Settings
 from app.main import create_app
+
+# Windows has no POSIX file modes: a key file there reports 0o666 whatever
+# chmod asked for, and is protected by the user profile's ACL instead.
+OWNER_ONLY = 0o600 if os.name != "nt" else 0o666
 from app.models import Account
 
 SECRET = "test-only-session-fixture-never-a-real-cookie"
@@ -78,7 +83,7 @@ def test_import_list_metadata_encryption_and_restart(settings):
                 == SECRET
             )
     assert (
-        stat.S_IMODE((settings.data_dir / "account-secret.key").stat().st_mode) == 0o600
+        stat.S_IMODE((settings.data_dir / "account-secret.key").stat().st_mode) == OWNER_ONLY
     )
     # Both the DB and its WAL must contain only encrypted session data.
     for path in settings.data_dir.glob("*.db*"):
@@ -279,7 +284,7 @@ def test_concurrent_vault_creation_is_atomic(tmp_path):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert len(set(pool.map(prepare, [1, 2]))) == 1
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(path.stat().st_mode) == OWNER_ONLY
 
 
 def stored_cookies(client, account_id):
@@ -450,7 +455,7 @@ def test_vault_key_is_created_without_hard_link_support(tmp_path, monkeypatch):
     assert vault.decrypt(vault.encrypt({"hatch_sess": SECRET})) == {
         "hatch_sess": SECRET
     }
-    assert stat.S_IMODE((tmp_path / "account-secret.key").stat().st_mode) == 0o600
+    assert stat.S_IMODE((tmp_path / "account-secret.key").stat().st_mode) == OWNER_ONLY
     assert [path.name for path in tmp_path.iterdir()] == ["account-secret.key"]
 
 

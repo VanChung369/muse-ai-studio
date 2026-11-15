@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { ApiError } from "@/lib/http";
+import { ApiError, isContentBlocked } from "@/lib/http";
 
 import { projectKeys } from "../api/query-keys";
 import { uploadReference } from "../api/references";
@@ -221,6 +221,7 @@ export function useProjectList() {
       void projectsQuery.refetch();
     },
     createError: createMutation.isError,
+    createBlocked: isContentBlocked(createMutation.error),
     detailLoading: Boolean(selectedId) && projectQuery.isPending,
     detailMissing:
       projectQuery.error instanceof ApiError &&

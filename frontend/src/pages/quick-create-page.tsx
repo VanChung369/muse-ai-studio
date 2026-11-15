@@ -14,7 +14,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ROUTES } from "@/constants/routes";
 import {
@@ -104,7 +105,8 @@ export function QuickCreatePage() {
     queryKey: quickCreateKey,
     queryFn: ({ signal }) => fetchQuickBatches(signal),
     retry: false,
-    refetchInterval: 4000,
+    refetchInterval: ({ state }) =>
+      state.data?.some((batch) => batch.tasks.some(isTaskActive)) ? 4000 : false,
   });
   const historyChange = useMutation({
     mutationFn: setQuickBatchHidden,
@@ -149,14 +151,22 @@ export function QuickCreatePage() {
     },
   });
 
-  // Mark the library stale when a new generated file becomes available.
+  // Mark the library stale when the set of generated items changes after load.
   const completedIds =
     history.data
       ?.flatMap((batch) => batch.items.map((item) => item.id))
       .join(",") ?? "";
+  const previousCompletedIds = useRef<string | null>(null);
   useEffect(() => {
+    if (!history.data) return;
+    if (previousCompletedIds.current === null) {
+      previousCompletedIds.current = completedIds;
+      return;
+    }
+    if (previousCompletedIds.current === completedIds) return;
+    previousCompletedIds.current = completedIds;
     void client.invalidateQueries({ queryKey: libraryKeys.all });
-  }, [client, completedIds]);
+  }, [client, history.data, completedIds]);
 
   function chooseFile(next: File | undefined) {
     if (request.isPending || !next) return;
@@ -540,16 +550,29 @@ export function QuickCreatePage() {
             </p>
           )}
           {history.isPending ? (
-            <div
-              role="status"
-              className="flex min-h-64 items-center justify-center gap-2 rounded-xl border bg-card text-muted-foreground"
+            <article
+              aria-busy="true"
+              className="flex min-h-80 flex-col overflow-hidden rounded-xl border bg-card"
             >
-              <LoaderCircle
-                className="size-4 animate-spin motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-              {t("common.loading")}
-            </div>
+              <div className="flex items-start gap-3 border-b p-4">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-4/5" />
+                  <Skeleton className="h-4 w-56" />
+                </div>
+                <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+              </div>
+              <div className="flex flex-1 flex-col space-y-4 p-4">
+                <Skeleton className="h-4 w-36" />
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,9rem),1fr))] gap-3">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <Skeleton
+                      key={index}
+                      className="aspect-square w-full rounded-lg"
+                    />
+                  ))}
+                </div>
+              </div>
+            </article>
           ) : history.isError ? (
             <div
               role="alert"
@@ -646,6 +669,14 @@ function BatchCard({
 }) {
   const { t } = useTranslation();
   const [language] = useLanguage();
+  const createdLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(language, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(batch.createdAt)),
+    [language, batch.createdAt],
+  );
   const representative =
     batch.tasks.find((task) => task.status === "running") ??
     batch.tasks.find((task) => task.status === "queued") ??
@@ -695,12 +726,7 @@ function BatchCard({
                 : t("quickCreate.shortDuration")}
             </span>
             <span aria-hidden="true">·</span>
-            <time dateTime={batch.createdAt}>
-              {new Intl.DateTimeFormat(language, {
-                dateStyle: "short",
-                timeStyle: "short",
-              }).format(new Date(batch.createdAt))}
-            </time>
+            <time dateTime={batch.createdAt}>{createdLabel}</time>
           </p>
         </div>
         {representative && <TaskStatusBadge task={representative} />}

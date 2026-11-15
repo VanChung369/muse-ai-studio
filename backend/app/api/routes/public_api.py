@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes.api_keys import key_hash
 from app.api.routes.quick_create import QuickRequest
+from app.core.content_policy import violation
 from app.models import ApiKey, LibraryAsset, Task
 from app.rendering import storage
 from app.rendering.quick_create import QuickCreateError, enqueue
@@ -248,6 +249,12 @@ def created(task):
 
 
 def queue(request, key_id, kind, prompt, ratio, count=1):
+    # Also checked here: the prompt may combine several messages.
+    blocked = violation(prompt, settings=request.app.state.settings)
+    if blocked:
+        raise PublicError(
+            400, "invalid_request_error", "content_policy_violation", blocked.message()
+        )
     values = QuickRequest(kind=kind, prompt=prompt, aspect_ratio=ratio, count=count)
     with request.app.state.database.sessions() as session:
         try:

@@ -14,6 +14,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProjectMedia } from "../api/media";
@@ -192,7 +193,16 @@ export function MediaLibrary({
             {t("common.retry")}
           </Button>
         </div>
-      ) : items === undefined ? null : (
+      ) : items === undefined ? (
+        <div
+          aria-busy="true"
+          className="grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3"
+        >
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="min-h-44 rounded-lg" />
+          ))}
+        </div>
+      ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
           {/* Always first: where videos, pictures and audio come in. */}
           <button

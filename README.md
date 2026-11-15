@@ -69,6 +69,24 @@ print(image.data[0].url)
 
 ## Getting started
 
+### Install with one command
+
+The installer adds what is missing (uv, Node.js, FFmpeg), sets up the server, builds the interface for production and starts the app. You need Chrome, Edge, Brave or Chromium and a Muse account.
+
+```powershell
+# Windows (PowerShell, in the project folder)
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+```bash
+# macOS / Linux
+bash install.sh
+```
+
+Then open `http://127.0.0.1:18610`. Next time, start it with `powershell -ExecutionPolicy Bypass -File start.ps1` (Windows) or `bash start.sh` (macOS/Linux). One server answers the interface, the API (`/api`, documentation at `/api/docs`) and the public API (`/v1`). `-Port 8080` / `--port 8080` changes the port; `-Lan` / `--lan` makes it reachable from other machines on your network. Hướng dẫn tiếng Việt: [INSTALL.vi.md](INSTALL.vi.md).
+
+### Run for development
+
 You need Python 3.12+ with [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22.12+, FFmpeg, Chrome (or Chromium/Edge) and a Muse account.
 
 ```bash
@@ -83,7 +101,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`, then:
+Open `http://localhost:5173` (or `http://127.0.0.1:18610` after the one-command install), then:
 
 1. Go to **Muse Accounts** → **How to get the token** and follow the steps to copy your sign-in session.
 2. Press **Import account**, paste it, then press **Test**.

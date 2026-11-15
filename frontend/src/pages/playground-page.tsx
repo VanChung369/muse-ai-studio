@@ -6,12 +6,11 @@ import {
   Play,
   Square,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ROUTES } from "@/constants/routes";
 import { revealApiKey } from "@/features/api-access/api/api-keys";
@@ -114,7 +114,8 @@ export function PlaygroundPage() {
   const [resultTab, setResultTab] = useState<"preview" | "json">("preview");
   const [isRunning, setIsRunning] = useState(false);
   const [stoppedByUser, setStoppedByUser] = useState(false);
-  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  const [finalElapsedMs, setFinalElapsedMs] = useState<number | null>(null);
   const [httpStatus, setHttpStatus] = useState<number | null>(null);
   const [taskIdHeader, setTaskIdHeader] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<
@@ -130,7 +131,6 @@ export function PlaygroundPage() {
     useState<PlaygroundEndpointId>("images");
 
   const abortRef = useRef<AbortController | null>(null);
-  const timerRef = useRef<number | undefined>(undefined);
   const curlCopy = useCopyClipboard();
 
   const effectiveKeyId =
@@ -141,9 +141,6 @@ export function PlaygroundPage() {
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
-      if (timerRef.current !== undefined) {
-        window.clearInterval(timerRef.current);
-      }
     };
   }, []);
 
@@ -177,17 +174,12 @@ export function PlaygroundPage() {
     Boolean(effectiveKeyId) &&
     (!needsPrompt || Boolean(prompt.trim()));
 
-  function stopTimer() {
-    if (timerRef.current !== undefined) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = undefined;
-    }
-  }
-
   function handleStop() {
     setStoppedByUser(true);
     abortRef.current?.abort();
-    stopTimer();
+    if (runStartedAt !== null) {
+      setFinalElapsedMs(elapsedSince(runStartedAt));
+    }
     setIsRunning(false);
   }
 
@@ -195,7 +187,6 @@ export function PlaygroundPage() {
     if (!canSend) return;
 
     abortRef.current?.abort();
-    stopTimer();
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -203,7 +194,8 @@ export function PlaygroundPage() {
 
     setIsRunning(true);
     setStoppedByUser(false);
-    setElapsedMs(0);
+    setRunStartedAt(startedAt);
+    setFinalElapsedMs(null);
     setHttpStatus(null);
     setTaskIdHeader(null);
     setVideoStatus(null);
@@ -211,10 +203,6 @@ export function PlaygroundPage() {
     setResponseData(null);
     setRequestError(null);
     setActiveEndpoint(endpoint);
-
-    timerRef.current = window.setInterval(() => {
-      setElapsedMs(elapsedSince(startedAt));
-    }, 100);
 
     try {
       let apiKey: string;
@@ -360,8 +348,7 @@ export function PlaygroundPage() {
       setRequestError({ kind: "network" });
     } finally {
       if (abortRef.current === controller) {
-        stopTimer();
-        setElapsedMs(elapsedSince(startedAt));
+        setFinalElapsedMs(elapsedSince(startedAt));
         setIsRunning(false);
       }
     }
@@ -439,12 +426,15 @@ export function PlaygroundPage() {
     }
   }
 
-  const formattedResponseJson =
-    responseData === null
-      ? null
-      : typeof responseData === "string"
-        ? responseData
-        : JSON.stringify(sanitizeResponseForJson(responseData), null, 2);
+  const formattedResponseJson = useMemo(
+    () =>
+      responseData === null
+        ? null
+        : typeof responseData === "string"
+          ? responseData
+          : JSON.stringify(sanitizeResponseForJson(responseData), null, 2),
+    [responseData],
+  );
 
   return (
     <div className="w-full max-w-340 px-4 pt-5 pb-10 tablet:px-8 tablet:pt-7 tablet:pb-14">
@@ -479,7 +469,27 @@ export function PlaygroundPage() {
         </span>
       </p>
 
-      {keysQuery.isPending && <PageLoading />}
+      {keysQuery.isPending && (
+        <div
+          aria-busy="true"
+          className="grid items-start gap-6 desktop:grid-cols-[minmax(20rem,25rem)_minmax(0,1fr)]"
+        >
+          <div className="min-w-0 space-y-5 rounded-xl border bg-card p-5">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-9 w-full rounded-lg" />
+              </div>
+            ))}
+            <Skeleton className="h-28 w-full rounded-lg" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+          <div className="min-w-0 space-y-6">
+            <Skeleton className="h-56 w-full rounded-xl" />
+            <Skeleton className="h-72 w-full rounded-xl" />
+          </div>
+        </div>
+      )}
 
       {keysQuery.isError && (
         <div
@@ -878,14 +888,11 @@ export function PlaygroundPage() {
                       {t(`playground.videoStatus.${videoStatus}`)}
                     </span>
                   )}
-                  {elapsedMs !== null && (
-                    <span
-                      role="status"
-                      className="font-mono text-xs text-faint tabular-nums"
-                    >
-                      {formatElapsedMs(elapsedMs)}
-                    </span>
-                  )}
+                  <ElapsedTimer
+                    running={isRunning}
+                    startedAt={runStartedAt}
+                    finalMs={finalElapsedMs}
+                  />
                 </div>
 
                 <div
@@ -1050,4 +1057,34 @@ function extractChunkDeltaContent(chunk: unknown): string {
   if (delta === null || typeof delta !== "object") return "";
   const content = (delta as Record<string, unknown>).content;
   return typeof content === "string" ? content : "";
+}
+
+function ElapsedTimer({
+  running,
+  startedAt,
+  finalMs,
+}: {
+  running: boolean;
+  startedAt: number | null;
+  finalMs: number | null;
+}) {
+  const [liveMs, setLiveMs] = useState(0);
+
+  useEffect(() => {
+    if (!running || startedAt === null) return;
+    setLiveMs(elapsedSince(startedAt));
+    const timer = window.setInterval(() => {
+      setLiveMs(elapsedSince(startedAt));
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [running, startedAt]);
+
+  const shown = running ? liveMs : finalMs;
+  if (shown === null) return null;
+
+  return (
+    <span role="status" className="font-mono text-xs text-faint tabular-nums">
+      {formatElapsedMs(shown)}
+    </span>
+  );
 }

@@ -6,6 +6,7 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.core.content_policy import project_violation
 from app.models import Project
 from app.planning.tasks import PlanningRequestError, enqueue_script, latest_script_task
 from app.schemas.project import ProjectLanguage, ProjectLook
@@ -40,6 +41,11 @@ def start_script_generation(
     request: Request,
     session: DatabaseSession,
 ):
+    project = session.get(Project, project_id)
+    found = project and project_violation(project, request.app.state.settings)
+    session.rollback()
+    if found:
+        raise HTTPException(status_code=422, detail=found.api_detail())
     try:
         task, label = enqueue_script(session, project_id, values)
     except PlanningRequestError as error:

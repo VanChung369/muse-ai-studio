@@ -63,7 +63,7 @@ export function ProjectToolbar({
             )}
           >
             {t(`projects.filters.${option}`)}
-            <span className="font-mono text-[11px] opacity-65">
+            <span className="inline-flex min-w-4 justify-center font-mono text-[11px] tabular-nums opacity-65">
               {counts[option]}
             </span>
           </button>

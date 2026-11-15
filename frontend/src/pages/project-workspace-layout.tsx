@@ -2,8 +2,8 @@ import { ArrowLeft, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, NavLink, Outlet, useParams } from "react-router";
 
-import { PageLoading } from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/constants/routes";
 import { ProjectStatusBadge } from "@/features/projects/components/project-status-badge";
 import { useProjectQuery } from "@/features/projects/hooks/use-project-queries";
@@ -36,7 +36,27 @@ export function ProjectWorkspaceLayout() {
   const project = useProjectQuery(projectId);
   useDocumentTitle(project.data?.name ?? t("pages.projects.title"));
 
-  if (project.isPending) return <PageLoading />;
+  if (project.isPending)
+    return (
+      <div aria-busy="true" className="flex w-full flex-col">
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b px-4 py-3 tablet:px-6">
+          <Skeleton className="size-9 rounded-lg" />
+          <div className="min-w-0 space-y-1">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="mx-auto flex items-center gap-3">
+            {PROJECT_STEPS.map((step) => (
+              <Skeleton key={step} className="h-5 w-16 rounded-full" />
+            ))}
+          </div>
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </header>
+        <div className="p-6 tablet:p-8">
+          <Skeleton className="aspect-video w-full max-w-4xl rounded-xl" />
+        </div>
+      </div>
+    );
   if (!project.data)
     return (
       <div role="alert" className="space-y-3 p-8">

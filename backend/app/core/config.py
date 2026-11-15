@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     session_refresh_minutes: int = 360
     # Also wake the workspace on each refresh (the "Keep alive" action).
     session_refresh_wake: bool = False
+    # Refuse gambling, drugs, weapons, sexual content, fraud and other
+    # unlawful requests before they reach Muse (app/core/content_policy.py).
+    content_policy: bool = True
+    # More phrases to refuse, comma-separated.
+    blocked_terms: str = ""
 
     @field_validator("upstream_url")
     @classmethod
@@ -57,6 +62,8 @@ class Settings(BaseSettings):
 
     app_name: str = "Muse AI Studio"
     data_dir: Path = PROJECT_DIR / "data"
+    # The built interface (`npm run build`), served at / when it exists.
+    frontend_dir: Path | None = PROJECT_DIR / "frontend" / "dist"
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
