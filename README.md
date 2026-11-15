@@ -1,10 +1,20 @@
-# Muse AI Studio
+# Muse AI Studio: open-source AI video generator
 
 **Turn an idea into a finished AI film, on your own machine.**
 
-Muse AI Studio is a self-hosted video studio that runs on your own [Muse](https://muse.ai) account. You bring the idea; the app writes the script, renders each scene, merges them into a film, and lets you cut, add music and add captions in the browser. No editing software to install, nothing to upload to another service.
+[![License: MIT](https://img.shields.io/badge/license-MIT-f2b84b)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776ab)
+![Node.js 22.12+](https://img.shields.io/badge/node.js-22.12%2B-5fa04e)
+![Windows · macOS · Linux](https://img.shields.io/badge/platform-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-555)
+![OpenAI-compatible API](https://img.shields.io/badge/API-OpenAI--compatible-412991)
 
-![A finished project: the merged film and its nine scenes](assets/screenshots/editor.jpg)
+Muse AI Studio is a free, self-hosted **AI video generator** that runs on your own [Muse](https://muse.ai) account. You bring the idea; the app writes the script, turns each scene into a video (text-to-video), merges them into a film, and lets you cut, add music and add captions in a browser timeline editor. It also makes quick AI pictures and short videos, and answers an **OpenAI-compatible API**. No editing software to install, nothing to upload to another service. [Tiếng Việt](#tiếng-việt) · [Install](#getting-started) · [FAQ](#faq)
+
+![Muse AI Studio, an AI video generator: a finished film and its nine scenes](assets/screenshots/editor.jpg)
+
+## Tiếng Việt
+
+**Muse AI Studio** là phần mềm **tạo video AI** mã nguồn mở, cài và chạy ngay trên máy bạn bằng tài khoản Muse của chính bạn. Bạn chỉ cần nhập ý tưởng, app tự viết kịch bản, tạo video cho từng cảnh rồi ghép thành phim hoàn chỉnh. Sau đó bạn cắt ghép, thêm nhạc, phụ đề và tiêu đề ngay trên trình duyệt. Ngoài ra app tạo nhanh ảnh và video ngắn bằng AI, và có API tương thích OpenAI. Giao diện có tiếng Việt. Cài bằng một lệnh trên Windows, macOS và Linux: xem [hướng dẫn cài đặt](INSTALL.vi.md).
 
 ## Why use it
 
@@ -62,7 +72,7 @@ Muse AI Studio speaks the OpenAI protocol: use the OpenAI SDK you already have a
 import os
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:5173/v1", api_key=os.environ["MUSE_API_KEY"])
+client = OpenAI(base_url="http://127.0.0.1:18610/v1", api_key=os.environ["MUSE_API_KEY"])
 image = client.images.generate(model="muse-image", prompt="A glass of iced coffee on a window sill, morning light")
 print(image.data[0].url)
 ```
@@ -119,6 +129,32 @@ Open `http://localhost:5173` (or `http://127.0.0.1:18610` after the one-command 
 The **Settings** page tells you whether the app has found FFmpeg and a browser. The interface is available in English and Vietnamese.
 
 Configuration, backing up your data and the technical details are in [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
+
+## FAQ
+
+### How do I turn an idea or a script into a video with AI?
+
+Create a project in **Video Studio**, write the idea (or paste a script), and let Muse write the scenes. Review them, press **Start render**, and the app renders the scenes one after another and merges them into one MP4 film. In testing, a 20-second, two-scene film was ready in about four minutes.
+
+### Is Muse AI Studio free?
+
+Yes: the app is free and open source under the MIT license. Generating pictures and videos uses your own Muse account and its quota.
+
+### Can I use it with the OpenAI SDK or other tools?
+
+Yes. Point any OpenAI SDK or HTTP client at `http://127.0.0.1:18610/v1` with a key from **Connection & API**, and use the images, videos and chat endpoints. The [API contract](backend/api-contract.md) and the **Documentation** page describe every request.
+
+### Which systems does it run on?
+
+Windows 10/11, macOS 13.5+ and 64-bit Linux (glibc 2.28+), on x64 or ARM64. The one-command installer brings Python, Node.js, FFmpeg and a browser when they are missing, without administrator rights.
+
+### Where are my videos stored?
+
+In the `data/` folder of the app on your machine: films, scenes, pictures, scripts and your encrypted Muse sign-in. Back up that folder to keep everything.
+
+### Is it an official Muse product?
+
+No. It drives the Muse website with your own sign-in session; see the notes below.
 
 ## Before you use it
 
