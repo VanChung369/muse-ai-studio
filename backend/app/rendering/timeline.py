@@ -53,6 +53,10 @@ OUTPUT = {
 }
 # Dissolves the editor offers, in seconds.
 TRANSITIONS = (0.0, 0.3, 0.5)
+# What a new film starts with (the user's choice, 2026-11-16): scenes joined
+# with a short dissolve and their sound levelled. Set when it is first
+# rendered; films rendered before keep straight cuts until changed.
+NEW_FILM_OUTPUT = {"transition": 0.3, "level": True}
 LOOK = {
     "effect": "none",
     "zoom": "none",

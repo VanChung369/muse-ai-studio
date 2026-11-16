@@ -1327,6 +1327,8 @@
     }
   },
   "quickCreate": {
+    "reuseNote": "Reused prompt: it goes into the Muse chat of that request.",
+    "reuseNewChat": "Use a new chat instead",
     "description": "One prompt, one result. Create images or short single-scene videos; use Video Studio for multi-scene films.",
     "configuration": "Quick Create settings",
     "contentType": "Content type",

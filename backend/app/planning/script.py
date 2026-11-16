@@ -21,17 +21,18 @@ def _brief_directions(brief: dict) -> str:
     ]
     if brief.get("mute"):
         lines.append("The film has no sound: leave every narration empty.")
-    elif brief.get("narration"):
-        lines.append(
-            "Write a voice-over line for every scene, short enough to be spoken within "
-            "that scene's duration."
-        )
+    else:
+        if brief.get("narration"):
+            lines.append(
+                "Write a voice-over line for every scene, short enough to be spoken "
+                "within that scene's duration."
+            )
         # Each scene is generated on its own: without one description of the
         # voice, every scene gets a different narrator.
         lines.append(
-            "One narrator speaks every line: describe that voice once, on its own "
-            f"line in characterBible, starting with '{NARRATOR_LABEL}' and giving "
-            "gender, age, pitch, timbre, accent and pace."
+            "If the film has narration, one narrator speaks every line: describe "
+            "that voice once, on its own line in characterBible, starting with "
+            f"'{NARRATOR_LABEL}' and giving gender, age, pitch, timbre, accent and pace."
         )
     look = LOOKS.get(brief.get("look") or "auto")
     if look:

@@ -1,5 +1,6 @@
 """Isolated Muse composer client, using the reference UI selectors (see LICENSE)."""
 
+import json
 import os
 import re
 import shutil
@@ -34,6 +35,32 @@ SEND_BUTTON_JS = """() => {
 }"""
 
 
+def attach_request(media_kind: str, count: int, denied: bool) -> str:
+    """What this app writes when Muse kept the file(s) of a request in its
+    workspace instead of attaching them: a request for files already made."""
+    if media_kind == "image" and count > 1:
+        return (
+            f"Please attach all {count} final image files from this request here in the chat, "
+            "as separate attachments. Do not generate more images or upload them elsewhere."
+        )
+    return (
+        f"Please attach the final {media_kind} file here in the chat"
+        + (" instead of uploading it." if denied else ", as a single attachment.")
+        + f" Do not generate a new {media_kind}."
+    )
+
+
+# Every wording `attach_request` has ever sent (older ones lacked the last
+# sentence), matched whole: conversations already hold them.
+ATTACH_REQUEST_RE = (
+    r"^Please attach (?:all \d+ final image files from this request here in the chat, "
+    r"as separate attachments\. Do not generate more images or upload them elsewhere\."
+    r"|the final (?:image|video) file here in the chat"
+    r"(?: instead of uploading it|, as a single attachment)\."
+    r"(?: Do not generate a new (?:image|video)\.)?)$"
+)
+
+
 # A conversation's messages are found relative to our own message, which
 # starts with a short label (`marker`). A conversation that already holds
 # earlier messages renders them lazily, so "what was on the page before
@@ -46,26 +73,61 @@ SEND_BUTTON_JS = """() => {
 # the prompt ("media-generation-shot-…mp4") and the agent's closing reply
 # shows that name below the clip; taken for our message, it put the clip
 # "before" it and the scene timed out although Muse had made it (2026-11-16).
+#
+# What answers it ends where this app's next labelled message starts (`next`):
+# a message taken back from earlier in a conversation that went on is
+# followed by other requests' clips (2026-11-16: scene 3 taken back from a
+# conversation that went on to scene 6 came back as scene 5's clip).
 OWN_MESSAGE_JS = """
-  let anchor = null;
+  let anchor = null, next = null;
   if (marker) {
-    const label = '[' + marker + ']';
+    // Ours: its content begins with a label, after at most a short "...:"
+    // prefix (a message muse.ai collapsed out of view reads "User message:
+    // [shot-...] ...", seen 2026-11-17). A label quoted in a reply is not.
+    const opening = /^\\s*(?:User message:\\s*)?\\[([a-z]+-[0-9a-f]{8})\\]/;
+    const followUp = new RegExp(ATTACH_PATTERN);
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node.nodeValue.includes(label) && !(node.parentElement
-          && node.parentElement.closest('div[class*="hatch-agent-bubble-bg"]'))) anchor = node;
+      if (node.parentElement && node.parentElement.closest(
+          'div[class*="hatch-agent-bubble-bg"], script, style, template, noscript')) continue;
+      // Any later user message ends what answers ours (also one typed in
+      // Muse by hand): its "You:" label, or its collapsed "User message:"
+      // text. This app's own follow-up asking for the files already made
+      // (`attach_request`, matched whole) does not: what answers it still
+      // answers ours. A message merely starting the same way does.
+      const value = node.nodeValue.trim();
+      const bubble = node.parentElement && node.parentElement.parentElement;
+      const said = value === 'You:'
+        ? (bubble ? bubble.textContent.trim().slice(4).trim() : '')
+        : value.startsWith('User message:') ? value.slice(13).trim() : null;
+      if (anchor && !next && said !== null && !followUp.test(said.replace(/\\s+/g, ' '))
+          && !said.startsWith('[' + marker + ']')) { next = node; continue; }
+      const found = opening.exec(node.nodeValue);
+      if (!found) continue;
+      if (found[1] === marker) { anchor = node; next = null; }
+      else if (anchor && !next) next = node;
     }
   }
-"""
+""".replace("ATTACH_PATTERN", json.dumps(ATTACH_REQUEST_RE))
 ANCHOR_JS = OWN_MESSAGE_JS + """
   const after = node => all || (!!anchor
-    && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+    && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)
+    && (!next || !!(next.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING)));
 """
 
 # Our message is on the page but Muse flags it as not delivered (an alert
 # under it, "Delivery not confirmed"): the agent never received it, nothing
 # was generated, and Muse does not keep it. Seen when a request is sent into
 # a conversation whose earlier job (the script) is waiting for input.
+# Whether our message (by its label) is on the page.
+SENT_JS = "(marker) => {" + OWN_MESSAGE_JS + " return !!anchor; }"
+# Bring our message into view, so what answers it below gets loaded.
+SHOW_JS = (
+    "(marker) => {"
+    + OWN_MESSAGE_JS
+    + " if (anchor && anchor.parentElement) anchor.parentElement.scrollIntoView({block: 'start'});"
+    + " return !!anchor; }"
+)
 UNDELIVERED_JS = "(marker) => {" + OWN_MESSAGE_JS + """
   const group = anchor && anchor.parentElement
     && anchor.parentElement.closest('div[class*="group/msg"]');

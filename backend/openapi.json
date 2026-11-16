@@ -5586,6 +5586,19 @@
               }
             ],
             "title": "Referenceassetid"
+          },
+          "reuseOf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reuseof"
           }
         },
         "type": "object",

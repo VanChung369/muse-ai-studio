@@ -61,5 +61,7 @@ def test_narrator_voice_is_read_from_the_character_bible():
 def test_the_script_is_asked_to_describe_the_narrator_once():
     brief = {"durationSeconds": 60, "language": "vi", "narration": True}
     assert NARRATOR_LABEL in build_script_prompt(brief)
-    assert NARRATOR_LABEL not in build_script_prompt({**brief, "narration": False})
+    # Also without the option: an idea can call for narration (seen
+    # 2026-11-16, a film narrated with the option off).
+    assert NARRATOR_LABEL in build_script_prompt({**brief, "narration": False})
     assert NARRATOR_LABEL not in build_script_prompt({**brief, "mute": True})

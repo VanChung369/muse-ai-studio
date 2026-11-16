@@ -63,6 +63,8 @@ export function QuickCreatePage() {
   useDocumentTitle(t("pages.create.title"));
   const [kind, setKind] = useState<QuickRequest["kind"]>("image");
   const [prompt, setPrompt] = useState("");
+  // The batch whose prompt was reused: the request goes into its chat.
+  const [reuseOf, setReuseOf] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] =
     useState<QuickRequest["aspectRatio"]>("1:1");
   const [countOption, setCountOption] =
@@ -139,6 +141,8 @@ export function QuickCreatePage() {
     },
     retry: false,
     onSuccess: async (batch) => {
+      // Sent: the next request opens its own chat unless reused again.
+      setReuseOf(null);
       await client.cancelQueries({ queryKey: quickCreateKey });
       client.setQueryData<QuickBatch[]>(quickCreateKey, (previous) =>
         [
@@ -198,6 +202,7 @@ export function QuickCreatePage() {
 
   function reuse(batch: QuickBatch) {
     if (request.isPending) return;
+    setReuseOf(batch.id);
     setKind(batch.kind);
     setPrompt(batch.prompt);
     setAspectRatio(batch.aspectRatio);
@@ -250,6 +255,8 @@ export function QuickCreatePage() {
                 prompt: prompt.trim(),
                 aspectRatio,
                 count,
+                // Only when reusing: a request of its own sends no such field.
+                ...(reuseOf ? { reuseOf } : {}),
               });
             }
           }}
@@ -290,6 +297,18 @@ export function QuickCreatePage() {
                 )}
                 className="min-h-36 resize-y text-sm leading-6"
               />
+              {reuseOf && (
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-faint">
+                  {t("quickCreate.reuseNote")}
+                  <button
+                    type="button"
+                    onClick={() => setReuseOf(null)}
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    {t("quickCreate.reuseNewChat")}
+                  </button>
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t("quickCreate.ratio")}</Label>

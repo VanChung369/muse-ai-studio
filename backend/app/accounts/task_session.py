@@ -62,6 +62,7 @@ class TaskAccountSession:
             if updated is None:
                 raise TaskFailure("account_changed")
         self.version += 1
+        self.cookies, self.expiries = cookies, cookie_expiries
         self._persisted.append(result)
 
     def failure(self, error: MuseError) -> Exception:

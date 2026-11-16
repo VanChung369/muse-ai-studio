@@ -1,10 +1,10 @@
 """Quick Create: images and videos made by Muse into the media library.
 
-Every request of an account goes into that account's one Quick Create
-conversation, so the agent keeps the context of earlier requests; a retry
-carries on exactly where its request was sent. When the conversation holds
-`thread_scene_limit` requests a new one is opened, told what the latest
-requests were (app/rendering/conversation.py).
+Every new request opens its own Muse conversation (the user's rule,
+2026-11-17); "reuse prompt" sends into the conversation of the request it
+reuses. A retry carries on exactly where its request was sent: it first takes
+back what Muse already made for that message, then asks only for what is
+missing.
 """
 
 import json
@@ -15,13 +15,15 @@ from sqlalchemy import case, func, select, update
 from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
 from app.integrations.muse.media import (
+    GeneratedMedia,
     generate_image,
     generate_images,
     generate_video,
+    recover_media,
     video_prompt,
 )
 from app.models import Account, LibraryAsset, Task
-from app.rendering import conversation, library, storage
+from app.rendering import library, storage
 from app.rendering.ffmpeg import MergeError, find_ffmpeg, inspect, thumbnail
 from app.rendering.intake import TYPES, content_type, readable, thumbnail_name
 from app.repositories import tasks
@@ -31,10 +33,44 @@ from app.tasks.kinds import ACTIVE_STATUSES, GENERATE_IMAGE, GENERATE_VIDEO, QUI
 MAX_COUNT = 100
 
 
+# Muse answered the request without making anything (it refused, or the
+# account is out of quota): a retry sends a new request instead of reading
+# that answer again.
+NOTHING_MADE = ("generation_refused", "quota_exhausted")
+
+
 class QuickCreateError(ValueError):
     def __init__(self, code, status=409):
         super().__init__(code)
         self.code, self.status = code, status
+
+
+def _reused_conversation(session, batch_id: str | None) -> dict | None:
+    """The conversation (and its account) a request of batch `batch_id` was
+    sent to, when that account can still be used; else None."""
+    if not batch_id:
+        return None
+    for task in session.scalars(
+        select(Task)
+        .where(
+            Task.kind.in_(QUICK_KINDS),
+            func.json_extract(Task.payload_json, "$.batchId") == batch_id,
+        )
+        .order_by(Task.created_at)
+    ):
+        done = json.loads(task.checkpoint_json or "{}")
+        if not (done.get("sent") and done.get("threadPath") and done.get("accountId")):
+            continue
+        usable = session.scalar(
+            select(Account.id).where(
+                Account.id == done["accountId"],
+                Account.enabled.is_(True),
+                Account.session_status == "valid",
+            )
+        )
+        if usable:
+            return {"thread": done["threadPath"], "account": done["accountId"]}
+    return None
 
 
 def enqueue(session, values, settings, *, api_key_id=None):
@@ -61,13 +97,17 @@ def enqueue(session, values, settings, *, api_key_id=None):
             ):
                 raise QuickCreateError("reference_missing", 422)
         batch_id = str(uuid4())
+        reused = _reused_conversation(session, getattr(values, "reuse_of", None))
         tasks.create_task(
             session,
             kind=GENERATE_IMAGE if values.kind == "image" else GENERATE_VIDEO,
             title=values.prompt[:200],
             requires_account=True,
+            # Where the reused request's conversation lives.
+            account_id=reused["account"] if reused else None,
             max_attempts=1,
             payload={
+                **({"reuseThread": reused["thread"]} if reused else {}),
                 "batchId": batch_id,
                 "batch": True,
                 "kind": values.kind,
@@ -128,11 +168,27 @@ def make_quick_handler(app):
         # The conversation an earlier attempt of this request was sent to.
         thread = own = context.checkpoint.get("threadPath")
         sent = context.checkpoint.get("sent", False)
+        # The label of the message last sent for this request.
+        marker = context.checkpoint.get("marker")
+        # The names of the files saved from what answers that message: taking
+        # it back passes over them (Muse may show them again, smaller). None
+        # for one saved without a name, or by a version that kept no names:
+        # those cannot be told apart, so nothing is taken back then.
+        names = context.checkpoint.get("names")
+        names = [None] * len(asset_ids) if names is None else list(names)
         if not sent:
             # A page can get an id before sending; that one may never be kept.
             thread = own = None
+        # Muse answered the last message without making anything (refused,
+        # out of quota): nothing of it is pending in its conversation.
+        answered = context.checkpoint.get("answered", False)
         if thread and context.checkpoint.get("accountId") != context.account_id:
-            raise TaskFailure("conversation_unavailable")
+            if not answered:
+                raise TaskFailure("conversation_unavailable")
+            # That conversation is another account's and holds nothing
+            # pending: this account starts one of its own.
+            thread = own = None
+            sent = False
         reference = []
         with database.sessions() as session:
             # Recover a committed file even if the process stopped before its checkpoint.
@@ -174,6 +230,9 @@ def make_quick_handler(app):
                     "threadPath": thread,
                     "accountId": context.account_id,
                     "sent": sent,
+                    "marker": marker,
+                    "names": list(names),
+                    "answered": answered,
                 }
             )
 
@@ -205,74 +264,73 @@ def make_quick_handler(app):
             sent = True
             checkpoint()
             context.mark_submitted()
-            adopt(thread)
 
-        def adopt(path):
-            # Our request went into a new conversation: from now on it is the
-            # account's Quick Create conversation (not before: a page can
-            # get an id before anything is sent).
-            if shared is not None and path and path != asked:
-                with database.sessions() as session:
-                    conversation.quick_started(session, context.account_id, path)
+        def on_marker(label, page_thread=None):
+            nonlocal marker, answered
+            marker, answered = label, False
+            # A new message: nothing taken from its answer yet.
+            names.clear()
+            checkpoint()
 
-        shared = asked = None
+        def forget_message():
+            nonlocal marker, answered
+            marker, answered = None, True
+            names.clear()
+            checkpoint()
+
+        asked = None
         if not own:
-            # A first attempt: into the account's Quick Create conversation
-            # while it is not too long, else a new one told what came before.
-            with database.sessions() as session:
-                shared = conversation.quick_conversation(session, context.account_id)
-            if shared["path"] and shared["requests"] < settings.thread_scene_limit:
-                thread = asked = shared["path"]
+            # A first attempt: its own new conversation, or the conversation
+            # of the request it reuses (the task runs on that one's account).
+            asked = values.get("reuseThread") or None
+            thread = asked
 
         def remember_thread(path):
             nonlocal thread
             if path != thread:
                 thread = path
                 checkpoint()
-                if sent:
-                    adopt(path)
 
         kind = values["kind"]
-        remaining = count - len(asset_ids)
         what = "images" if kind == "image" else "video"
-        request = (
-            f"Generate exactly {remaining} separate images (aspect ratio {values['aspectRatio']}): {values['prompt']}. "
-            "Return each image as its own downloadable image attachment, not a collage or contact sheet."
-            if kind == "image"
-            else video_prompt(values["prompt"], values["aspectRatio"], 10)
-        )
-        if reference:
-            request += (
-                " Use the attached image as the visual reference for every image."
+
+        def prompts():
+            """The message for what is still missing, and the one to send
+            instead if a new conversation must be opened."""
+            remaining = count - len(asset_ids)
+            request = (
+                f"Generate exactly {remaining} separate images (aspect ratio {values['aspectRatio']}): {values['prompt']}. "
+                "Return each image as its own downloadable image attachment, not a collage or contact sheet."
                 if kind == "image"
-                else " Use the attached image as the starting frame."
+                else video_prompt(values["prompt"], values["aspectRatio"], 10)
             )
-        if own:
-            # A retry, in the conversation this request was already sent to.
-            prompt = request + (
-                f"\nContext: this request was sent before in this conversation. "
-                f"{len(asset_ids)} of its outputs are already saved; create only the "
-                f"{remaining} remaining {what}."
-                if asset_ids
-                else "\nContext: this request was sent before in this conversation and "
-                f"nothing from it was saved; create its {what} now."
-            )
-        else:
-            prompt = request + (
-                f"\nContext: a new request in this conversation. Create new {what} for "
-                "it now; do not resend files made for earlier requests. Use the earlier "
-                "requests only where this one refers to them."
-            )
-        earlier = conversation.quick_summary(shared["recent"]) if shared else ""
-        fresh_prompt = request + (
-            "\nContext: this conversation carries on Quick Create requests from an "
-            "earlier conversation. The latest ones there, to use only where this "
-            "request refers to them:\n" + earlier
-            if earlier
-            else ""
-        )
-        if shared is not None and not asked:
-            prompt = fresh_prompt
+            if reference:
+                request += (
+                    " Use the attached image as the visual reference for every image."
+                    if kind == "image"
+                    else " Use the attached image as the starting frame."
+                )
+            if own:
+                # A retry, in the conversation this request was already sent to.
+                return request + (
+                    f"\nContext: this request was sent before in this conversation. "
+                    f"{len(asset_ids)} of its outputs are already saved; create only the "
+                    f"{remaining} remaining {what}."
+                    if asset_ids
+                    else "\nContext: this request was sent before in this conversation and "
+                    f"nothing from it was saved; create its {what} now."
+                ), request
+            if asked:
+                # "Reuse prompt": in the conversation of the request it reuses.
+                return request + (
+                    f"\nContext: a new request in this conversation. Create new {what} for "
+                    "it now; do not resend files made for earlier requests. Use the earlier "
+                    "requests only where this one refers to them."
+                ), request
+            # A new request: its own new conversation.
+            return request, request
+
+        prompt, fresh_prompt = prompts()
 
         def save_output(generated):
             mime = content_type(generated.mime)
@@ -326,6 +384,9 @@ def make_quick_handler(app):
                                     "threadPath": thread,
                                     "accountId": context.account_id,
                                     "sent": sent,
+                                    "marker": marker,
+                                    "names": [*names, generated.name],
+                                    "answered": answered,
                                 }
                             )
                         )
@@ -336,14 +397,50 @@ def make_quick_handler(app):
                 still.unlink(missing_ok=True)
                 raise
             asset_ids.append(asset_id)
+            names.append(generated.name)
             checkpoint()
+
+        if (
+            own
+            and sent
+            and marker
+            and context.checkpoint.get("accountId") == context.account_id
+            and None not in names
+        ):
+            # Take back what Muse already made for the sent message.
+            try:
+                taken = recover_media(
+                    app.state.muse_client,
+                    account.cookies,
+                    account.expiries,
+                    account.proxy,
+                    thread_path=own,
+                    marker=marker,
+                    on_session=account.persist,
+                    check_cancelled=context.raise_if_cancelled,
+                    timeout=settings.render_timeout,
+                    media_kind=kind,
+                    count=count - len(asset_ids),
+                    many=kind == "image",
+                    skip=list(names),
+                )
+            except MuseError as error:
+                if error.code in NOTHING_MADE:
+                    forget_message()
+                raise account.failure(error) from None
+            for generated in [taken] if isinstance(taken, GeneratedMedia) else taken or []:
+                save_output(generated)
+            if len(asset_ids) >= count:
+                return {"assetIds": asset_ids}
+            # Ask only for what is still missing.
+            prompt, fresh_prompt = prompts()
 
         generator = (
             generate_images
             if kind == "image" and is_batch
             else generate_image if kind == "image" else generate_video
         )
-        options = {"count": remaining} if kind == "image" and is_batch else {}
+        options = {"count": count - len(asset_ids)} if kind == "image" and is_batch else {}
         try:
             generator(
                 app.state.muse_client,
@@ -364,25 +461,15 @@ def make_quick_handler(app):
                 on_thread=remember_thread,
                 on_media=save_output,
                 fresh=(fresh_prompt, reference) if asked else None,
+                on_marker=on_marker,
                 **options,
             )
         except MuseError as error:
+            if error.code in NOTHING_MADE:
+                forget_message()
             raise account.failure(error) from None
         if len(asset_ids) < count:
             raise TaskFailure("image_count_mismatch", suggested_action="retry")
-        with database.sessions() as session:
-            conversation.quick_answered(
-                session,
-                context.account_id,
-                thread,
-                {
-                    "kind": kind,
-                    "count": count,
-                    "aspectRatio": values["aspectRatio"],
-                    "prompt": values["prompt"][:300],
-                },
-                adopt=not own,
-            )
         return {"assetIds": asset_ids}
 
     return handler

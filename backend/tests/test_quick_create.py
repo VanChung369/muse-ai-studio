@@ -43,6 +43,18 @@ def submitted(kwargs):
     kwargs["on_thread"]("/thread/batch-001")
 
 
+def saved_files(client):
+    """The bytes of every file Quick Create saved, oldest first."""
+    settings = client.app.state.settings
+    with client.app.state.database.sessions() as session:
+        assets = session.scalars(
+            select(LibraryAsset)
+            .where(LibraryAsset.source == "quick")
+            .order_by(LibraryAsset.created_at)
+        ).all()
+        return [(storage.library_dir(settings) / asset.file).read_bytes() for asset in assets]
+
+
 def fake_generate(*args, **kwargs):
     submitted(kwargs)
     images = [GeneratedMedia(f"image {i}".encode(), "image/png", 1280, 720)
@@ -141,17 +153,27 @@ def test_missing_reference_fails_before_enqueue(client):
 
 
 def test_partial_batch_retry_uses_same_thread_and_only_asks_for_missing_images(client, monkeypatch):
-    calls = []
+    calls, taken = [], []
 
     def generate(*args, **kwargs):
         calls.append(kwargs)
         submitted(kwargs)
-        kwargs["on_media"](GeneratedMedia(b"image bytes", "image/png", 1280, 720))
+        kwargs["on_marker"](f"shot-0000000{len(calls)}", "/thread/batch-001")
+        kwargs["on_media"](
+            GeneratedMedia(b"image bytes", "image/png", 1280, 720, name=f"garden {len(calls)}")
+        )
         if len(calls) == 1:
             raise MuseError("generation_timeout", 504)
         return []
 
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        # The page shows the saved picture again (smaller), nothing more.
+        shown = [GeneratedMedia(b"smaller copy", "image/png", 498, 498, name="garden 1")]
+        return [image for image in shown if image.name not in kwargs["skip"]][: kwargs["count"]]
+
     monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
     import_account(client, "Quick", "quick-fixture")
     batch = client.post("/api/quick-create", json=request(count=2, referenceAssetId=reference_asset(client))).json()
     task_id = batch["tasks"][0]["id"]
@@ -171,6 +193,8 @@ def test_partial_batch_retry_uses_same_thread_and_only_asks_for_missing_images(c
     recent = client.get("/api/quick-create").json()[0]
     assert recent["completedCount"] == 2 and len(recent["items"]) == 2
     assert recent["items"][0]["assetId"] == first_id
+    assert [(k["marker"], k["count"], k["skip"]) for k in taken] == [("shot-00000001", 1, ["garden 1"])]
+    assert b"smaller copy" not in saved_files(client)
 
 
 def test_deleted_result_does_not_change_completed_count(client, monkeypatch):
@@ -274,3 +298,341 @@ def test_capacity_reserves_image_count_instead_of_task_count(client, monkeypatch
             assert len(list(session.scalars(select(Task).where(Task.kind.in_(QUICK_KINDS))))) == 1
     finally:
         release.set()
+
+
+def test_every_new_request_opens_its_own_conversation(client, monkeypatch):
+    calls, prompts = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        prompts.append(args[4])
+        return fake_generate(*args, **kwargs)
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    import_account(client, "Quick", "quick-fixture")
+    for prompt in ("A quiet garden", "A busy street"):
+        task_id = client.post("/api/quick-create", json=request(prompt=prompt, count=4)).json()["tasks"][0]["id"]
+        assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    # The user's rule (2026-11-17): a new request, a new chat.
+    assert [call["thread_path"] for call in calls] == [None, None]
+    # A request of its own: nothing about earlier requests.
+    assert prompts[1].startswith("Generate exactly 4 separate images") and "Context:" not in prompts[1]
+
+
+def test_reusing_a_prompt_continues_the_conversation_it_came_from(client, monkeypatch):
+    calls, prompts = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        prompts.append(args[4])
+        return fake_generate(*args, **kwargs)
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    import_account(client, "Quick", "quick-fixture")
+    first = client.post("/api/quick-create", json=request(count=2)).json()
+    wait_for(client, first["tasks"][0]["id"], "succeeded", "failed")
+    again = client.post("/api/quick-create", json=request(count=2, reuseOf=first["id"])).json()
+    assert wait_for(client, again["tasks"][0]["id"], "succeeded", "failed")["status"] == "succeeded"
+    fresh = client.post("/api/quick-create", json=request(count=2)).json()
+    wait_for(client, fresh["tasks"][0]["id"], "succeeded", "failed")
+    assert [call["thread_path"] for call in calls] == [None, "/thread/batch-001", None]
+    assert "a new request in this conversation" in prompts[1]
+
+
+def test_a_retry_takes_back_what_muse_made_before_asking_again(client, monkeypatch):
+    calls, prompts, taken = [], [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        prompts.append(args[4])
+        submitted(kwargs)
+        kwargs["on_marker"]("shot-0000aaaa", "/thread/batch-001")
+        if len(calls) == 1:
+            # Sent; the app lost the outcome before any image was seen.
+            raise MuseError("generation_timeout", 504)
+        image = GeneratedMedia(b"made on retry", "image/png", 1280, 720)
+        kwargs["on_media"](image)
+        return [image]
+
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        # Muse made two of the three images meanwhile.
+        return [
+            GeneratedMedia(b"made meanwhile 1", "image/png", 1280, 720),
+            GeneratedMedia(b"made meanwhile 2", "image/png", 1280, 720),
+        ]
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    batch = client.post("/api/quick-create", json=request(count=3)).json()
+    task_id = batch["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    assert client.post(f"/api/tasks/{task_id}/retry", json={}).status_code == 200
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert [(k["thread_path"], k["marker"], k["count"]) for k in taken] == [
+        ("/thread/batch-001", "shot-0000aaaa", 3)
+    ]
+    # Only the missing image was asked for, in the same conversation.
+    assert len(calls) == 2 and calls[1]["count"] == 1
+    assert "2 of its outputs are already saved; create only the 1 remaining images" in prompts[1]
+    recent = client.get("/api/quick-create").json()[0]
+    assert recent["completedCount"] == 3
+
+
+def test_a_retry_with_everything_taken_back_sends_nothing(client, monkeypatch):
+    calls = []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"]("shot-0000bbbb", "/thread/batch-001")
+        raise MuseError("generation_timeout", 504)
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_video", generate)
+    monkeypatch.setattr(
+        "app.rendering.quick_create.recover_media",
+        lambda *args, **kwargs: GeneratedMedia(b"the video", "video/mp4", 1280, 720),
+    )
+    import_account(client, "Quick", "quick-fixture")
+    batch = client.post("/api/quick-create", json=request(kind="video", count=1)).json()
+    task_id = batch["tasks"][0]["id"]
+    wait_for(client, task_id, "succeeded", "failed")
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert len(calls) == 1
+
+
+def test_a_retry_takes_back_only_the_pictures_not_saved_yet(client, monkeypatch):
+    # Codex review, 2026-11-17: picture A saved, then the app lost the
+    # outcome; taking the answer back returned A again and B was never saved.
+    calls, taken = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"]("shot-0000eeee", "/thread/batch-001")
+        kwargs["on_media"](GeneratedMedia(b"cat A", "image/png", 1600, 1600, name="cat 1"))
+        raise MuseError("generation_timeout", 504)
+
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        # The answer as a reloaded page shows it: both pictures, smaller.
+        shown = [
+            GeneratedMedia(b"cat A smaller", "image/png", 498, 498, name="cat 1"),
+            GeneratedMedia(b"cat B smaller", "image/png", 498, 498, name="cat 2"),
+        ]
+        return [i for i in shown if i.name not in kwargs.get("skip", ())][: kwargs["count"]]
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(count=2)).json()["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert saved_files(client) == [b"cat A", b"cat B smaller"]
+    assert len(calls) == 1
+    # Read as a set of pictures, although only one is missing.
+    assert [(k["count"], k["skip"], k["many"]) for k in taken] == [(1, ["cat 1"], True)]
+
+
+def test_a_refused_request_is_sent_again_on_retry_not_read_again(client, monkeypatch):
+    calls, taken = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"](f"shot-0000f00{len(calls)}", "/thread/batch-001")
+        if len(calls) == 1:
+            raise MuseError("generation_refused")
+        video = GeneratedMedia(b"the video", "video/mp4", 1280, 720)
+        kwargs["on_media"](video)
+        return video
+
+    def recover(*args, **kwargs):
+        # The same refusal, read again.
+        taken.append(kwargs)
+        raise MuseError("generation_refused")
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_video", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(kind="video")).json()["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert len(calls) == 2 and taken == []
+    assert calls[1]["thread_path"] == "/thread/batch-001"
+
+
+def test_a_refusal_found_when_taking_back_lets_the_next_retry_send_again(client, monkeypatch):
+    calls, taken = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"](f"shot-0000a1b{len(calls)}", "/thread/batch-001")
+        if len(calls) == 1:
+            raise MuseError("generation_timeout", 504)
+        video = GeneratedMedia(b"the video", "video/mp4", 1280, 720)
+        kwargs["on_media"](video)
+        return video
+
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        raise MuseError("generation_refused")
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_video", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(kind="video")).json()["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert len(taken) == 1 and len(calls) == 2
+
+
+def test_a_reused_prompt_runs_on_the_account_of_its_conversation(client, monkeypatch):
+    sessions = []
+
+    def generate(*args, **kwargs):
+        sessions.append(args[1].get("hatch_sess"))
+        return fake_generate(*args, **kwargs)
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    import_account(client, "Quick", "quick-fixture")
+    first = client.post("/api/quick-create", json=request(count=2)).json()
+    wait_for(client, first["tasks"][0]["id"], "succeeded", "failed")
+    # Never used: the account an unpinned request would get first.
+    import_account(client, "Other", "other-fixture")
+    again = client.post("/api/quick-create", json=request(count=2, reuseOf=first["id"])).json()
+    assert wait_for(client, again["tasks"][0]["id"], "succeeded", "failed")["status"] == "succeeded"
+    fresh = client.post("/api/quick-create", json=request(count=2)).json()
+    wait_for(client, fresh["tasks"][0]["id"], "succeeded", "failed")
+    assert sessions == ["quick-fixture", "quick-fixture", "other-fixture"]
+
+
+def test_files_saved_without_names_are_not_taken_back_again(client, monkeypatch):
+    # Codex review, 2026-11-17: a task checkpointed by a version that kept no
+    # names took a saved picture back again on retry.
+    calls, taken = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"]("shot-0000c0de", "/thread/batch-001")
+        number = len(calls)
+        kwargs["on_media"](
+            GeneratedMedia(f"cat {number}".encode(), "image/png", 1600, 1600, name=f"cat {number}")
+        )
+        if number == 1:
+            raise MuseError("generation_timeout", 504)
+        return []
+
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        return [GeneratedMedia(b"cat 1 smaller", "image/png", 498, 498, name="cat 1")]
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(count=2)).json()["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    with client.app.state.database.sessions() as session:
+        task = session.get(Task, task_id)
+        checkpoint = json.loads(task.checkpoint_json)
+        checkpoint.pop("names", None)
+        task.checkpoint_json = json.dumps(checkpoint)
+        session.commit()
+    client.post(f"/api/tasks/{task_id}/retry", json={})
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert taken == [] and len(calls) == 2 and calls[1]["count"] == 1
+    assert saved_files(client) == [b"cat 1", b"cat 2"]
+
+
+def test_out_of_quota_a_retry_on_another_account_starts_a_chat_of_its_own(client, monkeypatch):
+    # Codex review, 2026-11-17: the chat of the account that ran out was kept,
+    # so a retry on another account could only fail (conversation_unavailable).
+    calls = []
+
+    def generate(*args, **kwargs):
+        calls.append((args[1].get("hatch_sess"), kwargs["thread_path"]))
+        # Each account reports its own session.
+        result = SessionResult(dict(args[1]), {}, "RUNNING")
+        kwargs["on_session"](result)
+        kwargs["before_send"](result)
+        kwargs["on_thread"]("/thread/batch-001")
+        kwargs["on_marker"]("shot-0000d0d0", "/thread/batch-001")
+        if len(calls) == 1:
+            raise MuseError("quota_exhausted", 429)
+        video = GeneratedMedia(b"the video", "video/mp4", 1280, 720)
+        kwargs["on_media"](video)
+        return video
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_video", generate)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(kind="video")).json()["tasks"][0]["id"]
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "failed"
+    import_account(client, "Other", "other-fixture")
+    assert client.post(f"/api/tasks/{task_id}/retry", json={"switchAccount": True}).status_code == 200
+    assert wait_for(client, task_id, "succeeded", "failed")["status"] == "succeeded"
+    assert calls == [("quick-fixture", None), ("other-fixture", None)]
+
+
+def test_after_the_app_stopped_mid_request_a_confirmed_retry_takes_back_first(client, monkeypatch):
+    # What the user sees as "The app stopped after this request was sent to
+    # Muse. Check the result before retrying." (2026-11-17): the process
+    # ended while the task ran, after sending and after one picture was saved.
+    from sqlalchemy import update
+
+    from app.tasks.coordinator import utcnow
+
+    calls, taken = [], []
+
+    def generate(*args, **kwargs):
+        calls.append(kwargs)
+        submitted(kwargs)
+        kwargs["on_marker"]("shot-0000beef", "/thread/batch-001")
+        kwargs["on_media"](GeneratedMedia(b"cat 1", "image/png", 1600, 1600, name="cat 1"))
+        raise MuseError("generation_timeout", 504)
+
+    def recover(*args, **kwargs):
+        taken.append(kwargs)
+        # The answer as a reloaded page shows it: both pictures, smaller.
+        shown = [
+            GeneratedMedia(b"cat 1 smaller", "image/png", 498, 498, name="cat 1"),
+            GeneratedMedia(b"cat 2 smaller", "image/png", 498, 498, name="cat 2"),
+        ]
+        return [i for i in shown if i.name not in kwargs["skip"]][: kwargs["count"]]
+
+    monkeypatch.setattr("app.rendering.quick_create.generate_images", generate)
+    monkeypatch.setattr("app.rendering.quick_create.recover_media", recover)
+    import_account(client, "Quick", "quick-fixture")
+    task_id = client.post("/api/quick-create", json=request(count=2)).json()["tasks"][0]["id"]
+    wait_for(client, task_id, "succeeded", "failed")
+    # As a stop of the app leaves it: still running, already sent.
+    client.app.state.task_coordinator.stop()
+    with client.app.state.database.sessions() as session:
+        session.execute(
+            update(Task)
+            .where(Task.id == task_id)
+            .values(status="running", finished_at=None, submitted_at=utcnow())
+        )
+        session.commit()
+    restarted = create_app(client.app.state.settings)
+    restarted.state.task_coordinator.poll_interval = 0.02
+    with TestClient(restarted) as again:
+        task = again.get(f"/api/tasks/{task_id}").json()
+        assert task["status"] == "interrupted" and task["error"]["code"] == "interrupted"
+        # As in the UI: a plain retry asks for confirmation first.
+        assert again.post(f"/api/tasks/{task_id}/retry", json={}).status_code == 409
+        response = again.post(f"/api/tasks/{task_id}/retry", json={"confirmDuplicate": True})
+        assert response.status_code == 200
+        assert wait_for(again, task_id, "succeeded", "failed")["status"] == "succeeded"
+        assert saved_files(again) == [b"cat 1", b"cat 2 smaller"]
+    # Taken back from the conversation; nothing was sent again.
+    assert len(calls) == 1
+    assert [(k["marker"], k["skip"], k["count"]) for k in taken] == [("shot-0000beef", ["cat 1"], 1)]

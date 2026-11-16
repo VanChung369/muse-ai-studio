@@ -46,6 +46,11 @@ class Muse:
         self.entered = threading.Event()
         self.hold = None  # Call numbers the gate applies to; None = all.
         self.killed = threading.Event()  # Simulates the process dying mid-call.
+        # Report the conversation once a message is sent (as the page does).
+        self.report_threads = False
+        self.sent_thread = None
+        self.recoverable = {}  # marker -> clip bytes (or a MuseError) Muse made
+        self.recovered = []  # (thread, marker) of every take-back attempt
 
     def __call__(self, client, cookies, expiries, proxy, prompt, **hooks):
         self.prompts.append(prompt)
@@ -54,7 +59,16 @@ class Muse:
         self.accounts.append(cookies["hatch_sess"])
         self.attachments.append([path.name for path in hooks.get("attachments", ())])
         call = len(self.prompts)
+        if hooks.get("on_marker"):
+            hooks["on_marker"](f"shot-{call:08x}")
         hooks["before_send"](None)
+        if self.report_threads and hooks.get("on_thread"):
+            known = hooks.get("thread_path")
+            if known is None:
+                self.new_threads += 1
+                known = f"/thread/t-{self.new_threads}"
+            self.sent_thread = known
+            hooks["on_thread"](known)
         self.entered.set()
         if self.gate is not None and (self.hold is None or call in self.hold):
             deadline = time.monotonic() + 10
@@ -66,7 +80,9 @@ class Muse:
         if call in self.failures:
             raise self.failures[call]
         thread = hooks.get("thread_path")
-        if thread is None:
+        if self.report_threads:
+            thread = self.sent_thread
+        elif thread is None:
             # Muse opens a new conversation for the first message.
             self.new_threads += 1
             thread = f"/thread/t-{self.new_threads}"
@@ -75,10 +91,25 @@ class Muse:
         )
 
 
+def _recover(self, client, cookies, expiries, proxy, *, thread_path, marker, **hooks):
+    """Stands in for `recover_video`: what Muse made for a sent message."""
+    self.recovered.append((thread_path, marker))
+    made = self.recoverable.get(marker)
+    if isinstance(made, MuseError):
+        raise made
+    if made is None:
+        return None
+    return GeneratedVideo(made, "video/mp4", 1280, 720, thread_path=thread_path)
+
+
+Muse.recover = _recover
+
+
 @pytest.fixture
 def muse(monkeypatch):
     muse = Muse()
     monkeypatch.setattr("app.rendering.tasks.generate_video", muse)
+    monkeypatch.setattr("app.rendering.tasks.recover_video", muse.recover)
     return muse
 
 
@@ -120,6 +151,9 @@ def ffmpeg(monkeypatch):
         )
 
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: "ffmpeg")
+    # Films here cut straight, the plain join these tests look at; a new
+    # film's dissolve default has its own test (test_new_film_defaults.py).
+    monkeypatch.setattr("app.rendering.timeline.NEW_FILM_OUTPUT", {})
     monkeypatch.setattr("app.rendering.film.merge", merge)
     monkeypatch.setattr("app.rendering.film.compose", compose)
     monkeypatch.setattr(
@@ -321,6 +355,8 @@ def test_cancel_stops_the_chain_and_resume_restarts_it(client, muse, ffmpeg):
 
 
 def test_missing_ffmpeg_fails_only_the_merge(client, muse, monkeypatch):
+    # The plain join (straight cuts) is what is missing FFmpeg here.
+    monkeypatch.setattr("app.rendering.timeline.NEW_FILM_OUTPUT", {})
     monkeypatch.setattr("app.rendering.tasks.find_ffmpeg", lambda settings: None)
     add_account(client)
     project = add_project(client)

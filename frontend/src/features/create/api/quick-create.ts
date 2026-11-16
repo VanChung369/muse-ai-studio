@@ -26,6 +26,9 @@ export type QuickRequest = {
   aspectRatio: QuickBatch["aspectRatio"];
   count: number;
   referenceAssetId: string | null;
+  // "Reuse prompt": the batch this request reuses; it is sent into that
+  // batch's Muse conversation. Without it a request opens a new one.
+  reuseOf?: string | null;
 };
 
 export async function fetchQuickBatches(signal?: AbortSignal) {

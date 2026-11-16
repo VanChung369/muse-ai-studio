@@ -8,6 +8,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.integrations.muse.chat import (
+    SENT_JS,
+    SHOW_JS,
+    UNDELIVERED_JS,
     DELIVERY_ATTEMPTS,
     UNDELIVERED_WAIT,
     reopen_conversation,
@@ -15,6 +18,7 @@ from app.integrations.muse.chat import (
     ANCHOR_JS,
     ANCHOR_WAIT,
     attach_files,
+    attach_request,
     confirmed_session,
     fill_composer,
     open_composer,
@@ -29,8 +33,10 @@ ATTACHMENT = '[data-testid^="hatch-chat-attachment-presentation-"]'
 # the result as a public link). Nobody answers it here, so it would block.
 APPROVAL_CARD = '[data-testid="hatch-inline-approval-card"]'
 QUOTA_HINTS = ("out of credits", "usage limit", "limit reached", "token limit")
-MEDIA_STATE_JS = f"""([marker, all]) => {{
-  const scrollers = [...document.querySelectorAll('*')].filter(e => {{
+MEDIA_STATE_JS = f"""([marker, all, stay]) => {{
+  // `stay`: keep the view where it is (on a message taken back), instead of
+  // following the conversation's end.
+  const scrollers = stay ? [] : [...document.querySelectorAll('*')].filter(e => {{
     const s = getComputedStyle(e);
     return (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 50;
   }});
@@ -48,19 +54,43 @@ MEDIA_STATE_JS = f"""([marker, all]) => {{
   const attachments = [...document.querySelectorAll({json.dumps(ATTACHMENT)})].filter(after)
   .filter(a => !a.closest('form, [data-testid*="composer"], [class*="user-bubble"], [class*="hatch-user-bubble"]'))
   .filter(a => !own(a))
-  .map(a => {{
-    const v = a.querySelector('video'), i = a.querySelector('img');
-    const m = v || i;
-    return {{
-      tid: a.getAttribute('data-testid') || '',
-      kind: v ? 'video' : (i ? 'image' : 'unknown'),
+  .flatMap(a => {{
+    const tid = a.getAttribute('data-testid') || '';
+    const item = (m, name) => ({{
+      tid,
+      kind: m ? (m.tagName === 'VIDEO' ? 'video' : 'image') : 'unknown',
       src: m ? (m.currentSrc || m.src || '') : '',
       w: m ? (m.videoWidth || m.naturalWidth || 0) : 0,
       h: m ? (m.videoHeight || m.naturalHeight || 0) : 0,
+      name,
+    }});
+    // muse.ai shows a set of pictures as ONE attachment holding a grid of
+    // them, each behind its own "Open generated image <name>" button
+    // (2026-11-17): each picture is a file of its own. Its name is its
+    // button's title, numbered when one attachment holds the same title
+    // twice: a copy Muse attaches again, or the same picture loading anew,
+    // keeps that name; two pictures of one attachment never share it (a
+    // title that itself ends like a number gets one too).
+    const openers = [...a.querySelectorAll('button[aria-label^="Open"]')];
+    const titles = Object.create(null);
+    const named = b => {{
+      const title = (b.getAttribute('title') || b.getAttribute('aria-label') || '').trim();
+      if (!title) return '';
+      const n = titles[title] = (titles[title] || 0) + 1;
+      return n > 1 || / #[0-9]+$/.test(title) ? title + ' #' + n : title;
     }};
+    // A picture still being finished (its button busy) may show a preview
+    // meanwhile: it is not ready yet.
+    const ready = (b, m) => m && m.tagName === 'IMG' && b && b.getAttribute('aria-busy') === 'true' ? null : m;
+    if (openers.length > 1) return openers.map(b => item(
+      ready(b, b.querySelector('video') || b.querySelector('img')), named(b)));
+    const b = openers[0];
+    return [item(ready(b, a.querySelector('video') || a.querySelector('img')), b ? named(b) : '')];
   }});
   return {{
     sent: !!anchor,
+    // Another of this app's messages follows ours.
+    bounded: !!next,
     agentCount: bubbles.length,
     lastText: last,
     generating: !!(document.querySelector('[data-testid="hatch-composer-stop-button"]')
@@ -100,10 +130,17 @@ LAST_BUBBLE_LINKS_JS = f"""([marker, all]) => {{
 }}"""
 
 # Runs inside the page so blob: URLs and the session's cookies both work.
+# A download that never finishes must not hold the page (and the task).
+FETCH_SECONDS = 180
 FETCH_MEDIA_JS = """async url => {
   try {
-    const response = await fetch(url);
+    // Given up after FETCH_SECONDS: a download that never ends must not
+    // hold the page, and the task with it.
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), 180000);
+    const response = await fetch(url, { signal: stop.signal });
     const blob = await response.blob();
+    clearTimeout(timer);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     let text = '';
     for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -123,6 +160,9 @@ ATTACHMENT_GRACE = 90.0
 # The timeout is soft while Muse is visibly still working: giving up then
 # would throw away a video that lands a minute later.
 OVERRUN_FACTOR = 2.5
+# How long an attachment may stay without its file once Muse has finished
+# before the file is asked for again.
+STALLED_ATTACHMENT = 60.0
 
 
 @dataclass
@@ -134,6 +174,9 @@ class GeneratedMedia:
     # The conversation the video was made in ("/thread/<id>"), so the next
     # scene of the same film can continue there. None when it is unknown.
     thread_path: str | None = None
+    # The file's name on the page ("dragon 1"). A copy Muse attaches again
+    # has the same name. None when the page shows none.
+    name: str | None = None
 
 
 def video_prompt(prompt: str, aspect_ratio: str, duration_seconds: int) -> str:
@@ -190,6 +233,7 @@ def _generate_media(
     attach_on_continue=False,
     require_thread=False,
     fresh=None,
+    on_marker=None,
 ) -> GeneratedMedia | list[GeneratedMedia]:
     """Ask Muse for one image or video and download the result.
 
@@ -210,6 +254,9 @@ def _generate_media(
     `fresh` is the (prompt, attachments) to send instead when `thread_path`
     cannot be continued and a new conversation is opened: a first message
     must stand on its own (see app/rendering/conversation.py).
+
+    `on_marker` is told the label of each message just before it is sent,
+    so a request whose outcome is lost can be taken back (`recover_media`).
     """
     result = confirmed_session(
         client, cookies, expiries, proxy, on_session, check_cancelled
@@ -242,17 +289,7 @@ def _generate_media(
 
         def receive(attachment):
             remember_thread()
-            fetched = page.evaluate(FETCH_MEDIA_JS, attachment["src"])
-            if not fetched.get("ok") or not fetched.get("b64"):
-                raise MuseError("media_download_failed", partial=result)
-            media = GeneratedMedia(
-                data=base64.b64decode(fetched["b64"]),
-                mime=fetched.get("mime")
-                or ("image/png" if media_kind == "image" else "video/mp4"),
-                width=attachment.get("w") or None,
-                height=attachment.get("h") or None,
-                thread_path=thread_path_of(page.url),
-            )
+            media = _download(page, attachment, media_kind, result)
             if on_media:
                 on_media(media)
             downloaded.append(media)
@@ -302,6 +339,10 @@ def _generate_media(
             )
             baseline = page.evaluate(MEDIA_STATE_JS, [None, True])
             check_cancelled()
+            if on_marker:
+                # With the conversation the page is on (None: a new one,
+                # whose id is learned after sending).
+                on_marker(marker, thread_path_of(page.url))
             # Record submission BEFORE the click; refreshed cookies are already saved.
             before_send(result)
             page.mouse.click(point["x"], point["y"])
@@ -331,17 +372,214 @@ def _generate_media(
             return downloaded if many else downloaded[0]
 
 
-def _read_state(page, marker, baseline, anchor_wait, sent_at):
+def _download(page, attachment, media_kind, result) -> GeneratedMedia:
+    """The bytes behind an attachment on the page."""
+    fetched = page.evaluate(FETCH_MEDIA_JS, attachment["src"])
+    if not fetched.get("ok") or not fetched.get("b64"):
+        raise MuseError("media_download_failed", partial=result)
+    return GeneratedMedia(
+        data=base64.b64decode(fetched["b64"]),
+        mime=fetched.get("mime")
+        or ("image/png" if media_kind == "image" else "video/mp4"),
+        width=attachment.get("w") or None,
+        height=attachment.get("h") or None,
+        thread_path=thread_path_of(page.url),
+        name=attachment.get("name") or None,
+    )
+
+
+def _new_file(attachment, names) -> bool:
+    """False for a file already taken, by its name (see MEDIA_STATE_JS): a
+    copy Muse attached again, smaller, under the same name (2026-11-17), or
+    the same picture shown from another source. One without a name counts
+    by its source alone."""
+    name = attachment.get("name")
+    if not name:
+        return True
+    if name in names:
+        return False
+    names.add(name)
+    return True
+
+
+# Looking further up a conversation for an older message.
+HISTORY_CLIMBS = 30
+CLIMB_JS = """() => document.querySelectorAll('*').forEach(e => {
+  const s = getComputedStyle(e);
+  if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 50)
+    e.scrollTop = Math.max(0, e.scrollTop - e.clientHeight);
+})"""
+TOP_JS = """() => [...document.querySelectorAll('*')].every(e => {
+  const s = getComputedStyle(e);
+  return !((s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 50)
+    || e.scrollTop === 0;
+})"""
+
+
+def recover_media(
+    client,
+    cookies,
+    expiries,
+    proxy,
+    *,
+    thread_path: str,
+    marker: str,
+    on_session,
+    check_cancelled,
+    timeout=600,
+    grace=ATTACHMENT_GRACE,
+    media_kind="video",
+    count=1,
+    skip=(),
+    many=False,
+) -> GeneratedMedia | list[GeneratedMedia] | None:
+    """Take back what Muse made for a message this app already sent, found
+    in `thread_path` by its `marker`, without sending it again (at most the
+    usual request to attach a file Muse kept in its workspace).
+
+    None when the message is not in that conversation: it never arrived and
+    nothing was made, so the caller sends a new one. Only what follows that
+    message counts; nothing else on the page is ever taken for it. A reply
+    still being written is waited for (`conversation_busy`, nothing sent).
+
+    `many`: the answer is a set of pictures (also when one is still
+    missing): every file in it counts, a list is returned, and nothing is
+    asked for. `skip`: names of files already saved from it; they are not
+    taken again.
+    """
+    result = confirmed_session(
+        client, cookies, expiries, proxy, on_session, check_cancelled
+    )
+    with open_composer(client, result, proxy, thread_path) as page:
+        if thread_path_of(page.url) != thread_path:
+            # It could not be opened just now: that is no sign our message
+            # never arrived. Keep it for a later try.
+            raise MuseError("conversation_unavailable", partial=result)
+        settle_conversation(page)
+        deadline = time.monotonic() + ANCHOR_WAIT
+        climbs = 0
+        while not page.evaluate(SENT_JS, marker):
+            check_cancelled()
+            if time.monotonic() >= deadline:
+                # Older messages may only load further up: look there before
+                # concluding it is not in the conversation.
+                if page.evaluate(TOP_JS):
+                    return None
+                if climbs >= HISTORY_CLIMBS:
+                    # Not found, but not everything was looked at: unknown.
+                    raise MuseError("conversation_unavailable", partial=result)
+                climbs += 1
+                page.evaluate(CLIMB_JS)
+            page.wait_for_timeout(500)
+        if page.evaluate(UNDELIVERED_JS, marker):
+            return None
+        page.evaluate(SHOW_JS, marker)
+        if many or count > 1:
+            return _collect_answered(
+                page, marker, media_kind, count, result, check_cancelled, timeout, skip
+            )
+        found = []
+        _wait_for_media(
+            page,
+            marker,
+            {"attachments": [], "agentCount": 0},
+            True,
+            check_cancelled,
+            result,
+            timeout,
+            grace,
+            media_kind=media_kind,
+            on_ready=lambda attachment: found.append(
+                _download(page, attachment, media_kind, result)
+            ),
+            anchored_only=True,
+        )
+        return found[0]
+
+
+# A batch taken back is settled once Muse has been idle this long.
+BATCH_SETTLE = 10.0
+
+
+def _collect_answered(
+    page, marker, media_kind, count, result, check_cancelled, timeout, skip=()
+):
+    """Every file (up to `count`) that answers our message, as many as Muse
+    made: a batch taken back may hold fewer than asked, and the rest is then
+    asked for again. Nothing is sent from here: asking for "all" files again
+    would bring back ones already counted (an approval the agent waits for
+    is declined, as when sending). Files named in `skip` were saved before
+    and are passed over, as are copies of one already taken.
+
+    Fewer files than asked are only reported once Muse has been quiet for
+    BATCH_SETTLE: not answering, no new file, none loading. Until then the
+    outcome is unknown, and at the deadline that is a timeout (the request
+    is kept), never a count. A file that stays without its source once Muse
+    is done (as "Video not found" did on 2026-11-16) counts as not made
+    STALLED_ATTACHMENT after it showed up."""
+    collected, seen, names = [], set(), set(skip)
+    loading_since = {}
+    quiet_since = None
+    deadline = time.monotonic() + timeout
+    while len(collected) < count:
+        if time.monotonic() >= deadline:
+            raise MuseError("generation_timeout", 504, partial=result)
+        check_cancelled()
+        page.wait_for_timeout(POLL_MS)
+        state = page.evaluate(MEDIA_STATE_JS, [marker, False, True])
+        if state["approval"]:
+            # The agent waits for an answer (as when sending): declined, it
+            # carries on; until then the answer is not complete.
+            page.evaluate(DENY_APPROVALS_JS)
+            quiet_since = None
+            continue
+        grew = False
+        for attachment in state["attachments"]:
+            if (
+                attachment["kind"] != media_kind
+                or not attachment["src"]
+                or attachment["src"] in seen
+                or len(collected) >= count
+            ):
+                continue
+            seen.add(attachment["src"])
+            if _new_file(attachment, names):
+                collected.append(_download(page, attachment, media_kind, result))
+                grew = True
+        now = time.monotonic()
+        # Each file's time to load counts from when it showed up, and only
+        # once Muse has stopped answering.
+        loading_since = {
+            key: now if state["generating"] else loading_since.get(key, now)
+            for key in (
+                a.get("name") or index
+                for index, a in enumerate(state["attachments"])
+                if media_kind in a["tid"] and not a["src"]
+            )
+        }
+        loading = any(
+            now - since <= STALLED_ATTACHMENT for since in loading_since.values()
+        )
+        if state["generating"] or loading or grew:
+            quiet_since = None
+            continue
+        quiet_since = quiet_since or now
+        if now - quiet_since > BATCH_SETTLE:
+            break
+    return collected
+
+
+def _read_state(page, marker, baseline, anchor_wait, sent_at, anchored_only=False):
     """The page relative to our message: by its label when the page shows
     it, otherwise by comparing with what was there before sending."""
-    state = page.evaluate(MEDIA_STATE_JS, [marker, False])
+    state = page.evaluate(MEDIA_STATE_JS, [marker, False, anchored_only])
     if state["sent"]:
         known_sources = {a["src"] for a in baseline["attachments"] if a["src"]}
         state["attachments"] = [
             a for a in state["attachments"] if a["src"] not in known_sources
         ]
         return state
-    if time.monotonic() - sent_at < anchor_wait:
+    if anchored_only or time.monotonic() - sent_at < anchor_wait:
         return state  # Not sent yet, as far as we can tell.
     known = {(a["tid"], a["src"]) for a in baseline["attachments"]}
     state = page.evaluate(MEDIA_STATE_JS, [None, True])
@@ -368,7 +606,10 @@ def _wait_for_media(
     count=1,
     on_ready=None,
     on_poll=None,
+    anchored_only=False,
 ):
+    # `anchored_only`: only what follows our message counts, never a guess
+    # from comparing with the page as it was (taking a sent request back).
     # A new conversation holds nothing but this request, so the baseline
     # comparison is safe at once; a continued one gets time to show our
     # message first.
@@ -377,7 +618,10 @@ def _wait_for_media(
     started = time.monotonic()
     text_done_at = None
     asked_to_attach = denied = busy = False
+    stalled_since = None
     seen = set()
+    # Names of the files taken (see _new_file).
+    names = set()
     collected = []
     undelivered = None
     received = False
@@ -389,7 +633,9 @@ def _wait_for_media(
         page.wait_for_timeout(POLL_MS)
         if on_poll:
             on_poll()
-        state = _read_state(page, marker, baseline, anchor_wait, started)
+        state = _read_state(
+            page, marker, baseline, anchor_wait, started, anchored_only
+        )
         if state["approval"]:
             page.evaluate(DENY_APPROVALS_JS)
             denied, text_done_at = True, None
@@ -403,20 +649,32 @@ def _wait_for_media(
             # Our message is not on the page yet.
             continue
         fresh = state["attachments"]
-        ready = [
-            a
-            for a in fresh
-            if a["kind"] == media_kind and a["src"] not in seen and a["src"]
-        ]
-        for attachment in ready:
+        for attachment in fresh:
+            if (
+                attachment["kind"] != media_kind
+                or not attachment["src"]
+                or attachment["src"] in seen
+            ):
+                continue
+            seen.add(attachment["src"])
+            if not _new_file(attachment, names):
+                continue
             if on_ready:
                 on_ready(attachment)
-            seen.add(attachment["src"])
             collected.append(attachment)
             text_done_at = None
             if len(collected) >= count:
                 return collected
         loading = any(media_kind in a["tid"] and not a["src"] for a in fresh)
+        if loading and count == 1 and not state["generating"]:
+            # Muse has finished, yet the attachment never gets its file (it
+            # showed "Video not found" on 2026-11-16): after a while, ask for
+            # the file again (below) instead of waiting for it to load.
+            stalled_since = stalled_since or time.monotonic()
+            if time.monotonic() - stalled_since > STALLED_ATTACHMENT:
+                loading = False
+        else:
+            stalled_since = None
         busy = busy or loading
         if loading:
             # The attachment is on the page but its source has not loaded yet.
@@ -435,22 +693,23 @@ def _wait_for_media(
             continue
         if time.monotonic() - text_done_at < grace:
             continue
+        if state.get("bounded"):
+            # Our message is not the latest: a file asked for again would be
+            # attached after the later ones, out of our reach. Take a link
+            # that answers it, if there is one; otherwise wait (timeout).
+            links = page.evaluate(LAST_BUBBLE_LINKS_JS, [marker, False])
+            link = pick_video_link(links) if media_kind == "video" else None
+            if link and link not in seen and on_ready:
+                on_ready({"src": link, "kind": media_kind})
+                return [{"src": link, "kind": media_kind}]
+            text_done_at = None
+            continue
         if not asked_to_attach:
             # The agent often finishes with the file only in its workspace
             # (after a declined upload, or when it shows a gallery instead).
             # Asking once gets the final file attached; it does not start
             # another generation.
-            request = (
-                f"Please attach all {count} final image files from this request here in the chat, "
-                "as separate attachments. Do not generate more images or upload them elsewhere."
-                if media_kind == "image" and count > 1
-                else f"Please attach the final {media_kind} file here in the chat"
-                + (
-                    " instead of uploading it."
-                    if denied
-                    else ", as a single attachment."
-                )
-            )
+            request = attach_request(media_kind, count, denied)
             point = fill_composer(page, request, check_cancelled, result)
             page.mouse.click(point["x"], point["y"])
             asked_to_attach, text_done_at = True, None

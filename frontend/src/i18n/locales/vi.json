@@ -1327,6 +1327,8 @@
     }
   },
   "quickCreate": {
+    "reuseNote": "Dùng lại prompt: gửi tiếp vào đoạn chat Muse của lần tạo đó.",
+    "reuseNewChat": "Tạo trong đoạn chat mới",
     "description": "Một prompt, một kết quả. Tạo ảnh hoặc video ngắn một cảnh; video nhiều cảnh làm trong Video Studio.",
     "configuration": "Cấu hình tạo nhanh",
     "contentType": "Loại nội dung",

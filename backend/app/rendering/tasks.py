@@ -6,13 +6,14 @@ after it until the user retries. The project's status is derived from the
 chain (`sync_project`) wherever a task changes.
 """
 
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select, text, update
 
 from app.accounts.task_session import TaskAccountSession
 from app.integrations.muse.client import MuseError
-from app.integrations.muse.media import generate_video
+from app.integrations.muse.media import generate_video, recover_media
 from app.models import Account, Project, Scene, Task
 from app.rendering import conversation, film, storage, timeline
 from app.rendering.ffmpeg import (
@@ -35,6 +36,13 @@ from app.tasks.kinds import (
 
 # Failures that call for another account rather than another try.
 ACCOUNT_ACTIONS = ("switch_account", "relogin", "check_proxy")
+# Muse answered a sent scene without a clip: there is nothing to take back.
+ANSWERED = ("generation_refused", "quota_exhausted", "image_count_mismatch")
+
+
+def recover_video(*args, **kwargs):
+    """`recover_media` for a scene's clip (a seam for tests)."""
+    return recover_media(*args, media_kind="video", **kwargs)
 # Statuses `sync_project` may move a project between.
 RENDER_STATUSES = ("rendering", "cancelling", "cancelled", "failed", "completed")
 
@@ -92,6 +100,11 @@ def start_render(session, project_id: str) -> None:
         if not usable_accounts(session):
             raise RenderRequestError("account_unavailable", 409)
         project = session.get(Project, project_id)
+        if not project.timeline_json:
+            # A new film: dissolves and levelled sound (Export changes both).
+            project.timeline_json = json.dumps(
+                {"output": {**timeline.OUTPUT, **timeline.NEW_FILM_OUTPUT}}
+            )
         # If the script was written in a conversation, render there: pin
         # the scenes to the account that owns it while it is usable.
         pinned = (
@@ -178,12 +191,20 @@ def resume_render(session, project_id: str, confirm_duplicate: bool = False) -> 
     Finished scenes are not touched.
     """
     retryable = ["failed", "cancelled"]
+    # An interrupted scene whose sent message is known is taken back from
+    # the conversation on retry, never sent twice (see make_scene_handler):
+    # it needs no confirmation.
+    known = func.json_extract(Task.checkpoint_json, "$.sent.marker").is_not(
+        None
+    ) & func.json_extract(Task.checkpoint_json, "$.sent.thread").is_not(None)
+    again = Task.status.in_(retryable) | ((Task.status == "interrupted") & known)
     if confirm_duplicate:
         retryable.append("interrupted")
+        again = Task.status.in_(retryable)
     else:
         interrupted = session.scalar(
             select(Task.id)
-            .where(*_render_tasks(project_id), Task.status == "interrupted")
+            .where(*_render_tasks(project_id), Task.status == "interrupted", ~known)
             .limit(1)
         )
         session.rollback()  # End the read snapshot before writing (WAL).
@@ -209,7 +230,7 @@ def resume_render(session, project_id: str, confirm_duplicate: bool = False) -> 
     try:
         resumed = session.execute(
             update(Task)
-            .where(*_render_tasks(project_id), Task.status.in_(retryable))
+            .where(*_render_tasks(project_id), again)
             .values(**tasks.requeue_values(switch_account=switch))
         ).rowcount
         if resumed and switch:
@@ -312,7 +333,8 @@ def restart_render(session, project_id: str, from_scene: int) -> list[str]:
                 *_render_tasks(project_id),
                 or_(Task.kind == MERGE_VIDEO, Task.scene_number >= from_scene),
             )
-            .values(**tasks.requeue_values())
+            # A new take: nothing an earlier attempt sent is taken back.
+            .values(**tasks.requeue_values(), checkpoint_json="{}")
         )
         session.commit()
         return [
@@ -507,6 +529,52 @@ def make_scene_handler(app):
                     "reference_frame_failed", suggested_action="retry"
                 ) from None
         account = TaskAccountSession(app, context.account_id)
+        # A request an earlier attempt sent, whose outcome was lost (the app
+        # stopped, or the clip was not seen in time): take it back from the
+        # conversation before sending a new one.
+        sent = dict(context.checkpoint.get("sent") or {})
+        video = None
+        if sent.get("marker") and sent.get("thread"):
+            if sent.get("account") != context.account_id:
+                # Its conversation is on another account: it cannot be looked
+                # for from here, and sending again might make it twice.
+                raise TaskFailure("conversation_unavailable", suggested_action="retry")
+            try:
+                video = recover_video(
+                    app.state.muse_client,
+                    account.cookies,
+                    account.expiries,
+                    account.proxy,
+                    thread_path=sent["thread"],
+                    marker=sent["marker"],
+                    on_session=account.persist,
+                    check_cancelled=context.raise_if_cancelled,
+                    timeout=settings.render_timeout,
+                )
+            except MuseError as error:
+                if error.code in ANSWERED:
+                    context.save_checkpoint({})
+                raise account.failure(error) from None
+            if video is not None:
+                # It was counted towards the conversation when it was sent.
+                request.counted = True
+        if video is None and sent:
+            # Nothing to take back: that message never arrived (or its
+            # conversation was never learned; an interrupted one then needed
+            # the user's confirmation to get here, see resume_render).
+            context.save_checkpoint({})
+            sent = {}
+
+        def on_marker(marker, thread=None):
+            sent.clear()
+            sent.update(marker=marker, thread=thread, account=context.account_id)
+            context.save_checkpoint({"sent": dict(sent)})
+
+        def on_thread(path):
+            request.on_thread(path)
+            if path and sent.get("marker") and sent.get("thread") != path:
+                sent["thread"] = path
+                context.save_checkpoint({"sent": dict(sent)})
 
         def before_send(result):
             context.raise_if_cancelled()
@@ -514,7 +582,7 @@ def make_scene_handler(app):
             request.sending()
 
         try:
-            video = generate_video(
+            video = video or generate_video(
                 app.state.muse_client,
                 account.cookies,
                 account.expiries,
@@ -526,12 +594,16 @@ def make_scene_handler(app):
                 timeout=settings.render_timeout,
                 reference=reference,
                 thread_path=request.thread,
-                on_thread=request.on_thread,
+                on_thread=on_thread,
                 attachments=files,
                 attach_on_continue=True,
                 fresh=(fresh_prompt, everything) if request.thread else None,
+                on_marker=on_marker,
             )
         except MuseError as error:
+            if error.code in ANSWERED:
+                # Muse answered without a clip: a retry asks again.
+                context.save_checkpoint({})
             raise account.failure(error) from None
         if not video.data:
             raise TaskFailure("media_download_failed", suggested_action="retry")
@@ -596,6 +668,8 @@ def make_scene_handler(app):
                 .values(account_id=context.account_id)
             )
             session.commit()
+        # Done: a later "render again" must not take this clip back.
+        context.save_checkpoint({})
         return {
             "projectId": context.project_id,
             "sceneNumber": context.scene_number,

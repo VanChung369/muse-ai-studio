@@ -5,11 +5,13 @@ reproduces the structure the reference client relies on: the composer, agent
 bubbles, attachment presentations, approval cards.
 """
 
+import base64
 import json
 import os
 import re
 import shutil
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -21,7 +23,9 @@ from app.core.config import Settings
 from app.integrations.muse import chat
 from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseClient, MuseError
+from app.integrations.muse import media
 from app.integrations.muse.media import (
+    recover_media,
     generate_image,
     generate_images,
     generate_video,
@@ -67,6 +71,38 @@ function attachImage(index = 0) {
   holder.appendChild(image);
   chat.appendChild(holder);
 }
+// As muse.ai shows a set of pictures (2026-11-17): ONE attachment holding a
+// grid, each picture behind its own "Open generated image <name>" button.
+// `busy`: pictures still loading.
+function grid(names, prefix, busy = []) {
+  const holder = document.createElement('div');
+  holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-image');
+  for (const name of names) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.title = name;
+    button.setAttribute('aria-label', 'Open generated image ' + name);
+    button.setAttribute('aria-busy', busy.includes(name) ? 'true' : 'false');
+    if (!busy.includes(name)) {
+      const image = document.createElement('img');
+      image.src = URL.createObjectURL(new Blob([prefix + ' ' + name], { type: 'image/png' }));
+      button.appendChild(image);
+    }
+    holder.appendChild(button);
+  }
+  chat.appendChild(holder);
+}
+// A user message as muse.ai renders one: a screen-reader "You:" label.
+function typed(text) {
+  const node = document.createElement('div');
+  const you = document.createElement('span');
+  you.className = 'sr-only';
+  you.textContent = 'You:';
+  const words = document.createElement('p');
+  words.textContent = text;
+  node.append(you, words);
+  chat.appendChild(node);
+}
 function approval() {
   const card = document.createElement('div');
   card.setAttribute('data-testid', 'hatch-inline-approval-card');
@@ -95,7 +131,7 @@ const held = [];
 if (MODE === 'image-auto-thread' || MODE === 'image-reference') {
   document.querySelector('input[type=file]').onchange = async event => {
     const file = event.target.files[0];
-    const send = document.querySelector('button');
+    const send = document.querySelector('form button');
     send.disabled = true;
     const bytes = await file.arrayBuffer();
     await fetch('/__file?name=' + file.name + '&type=' + file.type, {method: 'POST', body: bytes});
@@ -143,12 +179,178 @@ if (saved && (MODE === 'slow-history' || MODE === 'never-loads')) {
   }, 300);
 } else if (saved) {
   bubble('The script is ready.');
+  if (MODE.startsWith('answered')) {
+    // An earlier scene of this conversation, then a request this app sent
+    // whose outcome it lost: Muse answered it (now, later, or with a clip
+    // whose file never shows).
+    oldClip();
+    const mine = document.createElement('div');
+    mine.className = 'user-bubble';
+    mine.innerText = '[shot-cafe0001] Generate a video (aspect ratio 16:9, 10 seconds long): a cat';
+    chat.appendChild(mine);
+    bubble("Here's your video.");
+    if (MODE === 'answered') attach();
+    if (MODE === 'answered-then-typed' || MODE === 'answered-then-link') {
+      // Ours, then a request someone typed in Muse by hand (no label, shown
+      // with Muse's "You:" label), whose clip is ready while ours is not;
+      // or ours answered with a link to the file instead of an attachment,
+      // followed by a later request of this app.
+      if (MODE === 'answered-then-link') {
+        const reply = document.createElement('div');
+        reply.className = 'hatch-chat-groupable-bubble hatch-agent-bubble-bg';
+        reply.innerHTML = 'Done: <a href="/media/clip.mp4">clip.mp4</a>';
+        chat.appendChild(reply);
+        const later = document.createElement('div');
+        later.className = 'user-bubble';
+        later.innerText = '[' + 'shot-beef0002' + '] Generate a video: a dog';
+        chat.appendChild(later);
+        bubble("Here's the dog.");
+      } else {
+        const ours = document.createElement('div');
+        ours.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+        chat.appendChild(ours);
+        const typed = document.createElement('div');
+        const you = document.createElement('span');
+        you.className = 'sr-only';
+        you.textContent = 'You:';
+        const words = document.createElement('p');
+        words.textContent = 'Generate a dog video';
+        typed.append(you, words);
+        chat.appendChild(typed);
+        const theirs = document.createElement('div');
+        theirs.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+        const clip = document.createElement('video');
+        clip.src = '/media/old.mp4';
+        theirs.appendChild(clip);
+        chat.appendChild(theirs);
+        setTimeout(async () => {
+          const bytes = await (await fetch('/media/clip.mp4')).arrayBuffer();
+          const video = document.createElement('video');
+          video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+          ours.appendChild(video);
+        }, 4000);
+      }
+    }
+    if (MODE === 'answered-collapsed') {
+      // As muse.ai keeps messages out of view (2026-11-17): our clip loads
+      // slowly; a reply quoting our label and a later request are collapsed
+      // to screen-reader text; the later request's clip is ready.
+      const ours = document.createElement('div');
+      ours.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      chat.appendChild(ours);
+      const reader = (text) => {
+        const span = document.createElement('span');
+        span.className = 'sr-only';
+        span.textContent = text;
+        chat.appendChild(span);
+      };
+      reader('Assistant message: Here is shot 1 [' + 'shot-cafe0001' + '], as asked.');
+      reader('Assistant message: [' + 'shot-cafe0001' + '] done.');
+      reader('User message: [' + 'shot-beef0002' + '] Generate a video: a dog');
+      const theirs = document.createElement('div');
+      theirs.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      const clip = document.createElement('video');
+      clip.src = '/media/old.mp4';
+      theirs.appendChild(clip);
+      chat.appendChild(theirs);
+      setTimeout(async () => {
+        const bytes = await (await fetch('/media/clip.mp4')).arrayBuffer();
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+        ours.appendChild(video);
+      }, 4000);
+    }
+    if (MODE === 'answered-then-more') {
+      // Ours is answered but its clip loads slowly, and the conversation went
+      // on: a later request's clip is on the page, ready, below it.
+      const ours = document.createElement('div');
+      ours.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      chat.appendChild(ours);
+      const later = document.createElement('div');
+      later.className = 'user-bubble';
+      later.innerText = '[' + 'shot-beef0002' + '] Generate a video: a dog';
+      chat.appendChild(later);
+      bubble("Here's the dog.");
+      const theirs = document.createElement('div');
+      theirs.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      const clip = document.createElement('video');
+      clip.src = '/media/old.mp4';
+      theirs.appendChild(clip);
+      chat.appendChild(theirs);
+      setTimeout(async () => {
+        const bytes = await (await fetch('/media/clip.mp4')).arrayBuffer();
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+        ours.appendChild(video);
+      }, 4000);
+    }
+    if (MODE === 'answered-late') setTimeout(attach, 1500);
+    if (MODE === 'answered-stalled') {
+      const holder = document.createElement('div');
+      holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      holder.innerText = 'Video not found';
+      chat.appendChild(holder);
+    }
+  }
+  if (MODE.startsWith('taken-')) {
+    // A set of pictures this app asked for, answered as muse.ai does
+    // (2026-11-17): one attachment holding a grid of them.
+    const mine = document.createElement('div');
+    mine.className = 'user-bubble';
+    mine.innerText = '[' + 'shot-cafe0003' + '] Generate exactly 2 separate images (aspect ratio 1:1): a turtle';
+    chat.appendChild(mine);
+    bubble('Done: 2 separate turtle images.');
+    if (MODE === 'taken-grid') grid(['turtle 1', 'turtle 2'], 'full');
+    if (MODE === 'taken-loading') grid(['turtle 1', 'turtle 2'], 'full', ['turtle 2']);
+    if (MODE === 'taken-reattached') {
+      // One picture attached; this app's follow-up; Muse attaching the files
+      // again, smaller, under the same names.
+      grid(['turtle 1'], 'full');
+      typed('Please attach all 2 final image files from this request here in the chat, as separate attachments. Do not generate more images or upload them elsewhere.');
+      bubble('Here are the 2 final images, re-attached separately.');
+      grid(['turtle 1', 'turtle 2'], 'copy');
+    }
+    if (MODE === 'taken-typed') {
+      // One picture, then a request typed in Muse by hand that only starts
+      // like this app's follow-up, answered with another picture.
+      grid(['turtle 1'], 'full');
+      typed('Please attach a newly generated dog image');
+      bubble('Here is a dog.');
+      grid(['dog 1'], 'dog');
+    }
+    // Two pictures of one attachment under the same title.
+    // Two pictures of one attachment under the same title, and one whose
+    // title looks like a numbered one.
+    if (MODE === 'taken-twins') {
+      grid(['turtle', 'turtle', 'turtle #2'], 'full');
+      chat.querySelectorAll('button[title="turtle"] img')[1].src =
+        URL.createObjectURL(new Blob(['second turtle'], { type: 'image/png' }));
+    }
+    // The same, under a title that is also a property of every JS object.
+    if (MODE === 'taken-proto') {
+      grid(['constructor', 'constructor'], 'full');
+      chat.querySelectorAll('button[title="constructor"] img')[1].src =
+        URL.createObjectURL(new Blob(['second constructor'], { type: 'image/png' }));
+    }
+    if (MODE === 'taken-busy') {
+      // A picture still being finished: a preview behind a busy button, the
+      // final file a few seconds later (after the page is read).
+      grid(['turtle 1'], 'preview');
+      const button = chat.querySelector('button[title="turtle 1"]');
+      button.setAttribute('aria-busy', 'true');
+      setTimeout(() => {
+        button.querySelector('img').src = URL.createObjectURL(new Blob(['final turtle 1'], { type: 'image/png' }));
+        button.setAttribute('aria-busy', 'false');
+      }, 6000);
+    }
+  }
   historyShown = true;
 }
-document.querySelector('button').onclick = () => {
+document.querySelector('form button').onclick = () => {
   sent += 1;
   if (!historyShown) fetch('/__early', { method: 'POST' });
   const label = (textarea.value.match(/shot-[0-9a-f]{8}/) || [''])[0];
+  const asked = textarea.value;
   const mine = document.createElement('div');
   mine.className = 'user-bubble';
   mine.innerText = textarea.value;
@@ -163,6 +365,10 @@ document.querySelector('button').onclick = () => {
   textarea.value = '';
   setTimeout(() => {
     if (MODE === 'video' || MODE === 'hidden' || MODE === 'slow-composer' || MODE === 'slow-history') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'answered-stalled' && /Please attach/.test(asked)) {
+      bubble("Here it is again.");
+      setTimeout(attach, 300);
+    }
     if (MODE === 'named-file' || MODE === 'file-card' || MODE === 'echo-label') {
       // As on muse.ai (2026-11-16): the clip's box shows before its video has
       // loaded, and the closing reply names the file after our label
@@ -188,6 +394,18 @@ document.querySelector('button').onclick = () => {
         video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
         holder.appendChild(video);
       }, 900);
+    }
+    if (MODE === 'images-grid' || MODE === 'images-grid-short') {
+      // All four in one grid; or three, and all four again (smaller) once
+      // this app asks for the files.
+      const all = ['garden 1', 'garden 2', 'garden 3', 'garden 4'];
+      if (/^Please attach all/.test(asked)) {
+        bubble('Here are the 4 final images, re-attached separately.');
+        setTimeout(() => grid(all, 'copy'), 300);
+      } else {
+        bubble('Here are your four images.');
+        setTimeout(() => grid(MODE === 'images-grid' ? all : all.slice(0, 3), 'full'), 300);
+      }
     }
     if (MODE === 'image') { bubble("Here's your image."); setTimeout(attachImage, 300); }
     if (MODE === 'images') {
@@ -741,3 +959,331 @@ def test_a_snap_chromium_is_passed_over_for_the_one_playwright_downloaded(
 
     assert chat._first_browser(None, str(bundled)) == str(bundled)
     assert chat._first_browser(str(wrapper), str(bundled)) == str(wrapper)
+
+
+def recover(muse, marker, **overrides):
+    client = MuseClient(
+        Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER)
+    )
+    options = dict(
+        thread_path="/thread/old-1",
+        marker=marker,
+        on_session=lambda result: None,
+        check_cancelled=lambda: None,
+        timeout=20,
+        grace=1.0,
+    )
+    options.update(overrides)
+    return recover_media(client, {"hatch_sess": "media-fixture"}, {}, None, **options)
+
+
+@needs_browser
+@pytest.mark.parametrize("mode", ["answered", "answered-late"])
+def test_a_sent_scene_is_taken_back_without_sending_it_again(muse, mode):
+    muse.mode = mode
+    video = recover(muse, "shot-cafe0001")
+    assert video.data == CLIP and video.thread_path == "/thread/old-1"
+    assert muse.sent == []
+
+
+@needs_browser
+def test_a_request_that_never_arrived_takes_nothing_from_the_page(muse):
+    # The page holds clips (an earlier scene's, another request's): none of
+    # them is taken for a message that is not there.
+    muse.mode = "answered"
+    assert recover(muse, "shot-0000dead") is None
+    assert muse.sent == []
+
+
+@needs_browser
+def test_a_clip_whose_file_never_shows_is_asked_for_once(muse, monkeypatch):
+    monkeypatch.setattr(media, "STALLED_ATTACHMENT", 1.0)
+    muse.mode = "answered-stalled"
+    video = recover(muse, "shot-cafe0001")
+    assert video.data == CLIP
+    assert len(muse.sent) == 1 and "Do not generate a new video." in muse.sent[0]
+
+
+@needs_browser
+def test_only_what_answers_our_message_is_taken_back(muse):
+    # Live, 2026-11-16: scene 3 taken back from a conversation that went on
+    # to scene 6 came back as scene 5's clip, loaded while its own was not.
+    muse.mode = "answered-then-more"
+    video = recover(muse, "shot-cafe0001")
+    assert video.data == CLIP
+    assert muse.sent == []
+
+
+@needs_browser
+def test_a_conversation_that_cannot_be_opened_is_not_taken_for_a_lost_message(muse):
+    muse.mode = "answered"
+    with pytest.raises(MuseError) as failed:
+        recover(muse, "shot-cafe0001", thread_path="/thread/gone")
+    assert failed.value.code == "conversation_unavailable"
+    assert muse.sent == []
+
+
+@needs_browser
+def test_collapsed_messages_still_bound_what_is_taken_back(muse):
+    # Live, 2026-11-17: scene 4's request, collapsed to "User message: [...]",
+    # was not seen as a later request, and scene 3 came back as scene 4's clip.
+    muse.mode = "answered-collapsed"
+    video = recover(muse, "shot-cafe0001")
+    assert video.data == CLIP
+    assert muse.sent == []
+
+
+@needs_browser
+def test_a_request_typed_in_muse_by_hand_also_bounds_what_is_taken_back(muse):
+    muse.mode = "answered-then-typed"
+    video = recover(muse, "shot-cafe0001")
+    assert video.data == CLIP and muse.sent == []
+
+
+@needs_browser
+def test_a_link_that_answers_an_older_message_is_taken_back(muse):
+    muse.mode = "answered-then-link"
+    video = recover(muse, "shot-cafe0001", grace=0.5)
+    assert video.data == CLIP and muse.sent == []
+
+
+def images(muse, count, **overrides):
+    client = MuseClient(Settings(_env_file=None, upstream_url=muse.origin, browser_path=BROWSER))
+    saved = []
+    options = dict(
+        on_session=lambda result: None, before_send=lambda result: None,
+        check_cancelled=lambda: None, on_media=saved.append, timeout=20, grace=1.0,
+    )
+    options.update(overrides)
+    made = generate_images(
+        client, {"hatch_sess": "media-fixture"}, {}, None,
+        "Generate exactly 4 separate images of a garden.", count=count, **options,
+    )
+    return made, saved
+
+
+@needs_browser
+def test_every_picture_of_a_grid_is_a_file(muse):
+    # Live, 2026-11-17: muse.ai answered "4 dragon images" with ONE
+    # attachment holding all four; only the first was taken, the files were
+    # asked for again, and a smaller copy of it was saved as another image.
+    muse.mode = "images-grid"
+    made, saved = images(muse, 4)
+    assert [image.data for image in saved] == [f"full garden {i}".encode() for i in range(1, 5)]
+    assert [image.name for image in made] == [f"garden {i}" for i in range(1, 5)]
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_files_attached_again_are_not_taken_twice(muse):
+    muse.mode = "images-grid-short"
+    made, saved = images(muse, 4)
+    assert [image.data for image in saved] == [
+        b"full garden 1", b"full garden 2", b"full garden 3", b"copy garden 4"
+    ]
+    assert len(muse.sent) == 2 and muse.sent[1] == chat.attach_request("image", 4, False)
+
+
+@needs_browser
+def test_a_set_of_pictures_is_taken_back_from_its_grid(muse, monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 1.0)
+    muse.mode = "taken-grid"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2)
+    assert [image.data for image in taken] == [b"full turtle 1", b"full turtle 2"]
+    # A picture saved before is passed over, also when one is still missing.
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=1, skip=["turtle 1"], many=True)
+    assert [image.data for image in taken] == [b"full turtle 2"]
+    assert muse.sent == []
+
+
+@needs_browser
+def test_this_apps_follow_up_does_not_end_the_answer_and_copies_are_passed_over(muse, monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 1.0)
+    muse.mode = "taken-reattached"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2)
+    assert [image.data for image in taken] == [b"full turtle 1", b"copy turtle 2"]
+    assert muse.sent == []
+    # The page holds the follow-up exactly as this app sends it.
+    assert chat.attach_request("image", 2, False) in PAGE
+
+
+@needs_browser
+def test_a_message_only_starting_like_the_follow_up_ends_the_answer(muse, monkeypatch):
+    # Codex review, 2026-11-17: any "Please attach..." was let through, so a
+    # dog picture asked for by hand would have been saved for the turtles.
+    monkeypatch.setattr(media, "BATCH_SETTLE", 1.0)
+    muse.mode = "taken-typed"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2)
+    assert [image.data for image in taken] == [b"full turtle 1"]
+
+
+@needs_browser
+def test_a_picture_still_loading_at_the_deadline_is_not_reported_missing(muse, monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.5)
+    muse.mode = "taken-loading"
+    with pytest.raises(MuseError) as failed:
+        recover(muse, "shot-cafe0003", media_kind="image", count=2, timeout=3)
+    assert failed.value.code == "generation_timeout"
+    # One that never loads once Muse is done counts as not made.
+    monkeypatch.setattr(media, "STALLED_ATTACHMENT", 0.5)
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2, timeout=10)
+    assert [image.data for image in taken] == [b"full turtle 1"]
+    assert muse.sent == []
+
+
+def test_every_follow_up_this_app_sends_or_sent_is_recognised():
+    for kind in ("image", "video"):
+        for count in (1, 2, 4, 12):
+            for denied in (True, False):
+                assert re.fullmatch(chat.ATTACH_REQUEST_RE, chat.attach_request(kind, count, denied))
+    for older in (
+        "Please attach the final video file here in the chat, as a single attachment.",
+        "Please attach the final video file here in the chat instead of uploading it.",
+        "Please attach the final image file here in the chat, as a single attachment.",
+    ):
+        assert re.fullmatch(chat.ATTACH_REQUEST_RE, older)
+    for other in (
+        "Please attach a newly generated dog image",
+        "Please attach the final video file here in the chat, as a single attachment. Then make a dog video.",
+    ):
+        assert not re.fullmatch(chat.ATTACH_REQUEST_RE, other)
+
+
+@needs_browser
+def test_pictures_of_one_attachment_sharing_a_title_are_two_files(muse, monkeypatch):
+    # Codex review, 2026-11-17: told apart by title alone, the second was
+    # taken for a copy of the first.
+    monkeypatch.setattr(media, "BATCH_SETTLE", 1.0)
+    muse.mode = "taken-twins"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=3)
+    assert [image.data for image in taken] == [b"full turtle", b"second turtle", b"full turtle #2"]
+    assert len({image.name for image in taken}) == 3
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2, skip=["turtle"], many=True)
+    assert [image.data for image in taken] == [b"second turtle", b"full turtle #2"]
+    muse.mode = "taken-proto"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=2)
+    assert [image.data for image in taken] == [b"full constructor", b"second constructor"]
+
+
+@needs_browser
+def test_a_picture_still_being_finished_is_not_taken_from_its_preview(muse):
+    muse.mode = "taken-busy"
+    taken = recover(muse, "shot-cafe0003", media_kind="image", count=1, many=True)
+    assert [image.data for image in taken] == [b"final turtle 1"]
+
+
+class TimedAnswer:
+    """A page whose answer changes over time: (seconds after the first look,
+    state from then on), in order."""
+
+    url = "https://muse.ai/thread/t-1"
+
+    def __init__(self, *timeline):
+        self.timeline, self.start, self.declined = timeline, None, 0
+
+    def wait_for_timeout(self, ms):
+        time.sleep(0.01)
+
+    def evaluate(self, script, argument=None):
+        if script == media.MEDIA_STATE_JS:
+            self.start = self.start or time.monotonic()
+            elapsed = time.monotonic() - self.start
+            return [state for at, state in self.timeline if at <= elapsed][-1]
+        if script == media.DENY_APPROVALS_JS:
+            self.declined += 1
+            return 1
+        return {"ok": True, "b64": base64.b64encode(argument.encode()).decode(), "mime": "image/png"}
+
+
+def picture(name, src):
+    return {"tid": "hatch-chat-attachment-presentation-image",
+            "kind": "image" if src else "unknown", "src": src, "w": 1, "h": 1, "name": name}
+
+
+def answer(*pictures, generating=False, approval=False):
+    return {"sent": True, "bounded": False, "agentCount": 1, "lastText": "",
+            "generating": generating, "approval": approval, "attachments": list(pictures)}
+
+
+def collect(page, count=2, timeout=5):
+    taken = media._collect_answered(page, "shot-x", "image", count, None, lambda: None, timeout)
+    return [image.data for image in taken]
+
+
+def test_an_answer_still_being_written_at_the_deadline_is_a_timeout_not_a_count():
+    page = TimedAnswer((0, answer(picture("cat 1", "blob:1"), generating=True)))
+    with pytest.raises(MuseError) as failed:
+        collect(page, timeout=0.2)
+    assert failed.value.code == "generation_timeout"
+
+
+def test_quiet_only_just_begun_at_the_deadline_is_still_a_timeout(monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 1.0)
+    page = TimedAnswer(
+        (0, answer(picture("cat 1", "blob:1"), generating=True)),
+        (0.25, answer(picture("cat 1", "blob:1"))),
+    )
+    with pytest.raises(MuseError) as failed:
+        collect(page, timeout=0.4)
+    assert failed.value.code == "generation_timeout"
+
+
+def test_a_settled_answer_reports_what_it_holds(monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.1)
+    page = TimedAnswer(
+        (0, answer(picture("cat 1", "blob:1"), picture("cat 2", ""))),
+        (0.1, answer(picture("cat 1", "blob:1"))),
+    )
+    assert collect(page) == [b"blob:1"]
+
+
+def test_a_new_file_restarts_the_quiet_wait(monkeypatch):
+    # Codex review, 2026-11-17: files arriving a while apart, with Muse
+    # already idle, were cut off after the first quiet stretch.
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.3)
+    one, two, three = (picture(f"cat {i}", f"blob:{i}") for i in (1, 2, 3))
+    page = TimedAnswer((0, answer(one)), (0.2, answer(one, two)), (0.4, answer(one, two, three)))
+    assert collect(page, count=4) == [b"blob:1", b"blob:2", b"blob:3"]
+
+
+def test_each_loading_picture_gets_its_own_time_to_load(monkeypatch):
+    monkeypatch.setattr(media, "STALLED_ATTACHMENT", 0.4)
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.1)
+    page = TimedAnswer(
+        (0, answer(picture("cat 1", ""))),
+        (0.3, answer(picture("cat 1", ""), picture("cat 2", ""))),
+        (0.6, answer(picture("cat 1", ""), picture("cat 2", "blob:2"))),
+    )
+    started = time.monotonic()
+    assert collect(page) == [b"blob:2"]
+    # Settled once cat 1 had its time, not at the deadline.
+    assert time.monotonic() - started < 3
+
+
+def test_no_file_runs_out_of_time_while_muse_is_still_answering(monkeypatch):
+    # Codex review, 2026-11-17: a picture loading through a long answer was
+    # counted as never made a moment after Muse finished.
+    monkeypatch.setattr(media, "STALLED_ATTACHMENT", 0.3)
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.05)
+    page = TimedAnswer(
+        (0, answer(picture("cat 1", "blob:1"), picture("cat 2", ""), generating=True)),
+        (0.6, answer(picture("cat 1", "blob:1"), picture("cat 2", ""))),
+        (0.75, answer(picture("cat 1", "blob:1"), picture("cat 2", "blob:2"))),
+    )
+    assert collect(page) == [b"blob:1", b"blob:2"]
+
+
+def test_an_approval_the_agent_waits_for_is_declined_not_taken_for_an_empty_answer(monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.1)
+    page = TimedAnswer((0, answer(approval=True)), (0.3, answer(picture("cat 1", "blob:1"))))
+    assert collect(page, count=1) == [b"blob:1"]
+    assert page.declined >= 1
+
+
+def test_a_picture_shown_from_another_source_is_taken_once(monkeypatch):
+    monkeypatch.setattr(media, "BATCH_SETTLE", 0.2)
+    page = TimedAnswer(
+        (0, answer(picture("cat 1", "blob:a"))),
+        (0.1, answer(picture("cat 1", "blob:b"), picture("cat 2", "blob:c"))),
+    )
+    assert collect(page) == [b"blob:a", b"blob:c"]

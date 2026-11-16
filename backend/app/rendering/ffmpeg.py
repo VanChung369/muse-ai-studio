@@ -642,12 +642,19 @@ def level_gains(
         check_cancelled()
         value = None
         if not segment.still:
-            clip = probe(ffmpeg, segment.path)
-            if clip.has_audio:
+            try:
+                clip = probe(ffmpeg, segment.path)
+            except MergeError:
+                # Levelling is a nicety: a piece it cannot read keeps its sound.
+                clip = None
+            if clip is not None and clip.has_audio:
                 start, end = _span(clip, segment.start, segment.end)
-                value = _loudness(
-                    ffmpeg, segment.path, start, end - start, check_cancelled
-                )
+                try:
+                    value = _loudness(
+                        ffmpeg, segment.path, start, end - start, check_cancelled
+                    )
+                except (OSError, ValueError):
+                    value = None
         measured.append(value if value is not None and value > LEVEL_FLOOR else None)
     heard = [value for value in measured if value is not None]
     if len(heard) < 2:

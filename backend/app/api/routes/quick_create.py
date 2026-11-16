@@ -25,6 +25,9 @@ class QuickRequest(CamelModel):
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "1:1"
     count: int = Field(default=1, ge=1, le=MAX_COUNT, strict=True)
     reference_asset_id: str | None = Field(default=None, min_length=1, max_length=36)
+    # "Reuse prompt": the batch this request reuses; it goes into that
+    # batch's conversation (a new one when that cannot be used).
+    reuse_of: str | None = Field(default=None, min_length=1, max_length=36)
 
     @field_validator("prompt")
     @classmethod
