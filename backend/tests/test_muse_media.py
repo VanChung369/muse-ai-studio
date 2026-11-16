@@ -14,8 +14,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import Error as BrowserError, sync_playwright
+from types import SimpleNamespace
 
 from app.core.config import Settings
+from app.integrations.muse import chat
 from app.integrations.muse.chat import generate_script_text
 from app.integrations.muse.client import MuseClient, MuseError
 from app.integrations.muse.media import (
@@ -125,8 +128,27 @@ function oldClip() {
   reply.innerText = 'An earlier reply in this conversation.';
   chat.prepend(reply);
 }
+// A saved conversation shows its earlier messages. 'slow-history': like
+// muse.ai on a cold workspace, a loading placeholder comes up a moment after
+// the composer and stays a while; 'never-loads': it stays.
+const saved = location.pathname.startsWith('/thread/') && !['/thread/new', '/thread/gone'].includes(location.pathname);
+let historyShown = !saved;
+if (saved && (MODE === 'slow-history' || MODE === 'never-loads')) {
+  setTimeout(() => {
+    const loading = document.createElement('div');
+    loading.setAttribute('data-hatch-loading-state', 'chat_history');
+    loading.innerHTML = '<div data-testid="chat-empty-loading">Loading</div>';
+    chat.appendChild(loading);
+    if (MODE === 'slow-history') setTimeout(() => { loading.remove(); oldClip(); historyShown = true; }, 2500);
+  }, 300);
+} else if (saved) {
+  bubble('The script is ready.');
+  historyShown = true;
+}
 document.querySelector('button').onclick = () => {
   sent += 1;
+  if (!historyShown) fetch('/__early', { method: 'POST' });
+  const label = (textarea.value.match(/shot-[0-9a-f]{8}/) || [''])[0];
   const mine = document.createElement('div');
   mine.className = 'user-bubble';
   mine.innerText = textarea.value;
@@ -134,13 +156,39 @@ document.querySelector('button').onclick = () => {
   if (MODE !== 'hidden') chat.appendChild(mine);
   if (location.pathname === '/thread/new') history.pushState({}, '', '/thread/t-001');
   // An earlier scene of this conversation, rendered lazily after we sent.
-  else setTimeout(oldClip, 100);
+  else if (MODE !== 'slow-history') setTimeout(oldClip, 100);
   fetch('/__sent', { method: 'POST', body: textarea.value });
   held.splice(0).forEach(([file, bytes]) => fetch('/__file?name=' + file.name + '&type=' + file.type, { method: 'POST', body: bytes }));
   document.querySelectorAll('[data-testid="hatch-composer-attachment"]').forEach(node => node.remove());
   textarea.value = '';
   setTimeout(() => {
-    if (MODE === 'video' || MODE === 'hidden' || MODE === 'slow-composer') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'video' || MODE === 'hidden' || MODE === 'slow-composer' || MODE === 'slow-history') { bubble("Here's your video."); setTimeout(attach, 300); }
+    if (MODE === 'named-file' || MODE === 'file-card' || MODE === 'echo-label') {
+      // As on muse.ai (2026-11-16): the clip's box shows before its video has
+      // loaded, and the closing reply names the file after our label
+      // ('named-file'). Variants: the name outside a reply bubble
+      // ('file-card'), and a reply quoting the label as sent ('echo-label').
+      bubble('Generating the video now.');
+      const holder = document.createElement('div');
+      holder.setAttribute('data-testid', 'hatch-chat-attachment-presentation-video');
+      chat.appendChild(holder);
+      const file = 'media-generation-' + label + '-a-cat-in-a-garden-0.mp4';
+      setTimeout(() => {
+        if (MODE === 'named-file') bubble('File: imagine_media/' + file);
+        if (MODE === 'echo-label') bubble('Done with [' + label + '].');
+        if (MODE === 'file-card') {
+          const card = document.createElement('div');
+          card.innerText = file;
+          chat.appendChild(card);
+        }
+      }, 300);
+      setTimeout(async () => {
+        const bytes = await (await fetch('/media/clip.mp4')).arrayBuffer();
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+        holder.appendChild(video);
+      }, 900);
+    }
     if (MODE === 'image') { bubble("Here's your image."); setTimeout(attachImage, 300); }
     if (MODE === 'images') {
       bubble("Here are your four images.");
@@ -198,6 +246,8 @@ class FakeMuse:
                 if self.path == "/__sent":
                     fake.events.append("send")
                     fake.sent.append(body.decode())
+                if self.path == "/__early":
+                    fake.events.append("sent-while-loading")
                 if self.path.startswith("/__file"):
                     fake.events.append("upload")
                     fake.files.append((self.path, body))
@@ -349,6 +399,146 @@ def test_saved_conversation_is_continued_and_its_older_clips_ignored(muse):
     # our message, so only the new one counts.
     assert video.data == CLIP
     assert video.thread_path == "/thread/old-1"
+
+
+@needs_browser
+@pytest.mark.parametrize("thread", [None, "/thread/old-1"])
+@pytest.mark.parametrize("mode", ["named-file", "file-card", "echo-label"])
+def test_reply_that_names_the_file_after_our_label_does_not_hide_the_clip(muse, mode, thread):
+    # muse.ai, 2026-11-16: the agent ends with "File: …media-generation-shot-…mp4"
+    # below the clip. That mention is not our message; taking it for one put
+    # the clip "before" our message and the scene timed out. 'file-card' needs
+    # the label as sent ("[shot-…]"), 'echo-label' needs replies left out.
+    muse.mode = mode
+    video, events = generate(muse, thread_path=thread)
+    assert video.data == CLIP
+    assert events == ["session", "send"]
+    assert len(muse.sent) == 1  # No "Please attach…" follow-up was needed.
+
+
+@needs_browser
+def test_saved_conversation_is_not_written_to_while_it_is_still_loading(muse):
+    # Sent before the earlier messages are on the page, the baseline is empty
+    # and an earlier scene's clip could pass for the new one.
+    muse.mode = "slow-history"
+    video, _ = generate(muse, thread_path="/thread/old-1")
+    assert "sent-while-loading" not in muse.events
+    assert video.data == CLIP
+    assert video.thread_path == "/thread/old-1"
+    assert len(muse.sent) == 1
+
+
+@needs_browser
+def test_saved_conversation_that_never_loads_is_waited_for_not_replaced(muse, monkeypatch):
+    monkeypatch.setattr(chat, "HISTORY_LOAD_WAIT", 3.0)
+    muse.mode = "never-loads"
+    with pytest.raises(MuseError) as failed:
+        generate(muse, thread_path="/thread/old-1")
+    # Nothing sent, so the task waits and tries again (TaskDeferred).
+    assert failed.value.code == "conversation_busy"
+    assert getattr(failed.value, "unsent", False) is True
+    assert muse.sent == []
+
+
+# The real page while the workspace connects (muse.ai, 2026-11-16): the
+# composer shows one button only, so a climb that stops at two buttons ends at
+# the whole app, conversation included, where every clip is a blob too.
+LOOSE_COMPOSER = """<!doctype html><html><body>
+<div class="app">
+  <button aria-label="Search">s</button><button aria-label="Settings">o</button>
+  <div class="feed">
+    <div class="hatch-chat-groupable-bubble hatch-agent-bubble-bg">Shot 2 of 6 is done.</div>
+    <div data-testid="hatch-chat-attachment-presentation-video">
+      <video src="blob:https://muse.test/clip-1"></video><img src="blob:https://muse.test/poster-1">
+    </div>
+  </div>
+  <div class="dock"><div class="pill">
+    %s
+    <button aria-label="Attach file">+</button>
+    <div><input type="file"><textarea aria-label="Message"></textarea></div>
+  </div></div>
+</div></body></html>"""
+PREVIEW = '<img src="blob:https://muse.test/reference"><button aria-label="Remove attachment">x</button>'
+
+
+@needs_browser
+def test_attachment_count_never_takes_the_conversations_clips():
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=BROWSER, headless=True)
+        try:
+            page = browser.new_page()
+            page.set_content(LOOSE_COMPOSER % "")
+            assert page.evaluate(chat.ATTACHED_JS, chat.FILE_INPUT)["shown"] == 0
+            page.set_content(LOOSE_COMPOSER % PREVIEW)
+            assert page.evaluate(chat.ATTACHED_JS, chat.FILE_INPUT)["shown"] == 1
+        finally:
+            browser.close()
+
+
+class PageStub:
+    """Just enough of a page for _open_thread. `states` are what the history
+    probe returns in turn (the last one repeats); an exception is raised."""
+
+    def __init__(self, states, *, redirect=None, generating=False):
+        self.states = list(states)
+        self.redirect = redirect
+        self.generating = generating
+        self.url = ""
+        self.waits = 0
+
+    def goto(self, url, **_):
+        self.url = self.redirect or url
+
+    def locator(self, _):
+        return SimpleNamespace(first=SimpleNamespace(wait_for=lambda **_: None))
+
+    def evaluate(self, script, *args):
+        if script == chat.GENERATING_JS:
+            return self.generating
+        assert script == chat.HISTORY_STATE_JS
+        state = self.states.pop(0) if len(self.states) > 1 else self.states[0]
+        if isinstance(state, Exception):
+            raise state
+        return state
+
+    def wait_for_timeout(self, _):
+        self.waits += 1
+
+
+SITE = SimpleNamespace(base="https://muse.test")
+LOADING = {"loading": True, "size": 0}
+LOADED = {"loading": False, "size": 3}
+EMPTY = {"loading": False, "size": 0}
+
+
+def test_page_error_while_the_history_loads_does_not_open_a_new_conversation():
+    gone = BrowserError("Execution context was destroyed, most likely because of a navigation")
+    page = PageStub([LOADING, gone, gone, LOADING, LOADED])
+    assert chat._open_thread(page, SITE, "/thread/old-1") is True
+
+
+def test_composer_shown_before_the_placeholder_still_waits_for_the_history():
+    page = PageStub([EMPTY, LOADING, LOADING, LOADED])
+    assert chat._open_thread(page, SITE, "/thread/old-1") is True
+    assert page.waits >= 3
+
+
+def test_history_still_loading_at_the_limit_is_busy_not_gone(monkeypatch):
+    monkeypatch.setattr(chat, "HISTORY_LOAD_WAIT", 0.05)
+    with pytest.raises(chat.ConversationBusy):
+        chat._open_thread(PageStub([LOADING]), SITE, "/thread/old-1")
+    with pytest.raises(chat.ConversationBusy):
+        chat._open_thread(PageStub([BrowserError("unreadable")]), SITE, "/thread/old-1")
+
+
+def test_saved_conversation_showing_no_messages_is_used_at_the_limit(monkeypatch):
+    monkeypatch.setattr(chat, "HISTORY_LOAD_WAIT", 0.05)
+    assert chat._open_thread(PageStub([EMPTY]), SITE, "/thread/old-1") is True
+
+
+def test_conversation_muse_redirects_away_from_counts_as_gone():
+    page = PageStub([LOADING], redirect="https://muse.test/thread/new")
+    assert chat._open_thread(page, SITE, "/thread/old-1") is False
 
 
 @needs_browser

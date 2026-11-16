@@ -40,14 +40,24 @@ SEND_BUTTON_JS = """() => {
 # sending" is not a safe baseline there: only what follows our message in the
 # document belongs to this request. With `all`, everything counts (callers
 # then compare against a baseline themselves).
-ANCHOR_JS = """
+#
+# Our message is the last text carrying its label as sent ("[shot-…]")
+# outside the agent's replies. Muse names a generated file after the start of
+# the prompt ("media-generation-shot-…mp4") and the agent's closing reply
+# shows that name below the clip; taken for our message, it put the clip
+# "before" it and the scene timed out although Muse had made it (2026-11-16).
+OWN_MESSAGE_JS = """
   let anchor = null;
   if (marker) {
+    const label = '[' + marker + ']';
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (node.nodeValue.includes(marker)) anchor = node;
+      if (node.nodeValue.includes(label) && !(node.parentElement
+          && node.parentElement.closest('div[class*="hatch-agent-bubble-bg"]'))) anchor = node;
     }
   }
+"""
+ANCHOR_JS = OWN_MESSAGE_JS + """
   const after = node => all || (!!anchor
     && !!(anchor.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
 """
@@ -56,12 +66,7 @@ ANCHOR_JS = """
 # under it, "Delivery not confirmed"): the agent never received it, nothing
 # was generated, and Muse does not keep it. Seen when a request is sent into
 # a conversation whose earlier job (the script) is waiting for input.
-UNDELIVERED_JS = """(marker) => {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let anchor = null;
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node.nodeValue.includes(marker)) anchor = node;
-  }
+UNDELIVERED_JS = "(marker) => {" + OWN_MESSAGE_JS + """
   const group = anchor && anchor.parentElement
     && anchor.parentElement.closest('div[class*="group/msg"]');
   return !!(group && [...group.querySelectorAll('[role="alert"]')]
@@ -173,19 +178,61 @@ GENERATING_JS = """() => !!(document.querySelector('[data-testid="hatch-composer
     || document.querySelector('button[aria-label*="停止"]'))"""
 
 
+# A saved conversation shows this placeholder until its earlier messages have
+# loaded: about 35 s on a cold workspace (muse.ai, 2026-11-16). Until then the
+# page shows neither those messages nor a reply still being written, so
+# nothing may be judged, compared with or sent into it.
+HISTORY_STATE_JS = """() => ({
+  loading: !!document.querySelector(
+    '[data-hatch-loading-state="chat_history"], [data-testid="chat-empty-loading"]'),
+  size: document.querySelectorAll(
+    'div[class*="hatch-chat-groupable-bubble"], [data-testid^="hatch-chat-attachment-presentation-"]').length,
+})"""
+HISTORY_LOAD_WAIT = 60.0
+
+
+def _history_state(page):
+    """{loading, size}, or None when the page could not be read just now
+    (it is re-rendering): that is no sign the conversation is gone."""
+    try:
+        return page.evaluate(HISTORY_STATE_JS)
+    except BrowserError:
+        return None
+
+
 class ConversationBusy(Exception):
-    """The saved conversation is still answering an earlier message. It must
-    be waited for, never replaced by a new one (one conversation per film)."""
+    """The saved conversation is still answering an earlier message, or has
+    not loaded yet. It must be waited for, never replaced by a new one (one
+    conversation per film)."""
 
 
 def _open_thread(page, client, thread_path) -> bool:
     """Open a saved conversation. False when it no longer exists or Muse
-    sent us elsewhere; ConversationBusy while it is still answering."""
+    sent us elsewhere; ConversationBusy while it is still answering or its
+    messages have not loaded within HISTORY_LOAD_WAIT."""
     try:
         page.goto(
             client.base + thread_path, wait_until="domcontentloaded", timeout=30000
         )
         page.locator("textarea:visible").first.wait_for(state="visible", timeout=30000)
+    except BrowserError:
+        return False
+    # Its earlier messages first. A saved conversation holds at least one, so
+    # an empty page without the placeholder is only accepted at the limit (the
+    # placeholder may not be up yet when the composer is).
+    deadline = time.monotonic() + HISTORY_LOAD_WAIT
+    while True:
+        if urlsplit(page.url).path.rstrip("/") != thread_path:
+            return False
+        state = _history_state(page)
+        if state and not state["loading"] and state["size"]:
+            break
+        if time.monotonic() >= deadline:
+            if state and not state["loading"]:
+                break
+            raise ConversationBusy()
+        page.wait_for_timeout(500)
+    try:
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
             if urlsplit(page.url).path.rstrip("/") != thread_path:
@@ -337,14 +384,19 @@ FILE_INPUT = 'input[type="file"]'
 # What the composer holds: `shown` is how many attachments it displays (each
 # has a preview and a remove button above the message box), `pending` how
 # many files still sit in the upload control (the composer empties it once it
-# has taken a file).
+# has taken a file). The composer is found by climbing from the message box,
+# never into the conversation: while the workspace connects the composer shows
+# a single button, the climb reached the whole app, and the earlier scenes'
+# clips (blobs too) were counted as attachments (muse.ai, 2026-11-16).
 ATTACHED_JS = """(selector) => {
     const textarea = [...document.querySelectorAll('textarea')].find(node => node.getClientRects().length > 0);
     const control = document.querySelector(selector);
     const pending = control && control.files ? control.files.length : 0;
     if (!textarea) return {shown: 0, pending};
+    const conversation = 'div[class*="hatch-chat-groupable-bubble"], [data-testid^="hatch-chat-attachment-presentation-"]';
     let composer = textarea.parentElement;
     for (let parent = composer; parent && parent !== document.body; parent = parent.parentElement) {
+        if (parent !== textarea.parentElement && parent.querySelector(conversation)) break;
         composer = parent;
         if (parent.querySelectorAll('button').length >= 2 || parent.matches('form,main,[role=main]')) break;
     }
