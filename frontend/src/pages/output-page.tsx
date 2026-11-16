@@ -74,6 +74,7 @@ import {
   rulerMarks,
   scriptMarkdown,
   segmentAt,
+  toFilmSpan,
   toFilmTime,
   toTimelineTime,
 } from "@/features/projects/lib/project-output";
@@ -726,88 +727,96 @@ function Output({
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
             {timelinePending && project.sceneCount > 0 && scenes.length === 0
               ? Array.from({ length: project.sceneCount }, (_, index) => (
-                  <li key={index} aria-hidden="true" className="min-w-0 space-y-1.5">
+                  <li
+                    key={index}
+                    aria-hidden="true"
+                    className="min-w-0 space-y-1.5"
+                  >
                     <Skeleton className="aspect-video w-full rounded-lg" />
                     <Skeleton className="h-7 w-3/4" />
                   </li>
                 ))
               : scenes.map((item) => {
-              // A scene cut in pieces: what is kept of it, wherever it plays.
-              const kept = savedDraft.items.filter(
-                (other) =>
-                  other.kind === "scene" &&
-                  other.scene === item.scene &&
-                  other.enabled,
-              );
-              const enabled = kept.length > 0;
-              const seconds = kept.reduce(
-                (sum, other) => sum + itemSeconds(other),
-                0,
-              );
-              const segment = saved.find((entry) =>
-                kept.some((other) => other.key === entry.key),
-              );
-              const active = !cut && !preview && current?.scene === item.scene;
-              return (
-                <li key={item.key} className="min-w-0 space-y-1.5">
-                  <button
-                    type="button"
-                    aria-label={t("projects.output.jumpTo", {
-                      number: item.scene,
-                    })}
-                    aria-current={active ? "true" : undefined}
-                    // A scene left out of the film has no place to jump to:
-                    // open it for editing instead.
-                    onClick={() => {
-                      if (!segment)
-                        return setSelection({ kind: "clip", key: item.key });
-                      // Its place is in the film, not in a preview of a draft.
-                      setPreview(null);
-                      seek(segment.offset);
-                    }}
-                    className={cn(
-                      "relative block aspect-video w-full overflow-hidden rounded-lg bg-background",
-                      active && "ring-2 ring-primary",
-                      !enabled && "opacity-45",
-                    )}
-                  >
-                    {item.thumbnailUrl && (
-                      <img
-                        src={item.thumbnailUrl}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    <span className="absolute top-1.5 left-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] leading-4 text-white">
-                      {String(item.scene).padStart(2, "0")}
-                    </span>
-                    <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] leading-4 text-white">
-                      {enabled
-                        ? `${seconds.toFixed(1)}s`
-                        : t("projects.timeline.excluded")}
-                    </span>
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <span className="min-w-0 flex-1 truncate text-[13px]">
-                      {item.title}
-                    </span>
-                    {item.videoUrl && (
-                      <a
-                        href={downloadHref(item.videoUrl)}
-                        download
-                        aria-label={t("projects.output.downloadScene", {
+                  // A scene cut in pieces: what is kept of it, wherever it plays.
+                  const kept = savedDraft.items.filter(
+                    (other) =>
+                      other.kind === "scene" &&
+                      other.scene === item.scene &&
+                      other.enabled,
+                  );
+                  const enabled = kept.length > 0;
+                  const seconds = kept.reduce(
+                    (sum, other) => sum + itemSeconds(other),
+                    0,
+                  );
+                  const segment = saved.find((entry) =>
+                    kept.some((other) => other.key === entry.key),
+                  );
+                  const active =
+                    !cut && !preview && current?.scene === item.scene;
+                  return (
+                    <li key={item.key} className="min-w-0 space-y-1.5">
+                      <button
+                        type="button"
+                        aria-label={t("projects.output.jumpTo", {
                           number: item.scene,
                         })}
-                        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        aria-current={active ? "true" : undefined}
+                        // A scene left out of the film has no place to jump to:
+                        // open it for editing instead.
+                        onClick={() => {
+                          if (!segment)
+                            return setSelection({
+                              kind: "clip",
+                              key: item.key,
+                            });
+                          // Its place is in the film, not in a preview of a draft.
+                          setPreview(null);
+                          seek(segment.offset);
+                        }}
+                        className={cn(
+                          "relative block aspect-video w-full overflow-hidden rounded-lg bg-background",
+                          active && "ring-2 ring-primary",
+                          !enabled && "opacity-45",
+                        )}
                       >
-                        <Download className="size-3.5" aria-hidden="true" />
-                      </a>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+                        {item.thumbnailUrl && (
+                          <img
+                            src={item.thumbnailUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                          />
+                        )}
+                        <span className="absolute top-1.5 left-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] leading-4 text-white">
+                          {String(item.scene).padStart(2, "0")}
+                        </span>
+                        <span className="absolute right-1.5 bottom-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] leading-4 text-white">
+                          {enabled
+                            ? `${seconds.toFixed(1)}s`
+                            : t("projects.timeline.excluded")}
+                        </span>
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <span className="min-w-0 flex-1 truncate text-[13px]">
+                          {item.title}
+                        </span>
+                        {item.videoUrl && (
+                          <a
+                            href={downloadHref(item.videoUrl)}
+                            download
+                            aria-label={t("projects.output.downloadScene", {
+                              number: item.scene,
+                            })}
+                            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            <Download className="size-3.5" aria-hidden="true" />
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
           </ul>
         </section>
 
@@ -1010,20 +1019,22 @@ function Output({
         </aside>
       </div>
 
-      {timelinePending && project.sceneCount > 0 && draft.items.length === 0 && (
-        <section
-          aria-busy="true"
-          aria-label={t("projects.timeline.title")}
-          className="space-y-3 border-t bg-card p-4 tablet:px-6"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-8 w-44" />
-          </div>
-          <Skeleton className="h-44 w-full rounded-lg" />
-          <Skeleton className="h-4 w-72" />
-        </section>
-      )}
+      {timelinePending &&
+        project.sceneCount > 0 &&
+        draft.items.length === 0 && (
+          <section
+            aria-busy="true"
+            aria-label={t("projects.timeline.title")}
+            className="space-y-3 border-t bg-card p-4 tablet:px-6"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-8 w-44" />
+            </div>
+            <Skeleton className="h-44 w-full rounded-lg" />
+            <Skeleton className="h-4 w-72" />
+          </section>
+        )}
       {draft.items.length > 0 && (
         <section
           aria-label={t("projects.timeline.title")}
@@ -1623,7 +1634,21 @@ function Output({
                   downloadText(
                     project,
                     "srt",
-                    captionsSrt(draft.captions),
+                    // In the film's own time: dissolves shorten it.
+                    captionsSrt(
+                      draft.captions.map((caption) => ({
+                        ...caption,
+                        ...toFilmSpan(
+                          filmSegments(draft.items),
+                          pieceOverlaps(
+                            filmSegments(draft.items),
+                            draft.output.transition,
+                          ),
+                          caption.start,
+                          caption.end,
+                        ),
+                      })),
+                    ),
                     "application/x-subrip",
                   )
                 }

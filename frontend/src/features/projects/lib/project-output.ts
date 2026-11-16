@@ -62,6 +62,40 @@ export function toFilmTime(
   return Math.max(seconds - shift, 0);
 }
 
+/**
+ * Where something placed from `start` to `end` on the timeline shows in the
+ * film: each piece it covers shows its part at that piece's own place, so
+ * across a join it runs from the earliest part to the latest and never ends
+ * before it starts (app/rendering/ffmpeg.py, `film_span`).
+ */
+export function toFilmSpan(
+  segments: FilmSegment[],
+  overlaps: number[],
+  start: number,
+  end: number,
+) {
+  let first: number | null = null;
+  let last: number | null = null;
+  let shift = 0;
+  segments.forEach((segment, index) => {
+    if (index) shift += overlaps[index - 1];
+    const low = Math.max(start, segment.offset);
+    const high =
+      index === segments.length - 1
+        ? end
+        : Math.min(end, segment.offset + segment.length);
+    if (high > low + 1e-9) {
+      first = first === null ? low - shift : Math.min(first, low - shift);
+      last = last === null ? high - shift : Math.max(last, high - shift);
+    }
+  });
+  if (first === null || last === null) {
+    const moved = toFilmTime(segments, overlaps, start);
+    return { start: moved, end: moved + Math.max(end - start, 0) };
+  }
+  return { start: Math.max(first, 0), end: last as number };
+}
+
 /** The moment of the timeline a time in the film shows (during a dissolve,
  * the piece coming in). */
 export function toTimelineTime(
