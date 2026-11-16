@@ -3,11 +3,13 @@
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import tempfile
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from fractions import Fraction
 from pathlib import Path
 
 from app.core.config import Settings
@@ -15,6 +17,10 @@ from app.core.config import Settings
 MERGE_TIMEOUT = 900.0
 _DURATION = re.compile(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)")
 _VIDEO = re.compile(r"Stream #.*Video:.*?\b(\d{2,5})x(\d{2,5})\b")
+_RATE = re.compile(r"Stream #.*Video:.*?(\d+(?:\.\d+)?) fps")
+# Rates FFmpeg prints rounded, as the exact rates they stand for.
+_ROUNDED = {"23.98": "24000/1001", "29.97": "30000/1001", "47.95": "48000/1001",
+            "59.94": "60000/1001"}
 
 
 class MergeError(Exception):
@@ -28,6 +34,8 @@ class Clip:
     width: int
     height: int
     has_audio: bool
+    # Frames per second as FFmpeg reads them ("24", "24000/1001"); "" unknown.
+    fps: str = ""
 
 
 def find_ffmpeg(settings: Settings) -> str | None:
@@ -45,13 +53,35 @@ def probe(ffmpeg: str, path: Path) -> Clip:
     if not length or not video:
         raise MergeError
     hours, minutes, seconds = length.groups()
+    rate = _RATE.search(report)
     return Clip(
         path=path,
         seconds=int(hours) * 3600 + int(minutes) * 60 + float(seconds),
         width=int(video.group(1)),
         height=int(video.group(2)),
         has_audio="Audio:" in report,
+        fps=_ROUNDED.get(rate.group(1), rate.group(1)) if rate else "",
     )
+
+
+def frame_rate(clip_rate: str, speed: float = 1.0) -> str:
+    """The film's frames per second for clips of `clip_rate` played at
+    `speed`: every frame at its own pace, brought into about 24-60 fps by keeping
+    every other frame (fast) or showing each frame twice (slow). Never the
+    uneven mix of repeated and dropped frames a fixed rate gives, which
+    judders: 24 fps clips at 30 fps repeat every fifth frame."""
+    try:
+        rate = Fraction(clip_rate) * Fraction(speed).limit_denominator(1000)
+    except (ValueError, ZeroDivisionError):
+        return "30"
+    if rate <= 0:
+        return "30"
+    while rate > 60:
+        rate /= 2
+    # 23, not 24: film's 23.976 fps is kept as it is.
+    while rate < 23:
+        rate *= 2
+    return str(rate)
 
 
 def _report(ffmpeg: str, path: Path) -> str:
@@ -133,10 +163,12 @@ def merge(
     per path, end None meaning the clip's end. Trimming needs frame
     accuracy, so a film with any trimmed clip is always re-encoded.
 
-    Clips that share container, frame size and audio layout are joined
-    without re-encoding. Otherwise, or when that result is not as long as
-    its parts, every clip is decoded and re-encoded to H.264/AAC at the
-    first clip's frame size.
+    Clips without sound to keep that share container and frame size are
+    joined without re-encoding. With sound, or when that result is not as
+    long as its parts, every clip is decoded and re-encoded to H.264/AAC at
+    the first clip's frame size: copied end to end, each AAC stream keeps
+    its encoder padding and the sound falls further behind the picture at
+    every join (~70 ms per join on Muse's clips).
     """
     clips = [probe(ffmpeg, path) for path in paths]
     spans = [
@@ -168,7 +200,8 @@ def merge(
                 if many
                 else [_reencode_arguments(clips, mute, spans if trimmed else None)]
             )
-            if uniform and not trimmed:
+            keeps_sound = not mute and any(clip.has_audio for clip in clips)
+            if uniform and not trimmed and not keeps_sound:
                 attempts.insert(
                     0, _copy_arguments(clips, Path(folder) / "clips.txt", mute)
                 )
@@ -239,8 +272,8 @@ def _reencode_arguments(
     for index, clip in enumerate(clips):
         filters.append(
             f"[{index}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,"
-            f"format=yuv420p[v{index}]"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,"
+            f"fps={frame_rate(clips[0].fps)},format=yuv420p[v{index}]"
         )
         pads.append(f"[v{index}]")
         if not with_audio:
@@ -253,8 +286,11 @@ def _reencode_arguments(
                 "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             ]  # fmt: skip
             source, silent = f"{silent}:a", silent + 1
+        # Each clip's sound lasts exactly as long as its picture, so the
+        # next clip's sound starts with its picture.
         filters.append(
-            f"[{source}]aresample=44100,aformat=channel_layouts=stereo[a{index}]"
+            f"[{source}]aresample=44100,aformat=channel_layouts=stereo,"
+            f"apad,atrim=duration={lengths[index]:.3f}[a{index}]"
         )
         pads.append(f"[a{index}]")
     audio = 1 if with_audio else 0
@@ -374,6 +410,8 @@ class Segment:
     # sound fades with it.
     fade_in: float = 0.0
     fade_out: float = 0.0
+    # Volume factor for the piece's own sound (see `level_gains`).
+    gain: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -460,7 +498,8 @@ EFFECTS = {
 ZOOM = 0.12
 # Constant rate factors for H.264: lower is better and bigger.
 QUALITIES = {"high": 18, "medium": 23, "small": 28}
-PREVIEW_HEIGHT = 360
+PREVIEW_HEIGHT = 720
+PREVIEW_CRF = 24
 
 
 def output_frame(
@@ -481,6 +520,147 @@ def output_frame(
     return int(round(wide / 2)) * 2, int(round(tall / 2)) * 2
 
 
+def overlaps(lengths: list[float], transition: float) -> list[float]:
+    """How long each pair of neighbouring pieces overlaps when joined with a
+    dissolve of `transition` seconds: never more than half of either piece,
+    so a piece is not covered by both its neighbours at once. The editor
+    uses the same rule (frontend/src/features/projects/lib/project-output.ts).
+    """
+    if transition <= 0:
+        return [0.0] * max(len(lengths) - 1, 0)
+    return [
+        min(transition, before / 2, after / 2)
+        for before, after in zip(lengths, lengths[1:])
+    ]
+
+
+def film_time(lengths: list[float], overlap: list[float], seconds: float) -> float:
+    """Where a moment of the edit (pieces laid end to end, as in the editor)
+    plays in the film, where each piece starts earlier by the overlaps of the
+    joins before it. What is placed on a piece stays on that piece."""
+    shift, edge = 0.0, 0.0
+    for index in range(1, len(lengths)):
+        edge += lengths[index - 1]
+        if seconds < edge - 1e-6:
+            break
+        shift += overlap[index - 1]
+    return max(seconds - shift, 0.0)
+
+
+def film_span(
+    lengths: list[float], overlap: list[float], start: float, end: float
+) -> tuple[float, float]:
+    """Where something placed from `start` to `end` in the editor's time
+    shows in the film. Each piece it covers shows its part at that piece's
+    own place; across a join those parts overlap (the dissolve), so it runs
+    from the earliest of them to the latest, and never ends before it starts.
+    Past the film's end it stays with the last piece."""
+    first = last = None
+    edge = shift = 0.0
+    for index, length in enumerate(lengths):
+        if index:
+            shift += overlap[index - 1]
+        low = max(start, edge)
+        high = end if index == len(lengths) - 1 else min(end, edge + length)
+        if high > low + 1e-9:
+            first = low - shift if first is None else min(first, low - shift)
+            last = high - shift if last is None else max(last, high - shift)
+        edge += length
+    if first is None:
+        moved = film_time(lengths, overlap, start)
+        return moved, moved + max(end - start, 0.0)
+    return max(first, 0.0), last
+
+
+def _piece_seconds(ffmpeg: str, segment: Segment) -> float:
+    """How long a piece plays for in the film (as `compose` lays it out)."""
+    if segment.still:
+        return max((segment.end or STILL_SECONDS) - segment.start, 0.1)
+    start, end = _span(probe(ffmpeg, segment.path), segment.start, segment.end)
+    return (end - start) / segment.speed
+
+
+# A piece's sound is raised or lowered by at most this many dB.
+LEVEL_RANGE = 12.0
+# Quieter than this (LUFS) is near silence: nothing to level.
+LEVEL_FLOOR = -60.0
+_LOUDNESS = re.compile(r"\bI:\s+(-?\d+(?:\.\d+)?) LUFS")
+
+
+def _loudness(
+    ffmpeg: str,
+    path: Path,
+    start: float,
+    seconds: float,
+    check_cancelled: Callable[[], None],
+) -> float | None:
+    """Integrated loudness (EBU R128) of a stretch of a file's sound. A
+    cancel stops the measurement at once, as `_run` does."""
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as log:
+        try:
+            process = subprocess.Popen(  # noqa: S603 - fixed arguments, no shell
+                [
+                    ffmpeg, "-hide_banner", "-nostats", "-ss", f"{start:.3f}",
+                    "-t", f"{seconds:.3f}", "-i", str(path), "-vn",
+                    "-af", "ebur128", "-f", "null", "-",
+                ],  # fmt: skip
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=log,
+            )
+        except OSError:
+            return None
+        deadline = time.monotonic() + 120
+        try:
+            while process.poll() is None:
+                check_cancelled()
+                if time.monotonic() > deadline:
+                    return None
+                time.sleep(0.1)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+        log.seek(0)
+        report = log.read()
+    values = _LOUDNESS.findall(report)
+    # The summary comes last.
+    return float(values[-1]) if values else None
+
+
+def level_gains(
+    ffmpeg: str,
+    segments: list[Segment],
+    check_cancelled: Callable[[], None] = lambda: None,
+) -> list[float]:
+    """A volume factor per piece that brings the sound of each piece, as much
+    of it as plays, to the middle loudness of the film's pieces: one scene
+    no longer plays noticeably louder or quieter than the others. Stills,
+    pieces without sound and near silence keep 1."""
+    measured: list[float | None] = []
+    for segment in segments:
+        check_cancelled()
+        value = None
+        if not segment.still:
+            clip = probe(ffmpeg, segment.path)
+            if clip.has_audio:
+                start, end = _span(clip, segment.start, segment.end)
+                value = _loudness(
+                    ffmpeg, segment.path, start, end - start, check_cancelled
+                )
+        measured.append(value if value is not None and value > LEVEL_FLOOR else None)
+    heard = [value for value in measured if value is not None]
+    if len(heard) < 2:
+        return [1.0] * len(segments)
+    middle = statistics.median(heard)
+    return [
+        1.0
+        if value is None
+        else 10 ** (max(-LEVEL_RANGE, min(LEVEL_RANGE, middle - value)) / 20)
+        for value in measured
+    ]
+
+
 def compose(
     ffmpeg: str,
     segments: list[Segment],
@@ -499,6 +679,9 @@ def compose(
     fit: str = "contain",
     quality: str = "high",
     preview: bool = False,
+    transition: float = 0.0,
+    _overlap: list[float] | None = None,
+    _rate: str | None = None,
 ) -> None:
     """Build the film from `segments` in order, always re-encoding.
 
@@ -513,14 +696,45 @@ def compose(
     another shape is shown whole with bars (`fit` "contain") or fills the
     frame with its edges cropped ("cover"). `preview` makes a small, quick,
     rough version of the same film.
+
+    `transition` joins neighbouring pieces with a dissolve of that many
+    seconds: picture and sound overlap by the same amount at every join (see
+    `overlaps`), so they stay in step. Captions, titles and soundtracks are
+    then given in the editor's time (pieces end to end) and moved with the
+    piece they are on (`film_time`).
     """
     if (captions or titles) and not can_caption(ffmpeg):
         raise CaptionError
+    if _overlap is None:
+        # Decided once, for the whole film, also when it is built in parts.
+        _overlap = [0.0] * max(len(segments) - 1, 0)
+        if transition > 0 and len(segments) > 1:
+            pieces = [_piece_seconds(ffmpeg, segment) for segment in segments]
+            _overlap = overlaps(pieces, transition)
+
+            def span(start: float, end: float) -> tuple[float, float]:
+                return film_span(pieces, _overlap, start, end)
+
+            captions = [Caption(*span(cue.start, cue.end), cue.text) for cue in captions]
+            titles = [
+                replace(title, **dict(zip(("start", "end"), span(title.start, title.end))))
+                for title in titles
+            ]
+            soundtracks = [
+                replace(track, offset=film_time(pieces, _overlap, track.offset))
+                for track in soundtracks
+            ]
+    if _rate is None:
+        # The pace of the first clip at its speed (see `frame_rate`).
+        first = next((segment for segment in segments if not segment.still), None)
+        _rate = (
+            frame_rate(probe(ffmpeg, first.path).fps, first.speed) if first else "30"
+        )
     if len(segments) > CHUNK:
         _compose_in_parts(
             ffmpeg, segments, output, check_cancelled,
             mute=mute, volume=volume, frame=frame, fit=fit, quality=quality,
-            preview=preview, soundtracks=soundtracks, duck=duck,
+            preview=preview, overlap=_overlap, rate=_rate, soundtracks=soundtracks, duck=duck,
             captions=captions, caption_style=caption_style, titles=titles,
             logo=logo,
         )  # fmt: skip
@@ -545,7 +759,7 @@ def compose(
         used / (1.0 if segment.still else segment.speed)
         for segment, _, used, _ in parts
     ]
-    total = sum(lengths)
+    total = sum(lengths) - sum(_overlap)
     keep_sound = not mute and volume > 0 and any(part[3] for part in parts)
 
     inputs: list[str] = []
@@ -580,13 +794,13 @@ def compose(
                 "-ss", f"{start:.3f}", "-t", f"{used:.3f}", "-i", str(segment.path)
             )
             steps = [] if segment.speed == 1 else [f"setpts=PTS/{segment.speed:.4f}"]
-        steps += [place, "setsar=1", "fps=30"]
+        steps += [place, "setsar=1", f"fps={_rate}"]
         if segment.flip:
             steps.append("hflip")
         if segment.effect in EFFECTS:
             steps.append(EFFECTS[segment.effect])
         if segment.zoom in ("in", "out"):
-            frames = max(round(length * 30), 1)
+            frames = max(round(length * float(Fraction(_rate))), 1)
             # Each frame is cut out of a larger copy, a little tighter (or
             # looser) than the last; the larger copy keeps the motion smooth.
             grow = 1 if preview else 2
@@ -598,7 +812,7 @@ def compose(
             steps += [
                 f"scale={width * grow}:{height * grow}",
                 f"zoompan=z='{zoom}':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-                f":s={width}x{height}:fps=30",
+                f":s={width}x{height}:fps={_rate}",
             ]
         # Fades never overlap: each gets at most half the piece.
         fade_in = min(max(segment.fade_in, 0.0), length / 2)
@@ -626,17 +840,39 @@ def compose(
             tail += f",afade=t=in:st=0:d={fade_in:.3f}"
         if fade_out > 0.01:
             tail += f",afade=t=out:st={length - fade_out:.3f}:d={fade_out:.3f}"
+        gain = f",volume={segment.gain:.4f}" if abs(segment.gain - 1) > 1e-4 else ""
         filters.append(
             f"[{sound}]{tempo}aresample=44100,aformat=channel_layouts=stereo,"
-            f"apad,atrim=duration={length:.3f}{tail}"
+            f"apad,atrim=duration={length:.3f}{gain}{tail}"
             f"[a{index}]"
         )
         pads.append(f"[a{index}]")
-    filters.append(
-        "".join(pads)
-        + f"concat=n={len(parts)}:v=1:a={1 if keep_sound else 0}[joined]"
-        + ("[sound]" if keep_sound else "")
-    )
+    if any(_overlap):
+        # Each join: the next piece starts `overlap` before this one ends,
+        # in the picture (a dissolve) and in the sound (a crossfade) alike.
+        picture, sound, played = "[v0]", "[a0]", lengths[0]
+        for index in range(1, len(parts)):
+            overlap = _overlap[index - 1]
+            last = index == len(parts) - 1
+            into = "[joined]" if last else f"[x{index}]"
+            filters.append(
+                f"{picture}[v{index}]xfade=transition=fade:duration={overlap:.4f}"
+                f":offset={played - overlap:.4f}{into}"
+            )
+            picture = into
+            if keep_sound:
+                heard = "[sound]" if last else f"[y{index}]"
+                filters.append(
+                    f"{sound}[a{index}]acrossfade=d={overlap:.4f}:c1=qsin:c2=qsin{heard}"
+                )
+                sound = heard
+            played += lengths[index] - overlap
+    else:
+        filters.append(
+            "".join(pads)
+            + f"concat=n={len(parts)}:v=1:a={1 if keep_sound else 0}[joined]"
+            + ("[sound]" if keep_sound else "")
+        )
 
     own = None  # The sound the clips came with, at its volume.
     if keep_sound:
@@ -766,8 +1002,8 @@ def compose(
                 ]  # fmt: skip
             command += [
                 "-c:v", "libx264",
-                "-preset", "ultrafast" if preview else "veryfast",
-                "-crf", "30" if preview else str(QUALITIES.get(quality, 18)),
+                "-preset", "superfast" if preview else "veryfast",
+                "-crf", str(PREVIEW_CRF) if preview else str(QUALITIES.get(quality, 18)),
                 "-t", f"{total:.3f}", "-movflags", "+faststart",
                 str(temporary.resolve()),
             ]  # fmt: skip
@@ -789,7 +1025,7 @@ CHUNK = 24
 
 def _compose_in_parts(
     ffmpeg, segments, output, check_cancelled,
-    *, mute, volume, frame, fit, quality, preview, **finish,
+    *, mute, volume, frame, fit, quality, preview, overlap, rate, **finish,
 ) -> None:  # fmt: skip
     """A film of many pieces: each run of pieces becomes a film of its own,
     then those are joined and finished (the clips' volume, audio laid over,
@@ -802,20 +1038,24 @@ def _compose_in_parts(
             frame = (clip.width, clip.height)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output.parent) as folder:
-        runs = []
+        runs, between = [], []
         for number, begin in enumerate(range(0, len(segments), CHUNK)):
             run = Path(folder) / f"run-{number:03d}.mp4"
+            end = min(begin + CHUNK, len(segments))
             compose(
-                ffmpeg, list(segments[begin : begin + CHUNK]), run, check_cancelled,
+                ffmpeg, list(segments[begin:end]), run, check_cancelled,
                 # The volume is set once, when the runs are joined.
                 mute=mute or volume <= 0, frame=frame, fit=fit, quality="high",
-                preview=preview,
+                preview=preview, _overlap=list(overlap[begin : end - 1]), _rate=rate,
             )  # fmt: skip
             runs.append(Segment(path=run))
+            if end < len(segments):
+                between.append(overlap[end - 1])
+        # Timed things are already in the film's time.
         compose(
             ffmpeg, runs, output, check_cancelled,
             mute=mute, volume=volume, frame=frame, fit=fit, quality=quality,
-            preview=preview, **finish,
+            preview=preview, _overlap=between, _rate=rate, **finish,
         )  # fmt: skip
 
 

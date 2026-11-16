@@ -21,6 +21,7 @@ from app.rendering.ffmpeg import (
     MergeError,
     can_caption,
     find_ffmpeg,
+    overlaps,
     probe,
 )
 from app.rendering.tasks import remerge
@@ -164,6 +165,10 @@ class TimelineOutput(Both):
     # The frame's shorter edge in pixels; 0 keeps that of the scenes.
     height: Literal[0, 480, 720, 1080] = 0
     quality: Literal["high", "medium", "small"] = "high"
+    # Seconds of dissolve at every join between pieces; 0 cuts straight.
+    transition: Literal[0, 0.3, 0.5] = 0
+    # Bring every piece's sound to the same loudness.
+    level: bool = Field(default=False, strict=True)
 
 
 class TimelineResponse(CamelModel):
@@ -191,6 +196,16 @@ class TimelineResponse(CamelModel):
     can_burn_captions: bool
     # Length of the film this edit makes.
     total_seconds: float
+
+
+def _film_seconds(items, output: dict) -> float:
+    """How long the film is: its pieces, less what their joins overlap."""
+    lengths = [
+        timeline.film_seconds(item.start, item.end, item.speed)
+        for item in items
+        if item.enabled
+    ]
+    return sum(lengths) - sum(overlaps(lengths, float(output.get("transition") or 0)))
 
 
 class Input(BaseModel):
@@ -449,14 +464,7 @@ def timeline_response(
         ),
         output=TimelineOutput(**edit.output),
         can_burn_captions=bool(ffmpeg) and _captions_supported(ffmpeg),
-        total_seconds=round(
-            sum(
-                timeline.film_seconds(item.start, item.end, item.speed)
-                for item in items
-                if item.enabled
-            ),
-            2,
-        ),
+        total_seconds=round(_film_seconds(items, edit.output), 2),
     )
 
 

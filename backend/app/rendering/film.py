@@ -4,7 +4,7 @@ not saved yet.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from app.core.config import Settings
@@ -18,6 +18,7 @@ from app.rendering.ffmpeg import (
     Soundtrack,
     Title,
     compose,
+    level_gains,
     merge,
     output_frame,
     probe,
@@ -128,6 +129,14 @@ def build(
     if not all(item.path.is_file() for item in placed):
         raise FilmError("media_missing")
 
+    if edit.output.get("level"):
+        segments = [
+            replace(segment, gain=gain)
+            for segment, gain in zip(
+                segments, level_gains(ffmpeg, segments, check_cancelled), strict=True
+            )
+        ]
+
     if edit.plain and not preview:
         # Only scenes as they were rendered: joined, without re-encoding
         # when nothing is trimmed.
@@ -186,5 +195,6 @@ def build(
         fit=edit.output["fit"],
         quality=edit.output["quality"],
         preview=preview,
+        transition=float(edit.output.get("transition") or 0.0),
     )
     return len(segments)

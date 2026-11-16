@@ -69,10 +69,13 @@ import { projectStepHref } from "@/features/projects/lib/project-list";
 import {
   downloadText,
   filmSegments,
+  pieceOverlaps,
   promptsJson,
   rulerMarks,
   scriptMarkdown,
   segmentAt,
+  toFilmTime,
+  toTimelineTime,
 } from "@/features/projects/lib/project-output";
 import {
   downloadHref,
@@ -208,6 +211,8 @@ function Output({
     url: string;
     made: string;
     items: TimelineItem[];
+    // Seconds of dissolve it was made with.
+    transition: number;
   } | null>(null);
   const previewing = useMutation({ mutationFn: previewTimeline, retry: false });
   const cover = useMutation({
@@ -233,6 +238,13 @@ function Output({
   const playing = preview ? preview.items : savedDraft.items;
   const segments = filmSegments(playing);
   const saved = filmSegments(savedDraft.items);
+  // With dissolves the film's pieces overlap: the player's time and the
+  // tracks' time differ by the joins already passed.
+  const overlaps = pieceOverlaps(
+    segments,
+    preview ? preview.transition : savedDraft.output.transition,
+  );
+  const savedOverlaps = pieceOverlaps(saved, savedDraft.output.transition);
   const total = timelineSeconds(draft.items);
   // The piece being trimmed is previewed on its own; null shows the film.
   const cutIndex =
@@ -277,7 +289,7 @@ function Output({
     // The film player mounts after the selection clears; seek once it is there.
     requestAnimationFrame(() => {
       if (!film.current) return;
-      film.current.currentTime = seconds;
+      film.current.currentTime = toFilmTime(segments, overlaps, seconds);
       void film.current.play().catch(() => undefined);
     });
   }
@@ -529,7 +541,12 @@ function Output({
       { id: project.id, ...timelinePayload(draft) },
       {
         onSuccess: (made) => {
-          setPreview({ url: made.url, made: madeFrom, items: draft.items });
+          setPreview({
+            url: made.url,
+            made: madeFrom,
+            items: draft.items,
+            transition: draft.output.transition,
+          });
           setSelection(null);
           setTime(0);
         },
@@ -621,7 +638,13 @@ function Output({
                 poster={preview ? undefined : (project.coverUrl ?? undefined)}
                 src={preview?.url ?? videoUrl ?? undefined}
                 onTimeUpdate={(event) =>
-                  setTime(event.currentTarget.currentTime)
+                  setTime(
+                    toTimelineTime(
+                      segments,
+                      overlaps,
+                      event.currentTarget.currentTime,
+                    ),
+                  )
                 }
                 className={VIDEO_FRAMES[project.aspectRatio]}
               />
@@ -1011,7 +1034,16 @@ function Output({
               {t("projects.timeline.title")}
             </h2>
             <p className="font-mono text-xs text-muted-foreground">
-              {t("projects.timeline.total", { time: `${total.toFixed(1)}s` })}
+              {t("projects.timeline.total", {
+                // What the film lasts: the joins' dissolves overlap.
+                time: `${(
+                  total -
+                  pieceOverlaps(
+                    filmSegments(draft.items),
+                    draft.output.transition,
+                  ).reduce((sum, overlap) => sum + overlap, 0)
+                ).toFixed(1)}s`,
+              })}
             </p>
             {dirty && (
               <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs text-warning">
@@ -1656,7 +1688,10 @@ function Output({
                     variant="outline"
                     size="sm"
                     disabled={!videoUrl || Boolean(preview) || cover.isPending}
-                    onClick={() => cover.mutate(time)}
+                    // The frame is cut from the film file: its own time.
+                    onClick={() =>
+                      cover.mutate(toFilmTime(saved, savedOverlaps, time))
+                    }
                   >
                     <ImageUp aria-hidden="true" />
                     {t("projects.timeline.cover.set")}

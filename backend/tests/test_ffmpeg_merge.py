@@ -474,15 +474,15 @@ def test_compose_fits_the_frame_and_previews(tmp_path):
     rows = pixels(output, 1, "180x320")
     assert rows[10][90][0] > 150 and rows[310][90][0] > 150
 
-    # A preview is the same film, small and rough.
+    # A preview is the same film, at most 720p and lighter.
     large = clip(tmp_path / "large.mp4", 2, "blue")
-    compose(FFMPEG, [Segment(large)], output, lambda: None, frame=(1280, 720))
+    compose(FFMPEG, [Segment(large)], output, lambda: None, frame=(1920, 1080))
     full = output.stat().st_size
     compose(
-        FFMPEG, [Segment(large)], output, lambda: None, frame=(1280, 720), preview=True
+        FFMPEG, [Segment(large)], output, lambda: None, frame=(1920, 1080), preview=True
     )
     made = probe(FFMPEG, output)
-    assert (made.width, made.height) == (640, 360) and 1.7 < made.seconds < 2.4
+    assert (made.width, made.height) == (1280, 720) and 1.7 < made.seconds < 2.4
     assert output.stat().st_size < full
     # Smaller quality settings make smaller files.
     sizes = []

@@ -222,7 +222,7 @@ def test_render_runs_every_scene_in_order_then_merges(client, muse, ffmpeg):
     # From scene 2 on, the previous scene's last frame rides along.
     assert muse.references == [None, b"frame-of-clip-1"]
     assert "Continuity: " not in muse.prompts[0]
-    assert "Use it as a visual reference" in muse.prompts[1]
+    assert "Match its characters, wardrobe, props, lighting" in muse.prompts[1]
     assert "Previous shot: Lan walks into the field" in muse.prompts[1]
 
     clip = client.get(done["scenes"][1]["videoUrl"])
@@ -1925,6 +1925,9 @@ def test_timeline_cuts_scenes_in_two_and_dresses_the_film(
         "fit": "cover",
         "height": 720,
         "quality": "small",
+        # Not sent: straight cuts, scenes at their own loudness.
+        "transition": 0,
+        "level": False,
     }
     wait_status(client, pid, "completed")
 

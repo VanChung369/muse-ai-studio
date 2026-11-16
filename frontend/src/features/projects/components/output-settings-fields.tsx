@@ -7,6 +7,7 @@ import {
   OUTPUT_FITS,
   OUTPUT_HEIGHTS,
   OUTPUT_QUALITIES,
+  OUTPUT_TRANSITIONS,
   type TimelineOutput,
 } from "../api/timeline";
 
@@ -58,7 +59,11 @@ function Choice<T extends string | number>({
 }
 
 // Translation keys cannot hold a colon, so each shape has a plain name.
-const ASPECT_NAMES = { "16:9": "wide", "9:16": "tall", "1:1": "square" } as const;
+const ASPECT_NAMES = {
+  "16:9": "wide",
+  "9:16": "tall",
+  "1:1": "square",
+} as const;
 
 export function OutputSettingsFields({
   value,
@@ -70,7 +75,7 @@ export function OutputSettingsFields({
   sourceAspect: string;
   onChange: (patch: Partial<TimelineOutput>) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <div className="space-y-3">
@@ -139,6 +144,41 @@ export function OutputSettingsFields({
             {t("projects.timeline.outputSettings.qualityHint")}
           </p>
         </div>
+
+        <div className="space-y-1.5">
+          <Choice
+            label={t("projects.timeline.outputSettings.transition")}
+            options={OUTPUT_TRANSITIONS.map((seconds) => ({
+              value: seconds,
+              label:
+                seconds === 0
+                  ? t("projects.timeline.outputSettings.transitions.cut")
+                  : t("projects.timeline.outputSettings.transitions.dissolve", {
+                      seconds: seconds.toLocaleString(i18n.language),
+                    }),
+            }))}
+            value={value.transition}
+            onChange={(transition) => onChange({ transition })}
+          />
+          <p className="text-xs text-faint">
+            {t("projects.timeline.outputSettings.transitionHint")}
+          </p>
+        </div>
+
+        <label className="flex items-start gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            checked={value.level}
+            onChange={(event) => onChange({ level: event.target.checked })}
+            className="mt-0.5 size-4 shrink-0 accent-primary"
+          />
+          <span>
+            {t("projects.timeline.outputSettings.level")}
+            <span className="block text-xs leading-5 text-faint">
+              {t("projects.timeline.outputSettings.levelHint")}
+            </span>
+          </span>
+        </label>
       </div>
     </div>
   );

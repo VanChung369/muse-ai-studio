@@ -54,6 +54,8 @@ export const OUTPUT_FITS = ["contain", "cover"] as const;
 // Frame height in pixels; 0 keeps the height of the scenes.
 export const OUTPUT_HEIGHTS = [0, 480, 720, 1080] as const;
 export const OUTPUT_QUALITIES = ["high", "medium", "small"] as const;
+// Seconds of dissolve at every join between pieces; 0 cuts straight.
+export const OUTPUT_TRANSITIONS = [0, 0.3, 0.5] as const;
 
 // How captions are drawn into the picture.
 const captionStyleSchema = z.object({
@@ -102,6 +104,12 @@ const outputSchema = z.object({
   fit: z.enum(OUTPUT_FITS),
   height: z.union(OUTPUT_HEIGHTS.map((value) => z.literal(value))),
   quality: z.enum(OUTPUT_QUALITIES),
+  // A server from before these settings sends neither: straight cuts.
+  transition: z
+    .union(OUTPUT_TRANSITIONS.map((value) => z.literal(value)))
+    .catch(0),
+  // Bring every piece's sound to the same loudness.
+  level: z.boolean().catch(false),
 });
 export type TimelineOutput = z.infer<typeof outputSchema>;
 

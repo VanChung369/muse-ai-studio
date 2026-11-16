@@ -698,7 +698,15 @@
           "medium": "Medium",
           "small": "Small file"
         },
-        "qualityHint": "Lower quality makes a smaller file."
+        "qualityHint": "Lower quality makes a smaller file.",
+        "transition": "Scene changes",
+        "transitions": {
+          "cut": "Straight cut",
+          "dissolve": "Dissolve {{seconds}} s"
+        },
+        "transitionHint": "Pictures dissolve and sound crossfades at every join, so the film gets a little shorter. Captions, titles and music stay with their scenes.",
+        "level": "Even out scene loudness",
+        "levelHint": "Brings every scene's sound to the same loudness, so no scene plays much louder or quieter than the others."
       },
       "cover": {
         "set": "Use this frame as the cover",

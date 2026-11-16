@@ -39,8 +39,20 @@ CAPTION_STYLE = {
     "font": "Arial",
 }
 # The shape and weight of the merged file. `height` is the frame's shorter
-# edge in pixels ("720p"), 0 keeping that of the scenes.
-OUTPUT = {"aspect": "source", "fit": "contain", "height": 0, "quality": "high"}
+# edge in pixels ("720p"), 0 keeping that of the scenes. `transition`: seconds
+# of dissolve at every join, 0 cutting straight (an edit saved before it
+# existed cuts straight). `level`: bring every piece's sound to the same
+# loudness.
+OUTPUT = {
+    "aspect": "source",
+    "fit": "contain",
+    "height": 0,
+    "quality": "high",
+    "transition": 0.0,
+    "level": False,
+}
+# Dissolves the editor offers, in seconds.
+TRANSITIONS = (0.0, 0.3, 0.5)
 LOOK = {
     "effect": "none",
     "zoom": "none",

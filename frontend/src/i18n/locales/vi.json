@@ -698,7 +698,15 @@
           "medium": "Vừa",
           "small": "Tệp nhẹ"
         },
-        "qualityHint": "Chất lượng thấp hơn cho tệp nhẹ hơn."
+        "qualityHint": "Chất lượng thấp hơn cho tệp nhẹ hơn.",
+        "transition": "Chuyển cảnh",
+        "transitions": {
+          "cut": "Cắt thẳng",
+          "dissolve": "Hoà {{seconds}} giây"
+        },
+        "transitionHint": "Hình hoà vào nhau và tiếng nối chồng ở mỗi chỗ chuyển cảnh, nên phim ngắn đi một chút. Phụ đề, tiêu đề và nhạc vẫn đi cùng cảnh của chúng.",
+        "level": "Cân âm lượng các cảnh",
+        "levelHint": "Đưa tiếng của mọi cảnh về cùng một độ to, để không cảnh nào to hay nhỏ hẳn so với các cảnh khác."
       },
       "cover": {
         "set": "Đặt khung hình này làm ảnh bìa",

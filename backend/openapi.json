@@ -6720,6 +6720,16 @@
             "enum": ["high", "medium", "small"],
             "title": "Quality",
             "default": "high"
+          },
+          "transition": {
+            "enum": [0, 0.3, 0.5],
+            "title": "Transition",
+            "default": 0
+          },
+          "level": {
+            "type": "boolean",
+            "title": "Level",
+            "default": false
           }
         },
         "additionalProperties": false,

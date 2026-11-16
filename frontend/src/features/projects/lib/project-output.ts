@@ -28,6 +28,56 @@ export function filmSegments(items: TimelineItem[]): FilmSegment[] {
     });
 }
 
+/**
+ * How long each pair of neighbouring pieces overlaps when the film joins
+ * them with a dissolve of `transition` seconds: never more than half of
+ * either piece. The server uses the same rule (app/rendering/ffmpeg.py,
+ * `overlaps`).
+ */
+export function pieceOverlaps(segments: FilmSegment[], transition: number) {
+  return segments
+    .slice(1)
+    .map((segment, index) =>
+      transition > 0
+        ? Math.min(transition, segments[index].length / 2, segment.length / 2)
+        : 0,
+    );
+}
+
+/**
+ * Where a moment of the timeline (pieces end to end, as the tracks show
+ * them) plays in the film, whose pieces each start earlier by the overlaps
+ * of the joins before them (app/rendering/ffmpeg.py, `film_time`).
+ */
+export function toFilmTime(
+  segments: FilmSegment[],
+  overlaps: number[],
+  seconds: number,
+) {
+  let shift = 0;
+  for (let index = 1; index < segments.length; index++) {
+    if (seconds < segments[index].offset - 1e-6) break;
+    shift += overlaps[index - 1];
+  }
+  return Math.max(seconds - shift, 0);
+}
+
+/** The moment of the timeline a time in the film shows (during a dissolve,
+ * the piece coming in). */
+export function toTimelineTime(
+  segments: FilmSegment[],
+  overlaps: number[],
+  seconds: number,
+) {
+  let shift = 0;
+  for (let index = 1; index < segments.length; index++) {
+    const next = shift + overlaps[index - 1];
+    if (seconds < segments[index].offset - next - 1e-6) break;
+    shift = next;
+  }
+  return seconds + shift;
+}
+
 export function segmentAt(segments: FilmSegment[], time: number) {
   return (
     segments.findLast((segment) => time >= segment.offset - 0.01) ?? segments[0]

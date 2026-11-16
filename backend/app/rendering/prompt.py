@@ -6,6 +6,8 @@ shared visual style and characters, the chosen look, and how the shot relates
 to the one before it.
 """
 
+import re
+
 from app.integrations.muse.media import video_prompt
 from app.models import Project, Scene
 
@@ -49,14 +51,35 @@ QUALITY = (
     "shot. Motion is smooth and natural. No on-screen text, captions, logos or "
     "watermarks. No flicker, morphing or warping."
 )
+# Asked of every scene: the film is cut together from separate shots, and a
+# shot that eases in or settles into a still frame makes every join stall
+# (measured on muse.ai clips, 2026-11-16: up to 1.9 s still at the end).
+FLOW = (
+    "The action and the camera are already moving on the first frame and still "
+    "moving on the last: no slow start, and no slowing down, settling or held "
+    "still frame at the end."
+)
+# Their sound faded in over up to 0.7 s and dropped out at the joins.
+STEADY_SOUND = (
+    "Ambient sound and music play at a steady level from the first frame to the "
+    "last: no fade-in, fade-out or silence at the start or the end."
+)
+# Kept clear of the joins, where shots overlap when dissolved.
+NARRATION_TIMING = (
+    "Start the voice-over after the first half second and finish it half a "
+    "second before the end."
+)
 
 # How the attached frame of the previous shot is to be used.
 CONTINUITY = {
     "reference": (
-        "The attached image previous-shot.jpg is a frame from the previous shot of this film. Use it "
-        "as a visual reference so the characters, wardrobe, props, lighting and "
-        "color grade match it. Start from that exact frame only if this shot "
-        "continues in the same place."
+        "The attached image previous-shot.jpg is the last frame of the previous shot of this film. "
+        "Match its characters, wardrobe, props, lighting and color grade, and carry over "
+        "the state things were left in (what each character holds, what is open or lit). "
+        "If this shot continues in the same place, begin on exactly that frame and carry "
+        "the action on without a jump. If it is in a different place, open directly on "
+        "this shot's own setting and action, a clean cut: never open on a copy or "
+        "variation of the attached frame."
     ),
     "seamless": (
         "The attached image previous-shot.jpg is the final frame of the previous shot. Begin this "
@@ -65,6 +88,28 @@ CONTINUITY = {
     ),
 }
 PREVIOUS_SHOT_LIMIT = 400
+
+# How the script names the narrator's voice in the character bible.
+NARRATOR_LABEL = "Narrator (voice only):"
+# "Narrator:", "Narrator (voice only):" or "Narrator voice:", nothing looser:
+# "No narrator. Main character: ..." is not a narrator's description.
+_NARRATOR = re.compile(
+    r"\bnarrator\b(?:\s*\([^)\n]{0,40}\)|(?:[ \t]+\w+){0,2})[ \t]*:[ \t]*([^\n]+)",
+    re.IGNORECASE,
+)
+ONE_NARRATOR = (
+    "Use exactly this one narrator voice in every shot of this film, the same "
+    "as in its earlier shots: same person, gender, age, pitch, timbre, accent "
+    "and pace. Never switch to another voice."
+)
+
+
+def narrator_voice(character_bible: str) -> str:
+    """The narrator's voice as the character bible describes it
+    ("Narrator (voice only): adult woman, warm low voice, ..."), or ''."""
+    match = _NARRATOR.search(character_bible or "")
+    return match.group(1).strip() if match else ""
+
 
 LANGUAGES = {
     "vi": "Vietnamese",
@@ -171,7 +216,15 @@ def build_scene_prompt(
         # The line a narrator speaks over this shot.
         spoken = f" in {language}" if language else ""
         parts.append(
-            f'Voice-over, spoken by a narrator{spoken}: "{scene.narration.strip()}"'
+            f'Voice-over, spoken by a narrator{spoken}: "{scene.narration.strip()}" '
+            + NARRATION_TIMING
+        )
+        # The same words in every shot: each is generated on its own.
+        voice = narrator_voice(project.character_bible)
+        parts.append(
+            f"Narrator voice: {voice.rstrip('.')}. {ONE_NARRATOR}"
+            if voice
+            else "Narrator voice: one narrator for the whole film. " + ONE_NARRATOR
         )
     if project.music.strip() and not project.mute:
         parts.append("Music: " + project.music.strip())
@@ -179,5 +232,8 @@ def build_scene_prompt(
         parts.append(
             f"Language: any speech, voice-over or singing is in {language} only."
         )
+    parts.append("Flow: " + FLOW)
+    if not project.mute:
+        parts.append("Sound: " + STEADY_SOUND)
     parts.append("Quality: " + QUALITY)
     return video_prompt("\n".join(parts), project.aspect_ratio, scene.duration_seconds)

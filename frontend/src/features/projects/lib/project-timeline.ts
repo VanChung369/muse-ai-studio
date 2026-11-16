@@ -63,7 +63,14 @@ export const EMPTY_DRAFT: TimelineDraft = {
   },
   titles: [],
   logo: null,
-  output: { aspect: "source", fit: "contain", height: 0, quality: "high" },
+  output: {
+    aspect: "source",
+    fit: "contain",
+    height: 0,
+    quality: "high",
+    transition: 0,
+    level: false,
+  },
 };
 
 export function draftOf(timeline: ProjectTimeline | undefined): TimelineDraft {
