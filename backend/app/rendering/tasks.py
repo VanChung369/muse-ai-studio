@@ -191,12 +191,8 @@ def resume_render(session, project_id: str, confirm_duplicate: bool = False) -> 
     Finished scenes are not touched.
     """
     retryable = ["failed", "cancelled"]
-    # An interrupted scene whose sent message is known is taken back from
-    # the conversation on retry, never sent twice (see make_scene_handler):
-    # it needs no confirmation.
-    known = func.json_extract(Task.checkpoint_json, "$.sent.marker").is_not(
-        None
-    ) & func.json_extract(Task.checkpoint_json, "$.sent.thread").is_not(None)
+    # A saved clip or a known message can be recovered without a new send.
+    known = tasks.recoverable_scene()
     again = Task.status.in_(retryable) | ((Task.status == "interrupted") & known)
     if confirm_duplicate:
         retryable.append("interrupted")
@@ -231,7 +227,7 @@ def resume_render(session, project_id: str, confirm_duplicate: bool = False) -> 
         resumed = session.execute(
             update(Task)
             .where(*_render_tasks(project_id), again)
-            .values(**tasks.requeue_values(switch_account=switch))
+            .values(**tasks.retry_values(switch))
         ).rowcount
         if resumed and switch:
             # Scenes still waiting were pinned to that account too.
@@ -241,6 +237,7 @@ def resume_render(session, project_id: str, confirm_duplicate: bool = False) -> 
                     *_render_tasks(project_id),
                     Task.status == "queued",
                     Task.requires_account.is_(True),
+                    ~tasks.sent_scene(),
                 )
                 .values(account_id=None)
             )
@@ -463,6 +460,8 @@ def make_scene_handler(app):
     def handler(context):
         context.raise_if_cancelled()
         settings, database = app.state.settings, app.state.database
+        sent = dict(context.checkpoint.get("sent") or {})
+        can_recover = bool(sent.get("marker") and sent.get("thread"))
         with database.sessions() as session:
             project = session.get(Project, context.project_id)
             scene = (
@@ -472,6 +471,20 @@ def make_scene_handler(app):
             )
             if scene is None:
                 raise TaskFailure("project_not_found")
+            if scene.video_file:
+                # An older worker could commit the clip before finishing the
+                # task. Render Again clears video_file before queuing a new take.
+                clip = storage.project_dir(settings, project.id) / scene.video_file
+                if clip.is_file():
+                    return {
+                        "projectId": context.project_id,
+                        "sceneNumber": context.scene_number,
+                        "bytes": clip.stat().st_size,
+                        "width": None,
+                        "height": None,
+                    }
+                if not can_recover:
+                    raise TaskFailure("scene_missing", suggested_action="retry")
             # Continuity: attach the last frame of the previous scene.
             previous = (
                 session.get(Scene, (context.project_id, scene.number - 1))
@@ -482,7 +495,7 @@ def make_scene_handler(app):
             # One conversation per film (app/rendering/conversation.py):
             # one request at a time, carried on while this account owns it
             # and it is not too long.
-            conversation.take_turn(session, context, follow=True)
+            conversation.take_turn(session, context, follow=not can_recover)
             request = conversation.FilmRequest(database, settings, context, project)
             plan = request.plan
             everything = storage.reference_files(
@@ -532,9 +545,8 @@ def make_scene_handler(app):
         # A request an earlier attempt sent, whose outcome was lost (the app
         # stopped, or the clip was not seen in time): take it back from the
         # conversation before sending a new one.
-        sent = dict(context.checkpoint.get("sent") or {})
         video = None
-        if sent.get("marker") and sent.get("thread"):
+        if can_recover:
             if sent.get("account") != context.account_id:
                 # Its conversation is on another account: it cannot be looked
                 # for from here, and sending again might make it twice.
@@ -615,6 +627,13 @@ def make_scene_handler(app):
         ffmpeg = find_ffmpeg(settings)
         if ffmpeg:
             thumbnail(ffmpeg, folder / name, folder / storage.thumbnail_file(name))
+        result = {
+            "projectId": context.project_id,
+            "sceneNumber": context.scene_number,
+            "bytes": len(video.data),
+            "width": video.width,
+            "height": video.height,
+        }
         with database.sessions() as session:
             saved = session.execute(
                 update(Scene)
@@ -660,6 +679,7 @@ def make_scene_handler(app):
                     Task.project_id == context.project_id,
                     Task.kind == RENDER_SCENE,
                     Task.status == "queued",
+                    ~tasks.sent_scene(),
                     or_(
                         Task.account_id.is_(None),
                         Task.account_id != context.account_id,
@@ -667,16 +687,8 @@ def make_scene_handler(app):
                 )
                 .values(account_id=context.account_id)
             )
-            session.commit()
-        # Done: a later "render again" must not take this clip back.
-        context.save_checkpoint({})
-        return {
-            "projectId": context.project_id,
-            "sceneNumber": context.scene_number,
-            "bytes": len(video.data),
-            "width": video.width,
-            "height": video.height,
-        }
+            context.commit_success(session, result)
+        return result
 
     return handler
 

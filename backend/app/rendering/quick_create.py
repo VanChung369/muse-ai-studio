@@ -189,7 +189,6 @@ def make_quick_handler(app):
             # pending: this account starts one of its own.
             thread = own = None
             sent = False
-        reference = []
         with database.sessions() as session:
             # Recover a committed file even if the process stopped before its checkpoint.
             while len(asset_ids) < count:
@@ -207,21 +206,6 @@ def make_quick_handler(app):
                 # A prior request was sent, but its thread id was never learned.
                 # Do not silently open a second conversation on a manual retry.
                 raise TaskFailure("conversation_unavailable")
-            if values.get("referenceAssetId"):
-                asset = session.get(LibraryAsset, values["referenceAssetId"])
-                if not asset or asset.kind != "image":
-                    raise TaskFailure("reference_missing", suggested_action="retry")
-                path = storage.library_dir(settings) / asset.file
-                if not path.is_file():
-                    raise TaskFailure("reference_missing", suggested_action="retry")
-                # Keep the bytes for this attempt, including their original MIME.
-                reference = [
-                    {
-                        "name": "reference" + path.suffix,
-                        "mimeType": asset.mime,
-                        "buffer": path.read_bytes(),
-                    }
-                ]
 
         def checkpoint():
             context.save_checkpoint(
@@ -330,8 +314,6 @@ def make_quick_handler(app):
             # A new request: its own new conversation.
             return request, request
 
-        prompt, fresh_prompt = prompts()
-
         def save_output(generated):
             mime = content_type(generated.mime)
             if not generated.data or mime not in TYPES or TYPES[mime][0] != kind:
@@ -432,9 +414,26 @@ def make_quick_handler(app):
                 save_output(generated)
             if len(asset_ids) >= count:
                 return {"assetIds": asset_ids}
-            # Ask only for what is still missing.
-            prompt, fresh_prompt = prompts()
 
+        # The reference is only needed to send a prompt for the missing files.
+        reference = []
+        if reference_id := values.get("referenceAssetId"):
+            with database.sessions() as session:
+                asset = session.get(LibraryAsset, reference_id)
+                if not asset or asset.kind != "image":
+                    raise TaskFailure("reference_missing", suggested_action="retry")
+                path = storage.library_dir(settings) / asset.file
+                try:
+                    data = path.read_bytes()
+                except (FileNotFoundError, IsADirectoryError):
+                    raise TaskFailure(
+                        "reference_missing", suggested_action="retry"
+                    ) from None
+                reference = [
+                    {"name": "reference" + path.suffix, "mimeType": asset.mime, "buffer": data}
+                ]
+
+        prompt, fresh_prompt = prompts()
         generator = (
             generate_images
             if kind == "image" and is_batch

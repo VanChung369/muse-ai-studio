@@ -80,6 +80,7 @@ ATTACH_REQUEST_RE = (
 # conversation that went on to scene 6 came back as scene 5's clip).
 OWN_MESSAGE_JS = """
   let anchor = null, next = null;
+  const followUps = [];
   if (marker) {
     // Ours: its content begins with a label, after at most a short "...:"
     // prefix (a message muse.ai collapsed out of view reads "User message:
@@ -100,11 +101,17 @@ OWN_MESSAGE_JS = """
       const said = value === 'You:'
         ? (bubble ? bubble.textContent.trim().slice(4).trim() : '')
         : value.startsWith('User message:') ? value.slice(13).trim() : null;
-      if (anchor && !next && said !== null && !followUp.test(said.replace(/\\s+/g, ' '))
-          && !said.startsWith('[' + marker + ']')) { next = node; continue; }
+      if (anchor && !next) {
+        const request = said ?? (node.parentElement?.closest('[class*="user-bubble"]') ? value : '');
+        if (followUp.test(request.replace(/\\s+/g, ' '))) {
+          followUps.push(node);
+          continue;
+        }
+        if (said !== null && !said.startsWith('[' + marker + ']')) { next = node; continue; }
+      }
       const found = opening.exec(node.nodeValue);
       if (!found) continue;
-      if (found[1] === marker) { anchor = node; next = null; }
+      if (found[1] === marker) { anchor = node; next = null; followUps.length = 0; }
       else if (anchor && !next) next = node;
     }
   }
@@ -411,7 +418,9 @@ def open_composer(client, result, proxy, thread_path=None):
                 )
                 page = context.new_page()
                 try:
-                    opened = bool(thread_path) and _open_thread(page, client, thread_path)
+                    opened = bool(thread_path) and _open_thread(
+                        page, client, thread_path
+                    )
                 except ConversationBusy:
                     # Nothing was sent: the task waits and tries again.
                     error = MuseError("conversation_busy", 409, partial=result)

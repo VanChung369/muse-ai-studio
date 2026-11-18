@@ -7,9 +7,9 @@ from datetime import datetime
 from sqlalchemy import and_, case, delete, func, or_, select, update
 from sqlalchemy.orm import Session, aliased
 
-from app.models import Account, Task
+from app.models import Account, Scene, Task
 from app.tasks.coordinator import utcnow
-from app.tasks.kinds import ACTIVE_STATUSES, RENDER_KINDS
+from app.tasks.kinds import ACTIVE_STATUSES, RENDER_KINDS, RENDER_SCENE
 
 # UI filter groups -> statuses (design board 23).
 TASK_FILTERS = {
@@ -239,6 +239,45 @@ def requeue_values(switch_account: bool = False) -> dict:
     return values
 
 
+def sent_scene():
+    return (
+        (Task.kind == RENDER_SCENE)
+        & func.json_extract(Task.checkpoint_json, "$.sent.marker").is_not(None)
+        & func.json_extract(Task.checkpoint_json, "$.sent.thread").is_not(None)
+    )
+
+
+def recoverable_scene():
+    # Older workers could save the clip and stop before marking the task done.
+    saved = (
+        select(Scene.number)
+        .where(
+            Scene.project_id == Task.project_id,
+            Scene.number == Task.scene_number,
+            Scene.video_file.is_not(None),
+        )
+        .correlate(Task)
+        .exists()
+    )
+    return sent_scene() | ((Task.kind == RENDER_SCENE) & saved)
+
+
+def retry_values(switch_account: bool) -> dict:
+    values = requeue_values(switch_account)
+    # Select the owner even if it needs to be relogged. The subquery returns
+    # None when that account was deleted, avoiding a dangling foreign key.
+    owner = (
+        select(Account.id)
+        .where(Account.id == func.json_extract(Task.checkpoint_json, "$.sent.account"))
+        .correlate(Task)
+        .scalar_subquery()
+    )
+    values["account_id"] = case(
+        (sent_scene(), owner), else_=values.get("account_id", Task.account_id)
+    )
+    return values
+
+
 def retry_task(
     session: Session,
     task_id: str,
@@ -247,13 +286,15 @@ def retry_task(
     confirm_duplicate: bool = False,
 ) -> bool:
     """Queue a failed, interrupted, or cancelled task again (attempt budget reset)."""
-    retryable = ["failed", "cancelled"] + (["interrupted"] if confirm_duplicate else [])
-    values = requeue_values(switch_account)
+    interrupted = Task.status == "interrupted"
+    if not confirm_duplicate:
+        interrupted &= recoverable_scene()
+    retryable = Task.status.in_(("failed", "cancelled")) | interrupted
     try:
         if session.execute(
             update(Task)
-            .where(Task.id == task_id, Task.status.in_(retryable))
-            .values(**values)
+            .where(Task.id == task_id, retryable)
+            .values(**retry_values(switch_account))
         ).rowcount:
             session.commit()
             return True

@@ -5,6 +5,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from app.integrations.muse.chat import (
@@ -33,7 +34,18 @@ ATTACHMENT = '[data-testid^="hatch-chat-attachment-presentation-"]'
 # the result as a public link). Nobody answers it here, so it would block.
 APPROVAL_CARD = '[data-testid="hatch-inline-approval-card"]'
 QUOTA_HINTS = ("out of credits", "usage limit", "limit reached", "token limit")
-MEDIA_STATE_JS = f"""([marker, all, stay]) => {{
+READ_LINKS_JS = """bubble => {
+  const urls = [];
+  const push = url => { if (url && !urls.includes(url)) urls.push(url); };
+  bubble.querySelectorAll('video, source, img').forEach(m => push(m.currentSrc || m.src || ''));
+  bubble.querySelectorAll('a[href]').forEach(a => push(a.href || ''));
+  const pattern = /https?:\\/\\/[^\\s)<>"']+/g;
+  let match;
+  while ((match = pattern.exec(bubble.innerText || ''))) push(match[0]);
+  return urls;
+}"""
+
+MEDIA_STATE_JS = f"""([marker, all, stay, includeLinks]) => {{
   // `stay`: keep the view where it is (on a message taken back), instead of
   // following the conversation's end.
   const scrollers = stay ? [] : [...document.querySelectorAll('*')].filter(e => {{
@@ -51,6 +63,8 @@ MEDIA_STATE_JS = f"""([marker, all, stay]) => {{
   const ownEdge = mine ? mine.getBoundingClientRect().right : null;
   const own = a => ownEdge !== null && Math.abs(a.getBoundingClientRect().right - ownEdge) <= 2
     && (!bubbles.length || !!(bubbles[0].compareDocumentPosition(a) & Node.DOCUMENT_POSITION_PRECEDING));
+  let followUpIndex = 0;
+  let titles = Object.create(null);
   const attachments = [...document.querySelectorAll({json.dumps(ATTACHMENT)})].filter(after)
   .filter(a => !a.closest('form, [data-testid*="composer"], [class*="user-bubble"], [class*="hatch-user-bubble"]'))
   .filter(a => !own(a))
@@ -64,15 +78,16 @@ MEDIA_STATE_JS = f"""([marker, all, stay]) => {{
       h: m ? (m.videoHeight || m.naturalHeight || 0) : 0,
       name,
     }});
-    // muse.ai shows a set of pictures as ONE attachment holding a grid of
-    // them, each behind its own "Open generated image <name>" button
-    // (2026-11-17): each picture is a file of its own. Its name is its
-    // button's title, numbered when one attachment holds the same title
-    // twice: a copy Muse attaches again, or the same picture loading anew,
-    // keeps that name; two pictures of one attachment never share it (a
-    // title that itself ends like a number gets one too).
+    // Count repeated titles across the whole reply, including separate
+    // attachments. A request to attach the same files again starts the
+    // same numbering so their copies can be skipped by title and order.
+    while (followUpIndex < followUps.length &&
+        (followUps[followUpIndex].compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)) {{
+      titles = Object.create(null);
+      followUpIndex += 1;
+    }}
+    // Muse can show several files in one grid, one per Open button.
     const openers = [...a.querySelectorAll('button[aria-label^="Open"]')];
-    const titles = Object.create(null);
     const named = b => {{
       const title = (b.getAttribute('title') || b.getAttribute('aria-label') || '').trim();
       if (!title) return '';
@@ -98,6 +113,7 @@ MEDIA_STATE_JS = f"""([marker, all, stay]) => {{
       || document.querySelector('button[aria-label*="停止"]')),
     approval: !!document.querySelector({json.dumps(APPROVAL_CARD)}),
     attachments,
+    links: includeLinks ? bubbles.flatMap({READ_LINKS_JS}) : [],
   }};
 }}"""
 
@@ -118,15 +134,7 @@ LAST_BUBBLE_LINKS_JS = f"""([marker, all]) => {{
   {ANCHOR_JS}
   const bubbles = [...document.querySelectorAll({json.dumps(AGENT_BUBBLE)})].filter(after);
   const bubble = bubbles.length ? bubbles[bubbles.length - 1] : null;
-  if (!bubble) return [];
-  const urls = [];
-  const push = url => {{ if (url && !urls.includes(url)) urls.push(url); }};
-  bubble.querySelectorAll('video, source, img').forEach(m => push(m.currentSrc || m.src || ''));
-  bubble.querySelectorAll('a[href]').forEach(a => push(a.href || ''));
-  const pattern = /https?:\\/\\/[^\\s)<>"']+/g;
-  let match;
-  while ((match = pattern.exec(bubble.innerText || ''))) push(match[0]);
-  return urls;
+  return bubble ? ({READ_LINKS_JS})(bubble) : [];
 }}"""
 
 # Runs inside the page so blob: URLs and the session's cookies both work.
@@ -153,6 +161,7 @@ FETCH_MEDIA_JS = """async url => {
 }"""
 
 VIDEO_EXTENSIONS = (".mp4", ".webm", ".mov", ".m4v")
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 POLL_MS = 600
 # Muse posts its closing sentence a while before the attachment's source is
 # ready, so a reply that is text-only right now may still be finalising.
@@ -192,6 +201,26 @@ def pick_video_link(links: list[str]) -> str | None:
         if link.startswith("blob:") or path.endswith(VIDEO_EXTENSIONS):
             return link
     return None
+
+
+def _linked_images(links, seen):
+    for url in links:
+        if url in seen:
+            continue
+        try:
+            path = urlsplit(url)
+        except ValueError:
+            continue
+        if path.path.lower().endswith(IMAGE_EXTENSIONS):
+            name = "link:" + path._replace(fragment="").geturl()
+            yield {"src": url, "kind": "image", "name": name}
+
+
+def _linked_media(links, media_kind, seen):
+    if media_kind == "image":
+        return next(_linked_images(links, seen), None)
+    link = pick_video_link(links)
+    return {"src": link, "kind": media_kind} if link and link not in seen else None
 
 
 GeneratedVideo = GeneratedMedia
@@ -526,7 +555,12 @@ def _collect_answered(
             raise MuseError("generation_timeout", 504, partial=result)
         check_cancelled()
         page.wait_for_timeout(POLL_MS)
-        state = page.evaluate(MEDIA_STATE_JS, [marker, False, True])
+        state = page.evaluate(
+            MEDIA_STATE_JS, [marker, False, True, media_kind == "image"]
+        )
+        if not state["sent"]:
+            quiet_since = None
+            continue
         if state["approval"]:
             # The agent waits for an answer (as when sending): declined, it
             # carries on; until then the answer is not complete.
@@ -560,6 +594,14 @@ def _collect_answered(
         loading = any(
             now - since <= STALLED_ATTACHMENT for since in loading_since.values()
         )
+        if len(collected) < count and not state["generating"] and not loading:
+            for image in _linked_images(state.get("links", ()), seen):
+                seen.add(image["src"])
+                if _new_file(image, names):
+                    collected.append(_download(page, image, media_kind, result))
+                    grew = True
+                    if len(collected) >= count:
+                        break
         if state["generating"] or loading or grew:
             quiet_since = None
             continue
@@ -633,9 +675,7 @@ def _wait_for_media(
         page.wait_for_timeout(POLL_MS)
         if on_poll:
             on_poll()
-        state = _read_state(
-            page, marker, baseline, anchor_wait, started, anchored_only
-        )
+        state = _read_state(page, marker, baseline, anchor_wait, started, anchored_only)
         if state["approval"]:
             page.evaluate(DENY_APPROVALS_JS)
             denied, text_done_at = True, None
@@ -698,10 +738,10 @@ def _wait_for_media(
             # attached after the later ones, out of our reach. Take a link
             # that answers it, if there is one; otherwise wait (timeout).
             links = page.evaluate(LAST_BUBBLE_LINKS_JS, [marker, False])
-            link = pick_video_link(links) if media_kind == "video" else None
-            if link and link not in seen and on_ready:
-                on_ready({"src": link, "kind": media_kind})
-                return [{"src": link, "kind": media_kind}]
+            media = _linked_media(links, media_kind, seen)
+            if media and on_ready:
+                on_ready(media)
+                return [media]
             text_done_at = None
             continue
         if not asked_to_attach:
@@ -718,29 +758,13 @@ def _wait_for_media(
         links = page.evaluate(
             LAST_BUBBLE_LINKS_JS, [marker, not state.get("anchored", True)]
         )
-        link = (
-            next(
-                (
-                    url
-                    for url in links
-                    if url.lower()
-                    .split("?", 1)[0]
-                    .endswith((".png", ".jpg", ".jpeg", ".webp"))
-                ),
-                None,
-            )
-            if media_kind == "image"
-            else pick_video_link(links)
-        )
-        if link:
-            if link not in seen:
-                attachment = {"src": link, "kind": media_kind}
-                if on_ready:
-                    on_ready(attachment)
-                seen.add(link)
-                collected.append(attachment)
-                if len(collected) >= count:
-                    return collected
+        attachment = _linked_media(links, media_kind, seen)
+        if attachment:
+            if on_ready:
+                on_ready(attachment)
+            collected.append(attachment)
+            if len(collected) >= count:
+                return collected
         raise MuseError(
             "image_count_mismatch" if collected else "generation_refused",
             partial=result,

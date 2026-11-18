@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import case, or_, select, text, update
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
 
 from app.core.account_operations import AccountOperations
 from app.db.session import Database
@@ -84,6 +84,7 @@ class TaskContext:
     # Set by TaskCoordinator.notify_cancel (the cancel API) for an instant answer.
     cancel_event: threading.Event = field(default_factory=threading.Event)
     _next_db_check: float = 0.0
+    _completed: bool = field(default=False, init=False)
 
     def cancel_requested(self) -> bool:
         """Cheap enough for tight polling loops: the in-memory event answers
@@ -113,6 +114,23 @@ class TaskContext:
     def save_checkpoint(self, checkpoint: dict) -> None:
         self.checkpoint = checkpoint
         self.coordinator._update(self.task_id, checkpoint_json=json.dumps(checkpoint))
+
+    def commit_success(self, session: Session, result: dict) -> None:
+        """Commit the task outcome together with the records it produced."""
+        now = utcnow()
+        session.execute(
+            update(Task)
+            .where(Task.id == self.task_id)
+            .values(
+                status="succeeded",
+                result_json=json.dumps(result),
+                checkpoint_json="{}",
+                finished_at=now,
+                updated_at=now,
+            )
+        )
+        session.commit()
+        self._completed = True
 
     def mark_submitted(self, upstream_ref: str | None = None) -> None:
         """Record that a request may now exist upstream (call BEFORE sending).
@@ -418,9 +436,10 @@ class TaskCoordinator:
                 )
             # A step that finishes is kept even if cancel arrived meanwhile.
             result = handler(context)
-            self._finish(
-                context.task_id, "succeeded", result_json=json.dumps(result or {})
-            )
+            if not context._completed:
+                self._finish(
+                    context.task_id, "succeeded", result_json=json.dumps(result or {})
+                )
         except TaskCancelled:
             self._finish(context.task_id, "cancelled")
         except TaskDeferred as deferred:
